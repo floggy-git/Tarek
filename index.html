@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Al-Andalos Rijschool</title>
+    <script>
+      // Gracefully capture and suppress generic cross-origin iframe Script error warnings
+      window.onerror = function(message, source, lineno, colno, error) {
+        if (message && (message.indexOf('Script error.') > -1 || message.indexOf('Script error') > -1 || !source)) {
+          console.warn('Sandbox iframe cross-origin script error captured and handled gracefully:', message);
+          return true; // Prevent default error logging
+        }
+        return false;
+      };
+      window.addEventListener('error', function(event) {
+        if (event.message === 'Script error.' || !event.filename) {
+          console.warn('Sandbox iframe cross-origin script error captured and handled gracefully.');
+          event.preventDefault();
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
