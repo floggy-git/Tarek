@@ -1,6 +1,6 @@
 {
   "name": "Al-Andalos Rijschool",
-  "description": "Premium modern European driving school platform with Arabic, Dutch, and English instant translations, student, trainer and admin views.",
+  "description": "Premium modern European driving school platform with Arabic, Dutch, and English instant translations, student and trainer views.",
   "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

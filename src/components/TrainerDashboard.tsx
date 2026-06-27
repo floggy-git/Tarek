@@ -1629,77 +1629,14 @@ export default function TrainerDashboard({
                           />
                         </div>
                       </div>
-
-                      {/* Wallet operations */}
-                      <div>
-                        <label className="text-slate-500 block mb-1.5 text-[11px] font-bold uppercase tracking-wider">
-                          {lang === 'ar' ? 'نوع العملية المالية' : 'Operation Type'}
-                        </label>
-                        <div className="grid grid-cols-3 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setWalletOperation('deposit')}
-                            className={`py-2 px-1 rounded-xl text-xs font-bold border flex flex-col items-center justify-center gap-1 transition cursor-pointer ${
-                              walletOperation === 'deposit'
-                                ? 'bg-indigo-600 border-indigo-600 text-white font-extrabold'
-                                : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-650 dark:text-zinc-400 hover:bg-slate-50/50'
-                            }`}
-                          >
-                            <span>📥</span>
-                            <span className="text-[10px] sm:text-xs">
-                              {lang === 'ar' ? 'إيداع (شحن)' : 'Deposit (Add)'}
-                            </span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setWalletOperation('payment')}
-                            className={`py-2 px-1 rounded-xl text-xs font-bold border flex flex-col items-center justify-center gap-1 transition cursor-pointer ${
-                              walletOperation === 'payment'
-                                ? 'bg-rose-600 border-rose-600 text-white font-extrabold'
-                                : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-650 dark:text-zinc-400 hover:bg-slate-50/50'
-                            }`}
-                          >
-                            <span>💸</span>
-                            <span className="text-[10px] sm:text-xs">
-                              {lang === 'ar' ? 'خصم درس' : 'Deduct Lesson'}
-                            </span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setWalletOperation('adjustment')}
-                            className={`py-2 px-1 rounded-xl text-xs font-bold border flex flex-col items-center justify-center gap-1 transition cursor-pointer ${
-                              walletOperation === 'adjustment'
-                                ? 'bg-amber-600 border-amber-600 text-white font-extrabold'
-                                : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-650 dark:text-zinc-400 hover:bg-slate-50/50'
-                            }`}
-                          >
-                            <span>⚙️</span>
-                            <span className="text-[10px] sm:text-xs">
-                              {lang === 'ar' ? 'تعديل رصيد' : 'Adjustment'}
-                            </span>
-                          </button>
-                        </div>
-                      </div>
                     </div>
 
                     <button
                       type="submit"
-                      className={`w-full py-3 text-white rounded-xl text-xs font-extrabold cursor-pointer transition flex items-center justify-center gap-1.5 shadow-md ${
-                        walletOperation === 'deposit'
-                          ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/10'
-                          : walletOperation === 'payment'
-                            ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-500/10'
-                            : 'bg-amber-600 hover:bg-amber-700 shadow-amber-500/10'
-                      }`}
+                      className="w-full py-3 text-white rounded-xl text-xs font-extrabold cursor-pointer transition flex items-center justify-center gap-1.5 shadow-md bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/10"
                     >
                       <CheckCircle className="h-3.5 w-3.5" />
-                      {walletOperation === 'deposit'
-                        ? (lang === 'ar' ? 'شحن المحفظة وإرسال إيصال فوري للمتدرب' : 'Credit Wallet & Email Receipt')
-                        : walletOperation === 'payment'
-                          ? (lang === 'ar' ? 'خصم تكلفة الدرس من محفظة المتدرب' : 'Deduct Lesson Cost & Notify')
-                          : (lang === 'ar' ? 'تعديل رصيد المحفظة وتسجيل المعاملة' : 'Apply Adjustment & Sync')}
+                      {lang === 'ar' ? 'شحن الرصيد (إيداع أموال)' : lang === 'nl' ? 'Geld Storten' : 'Deposit Money'}
                     </button>
                   </form>
                 </div>

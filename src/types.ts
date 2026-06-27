@@ -1,5 +1,5 @@
 export type Language = 'en' | 'nl' | 'ar';
-export type UserRole = 'student' | 'trainer' | 'admin';
+export type UserRole = 'student' | 'trainer';
 
 export interface Lesson {
   id: string;
@@ -112,7 +112,6 @@ export const TRANSLATIONS = {
     roleSelector: "Role",
     student: "Student",
     trainer: "Trainer",
-    admin: "Admin",
     welcomeBack: "Welcome,",
     readyToDrive: "Ready to drive?",
     nextLesson: "Next Lesson",
@@ -177,7 +176,6 @@ export const TRANSLATIONS = {
     workingHrs: "Working Hours",
     start: "Start",
     end: "End",
-    adminDashboard: "Admin Portal",
     reports: "Reports",
     statistics: "Statistics",
     revenue: "Revenue",
@@ -208,7 +206,6 @@ export const TRANSLATIONS = {
     roleSelector: "Rol",
     student: "Leerling",
     trainer: "Instructeur",
-    admin: "Admin",
     welcomeBack: "Welkom,",
     readyToDrive: "Klaar voor de rit?",
     nextLesson: "Volgende Les",
@@ -273,7 +270,6 @@ export const TRANSLATIONS = {
     workingHrs: "Werktijden",
     start: "Start",
     end: "Einde",
-    adminDashboard: "Admin Paneel",
     reports: "Rapportages",
     statistics: "Statistieken",
     revenue: "Omzet",
@@ -304,7 +300,6 @@ export const TRANSLATIONS = {
     roleSelector: "الواجهة",
     student: "المتدرب",
     trainer: "المدرب",
-    admin: "الإدارة",
     welcomeBack: "مرحباً،",
     readyToDrive: "مستعد للقيادة؟",
     nextLesson: "الدرس القادم",
@@ -369,7 +364,6 @@ export const TRANSLATIONS = {
     workingHrs: "ساعات العمل",
     start: "البدء",
     end: "الانتهاء",
-    adminDashboard: "بوابة الإدارة",
     reports: "التقارير",
     statistics: "الإحصاءات",
     revenue: "الإيرادات",

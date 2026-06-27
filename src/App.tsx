@@ -13,7 +13,6 @@ import StudentLearning from './components/StudentLearning';
 import StudentWallet from './components/StudentWallet';
 import StudentProfile from './components/StudentProfile';
 import TrainerDashboard from './components/TrainerDashboard';
-import AdminDashboard from './components/AdminDashboard';
 
 export default function App() {
   // Application general config/state
@@ -27,7 +26,7 @@ export default function App() {
     name: string;
     email: string;
     phone: string;
-    role: 'student' | 'trainer' | 'admin';
+    role: 'student' | 'trainer';
     lang: Language;
     packageSelection?: string;
     dob?: string;
@@ -42,7 +41,15 @@ export default function App() {
       console.warn("sessionStorage is not accessible", e);
     }
     if (saved) {
-      try { return JSON.parse(saved); } catch { return null; }
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && (parsed.role === 'student' || parsed.role === 'trainer')) {
+          return parsed;
+        }
+        sessionStorage.removeItem('al_andalos_user');
+      } catch {
+        return null;
+      }
     }
     return null;
   });
@@ -169,17 +176,7 @@ export default function App() {
     e.preventDefault();
     if (!loginEmail.trim()) return;
 
-    const emailLower = loginEmail.toLowerCase();
-    if (emailLower.includes('admin')) {
-      const admin = {
-        name: "Admin Al-Andalos",
-        email: loginEmail,
-        phone: "+31 6 1111 2222",
-        role: "admin" as const,
-        lang: lang
-      };
-      setCurrentUser(admin);
-    } else if (loginRole === 'trainer') {
+    if (loginRole === 'trainer') {
       // Login as customized trainer
       const trainer = {
         name: loginEmail.split('@')[0].toUpperCase() === 'SAMIR' ? "Instructeur Samir" : loginEmail.split('@')[0].toUpperCase(),
@@ -486,11 +483,11 @@ export default function App() {
               </p>
             </div>
 
-            {(currentUser.role === 'trainer' || currentUser.role === 'admin') && (
+            {currentUser.role === 'trainer' && (
               <div className="flex items-center gap-2.5">
                 <span className="text-[10px] uppercase font-bold text-slate-400">Environment Selector:</span>
                 <div className="flex bg-slate-200 dark:bg-zinc-900 p-0.5 rounded-lg w-max shrink-0">
-                  {(['student', 'trainer', 'admin'] as const).map(roleOption => (
+                  {(['student', 'trainer'] as const).map(roleOption => (
                     <button
                       key={roleOption}
                       onClick={() => {
@@ -505,7 +502,7 @@ export default function App() {
                           : 'text-slate-500 hover:text-slate-800 dark:hover:text-zinc-350'
                       }`}
                     >
-                      {roleOption === 'student' ? t.student : roleOption === 'trainer' ? t.trainer : t.admin}
+                      {roleOption === 'student' ? t.student : t.trainer}
                     </button>
                   ))}
                 </div>
@@ -952,18 +949,6 @@ export default function App() {
                   setTransactions={setTransactions}
                   schedule={schedule}
                   setSchedule={setSchedule}
-                />
-              </div>
-            )}
-
-            {role === 'admin' && (
-              <div id="admin-portal-host">
-                <AdminDashboard 
-                  lang={lang} 
-                  t={t} 
-                  lessons={lessons} 
-                  setLessons={setLessons}
-                  transactions={transactions}
                 />
               </div>
             )}
