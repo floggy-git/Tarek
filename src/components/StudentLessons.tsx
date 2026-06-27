@@ -17,11 +17,12 @@ interface StudentLessonsProps {
   isOffline: boolean;
   setParentActiveTab: (tab: string) => void;
   setSelectedReplayLessonId: (id: string) => void;
+  currentUser?: any;
 }
 
 export default function StudentLessons({ 
   lang, t, lessons, setLessons, transactions, setTransactions, isOffline,
-  setParentActiveTab, setSelectedReplayLessonId
+  setParentActiveTab, setSelectedReplayLessonId, currentUser
 }: StudentLessonsProps) {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'completed' | 'cancelled'>('upcoming');
   const [isBooking, setIsBooking] = useState(false);
@@ -67,9 +68,11 @@ export default function StudentLessons({
       return;
     }
 
+    const activeName = currentUser?.name || "Amir Al-Hassan";
+
     const newLesson: Lesson = {
       id: `lesson-${Date.now()}`,
-      studentName: "Amir Al-Hassan",
+      studentName: activeName,
       trainerName: "Instructeur Samir",
       date: selectedDate,
       time: selectedTimeSlot,
@@ -99,7 +102,7 @@ export default function StudentLessons({
     setBookingSuccess(true);
 
     // Dispatch beautiful booking email
-    sendAppEmail("Amir Al-Hassan", 'booking', {
+    sendAppEmail(activeName, 'booking', {
       date: selectedDate,
       time: selectedTimeSlot,
       duration: duration,
@@ -591,19 +594,6 @@ export default function StudentLessons({
                       <p className="text-[10px] text-blue-500 font-extrabold uppercase mb-1">Feedback Instructeur</p>
                       <p className="text-xs text-slate-500 font-medium italic">"{lessonItem.trainerNotes}"</p>
                     </div>
-                  )}
-
-                  {lessonItem.status === 'completed' && (
-                    <button
-                      onClick={() => {
-                        setSelectedReplayLessonId(lessonItem.id);
-                        setParentActiveTab('home');
-                      }}
-                      className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5"
-                    >
-                      <Navigation className="h-3.5 w-3.5" />
-                      {lang === 'ar' ? 'إعادة تشغيل مسار الدرس' : 'Replay Driving Route'}
-                    </button>
                   )}
 
                   {lessonItem.status === 'completed' && !lessonItem.reviewed && (

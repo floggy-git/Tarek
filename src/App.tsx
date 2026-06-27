@@ -115,6 +115,30 @@ export default function App() {
   // Push notifications pop toast logs state
   const [notificationsAlerts, setNotificationsAlerts] = useState<string[]>([]);
   
+  // Custom global non-blocking alert override state
+  const [globalAlert, setGlobalAlert] = useState<{ message: string; visible: boolean }>({ message: '', visible: false });
+
+  // Override window.alert globally to show elegant UI toasts instead of raw alert dialogs
+  useEffect(() => {
+    const originalAlert = window.alert;
+    window.alert = (message: string) => {
+      setGlobalAlert({ message, visible: true });
+    };
+    return () => {
+      window.alert = originalAlert;
+    };
+  }, []);
+
+  // Auto dismiss toast after 6 seconds
+  useEffect(() => {
+    if (globalAlert.visible) {
+      const timer = setTimeout(() => {
+        setGlobalAlert(prev => ({ ...prev, visible: false }));
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [globalAlert.visible]);
+  
   // Trigger automatic lesson reminder simulation
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -892,6 +916,7 @@ export default function App() {
                     isOffline={isOffline}
                     selectedReplayLessonId={selectedReplayLessonId}
                     setSelectedReplayLessonId={setSelectedReplayLessonId}
+                    currentUser={currentUser}
                   />
                 )}
                 {activeTab === 'lessons' && (
@@ -905,6 +930,7 @@ export default function App() {
                     isOffline={isOffline}
                     setParentActiveTab={setActiveTab}
                     setSelectedReplayLessonId={setSelectedReplayLessonId}
+                    currentUser={currentUser}
                   />
                 )}
                 {activeTab === 'learning' && (
@@ -933,6 +959,7 @@ export default function App() {
                     badges={badges}
                     setBadges={setBadges}
                     currentUser={currentUser}
+                    setCurrentUser={setCurrentUser}
                   />
                 )}
               </div>
@@ -1052,6 +1079,29 @@ export default function App() {
             </button>
           </div>
         </nav>
+      )}
+
+      {/* Global premium alert toast override */}
+      {globalAlert.visible && (
+        <div className="fixed bottom-24 md:bottom-8 right-6 z-50 max-w-sm w-[calc(100vw-3rem)] p-4 bg-zinc-950/95 dark:bg-white/95 text-zinc-100 dark:text-zinc-900 border border-zinc-800 dark:border-zinc-200 rounded-2xl shadow-2xl backdrop-blur-md flex items-start gap-3 animate-in fade-in slide-in-from-bottom-5 duration-300">
+          <div className="p-1.5 bg-blue-500/10 text-blue-500 rounded-xl shrink-0 mt-0.5">
+            <Sparkles className="h-5 w-5 animate-pulse" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold font-sans tracking-tight">
+              {lang === 'ar' ? 'تنبيه النظام' : lang === 'nl' ? 'Systeemmelding' : 'System Notification'}
+            </p>
+            <p className="text-xs font-semibold opacity-90 mt-1 leading-relaxed break-words whitespace-pre-line">
+              {globalAlert.message}
+            </p>
+          </div>
+          <button 
+            onClick={() => setGlobalAlert(prev => ({ ...prev, visible: false }))}
+            className="text-zinc-450 hover:text-white dark:hover:text-zinc-900 transition font-black text-sm p-1 cursor-pointer select-none"
+          >
+            ✕
+          </button>
+        </div>
       )}
 
     </div>

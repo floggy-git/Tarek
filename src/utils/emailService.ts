@@ -36,19 +36,24 @@ export async function sendAppEmail(
   const html = getEmailHtml(toName, type, details);
 
   try {
+    const payload = JSON.stringify({
+      to: recipientEmail,
+      subject,
+      html,
+      type,
+      studentName: toName,
+      metadata: details
+    });
+
+    // Safely encode to Uint8Array (binary UTF-8) to completely bypass any browser/iframe string-to-binary conversion bugs
+    const encodedBody = new TextEncoder().encode(payload);
+
     const response = await fetch('/api/send-email', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json; charset=utf-8'
       },
-      body: JSON.stringify({
-        to: recipientEmail,
-        subject,
-        html,
-        type,
-        studentName: toName,
-        metadata: details
-      })
+      body: encodedBody
     });
     return await response.json();
   } catch (error) {

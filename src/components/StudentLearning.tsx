@@ -599,16 +599,21 @@ export default function StudentLearning({ lang, t }: StudentLearningProps) {
     setLoading(true);
 
     try {
+      const payload = JSON.stringify({
+        message: userMsg.text,
+        lang: lang
+      });
+
+      // Safely encode to Uint8Array (binary UTF-8) to completely bypass any browser/iframe string-to-binary conversion bugs
+      const encodedBody = new TextEncoder().encode(payload);
+
       // Call our secure server-side proxy
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json; charset=utf-8'
         },
-        body: JSON.stringify({
-          message: userMsg.text,
-          lang: lang
-        })
+        body: encodedBody
       });
 
       let replyText = "";

@@ -1118,6 +1118,20 @@ export default function TrainerDashboard({
   };
 
   // Filter student registries
+  const defaultNames = ["Amir Al-Hassan", "أمير الحسن", "Sanne de Jong", "ساني دي يونغ", "Michael van Berg", "مايكل فان بيرغ"];
+  const dynamicStudents: any[] = [];
+  
+  lessons.forEach(l => {
+    if (l.studentName && !defaultNames.some(dn => studentNamesMatch(dn, l.studentName)) && !dynamicStudents.some(ds => studentNamesMatch(ds.name, l.studentName))) {
+      dynamicStudents.push({
+        name: l.studentName,
+        progress: "10%",
+        balance: getStudentBalance(l.studentName),
+        examStatus: lang === 'ar' ? "مسجل حديثاً" : lang === 'nl' ? "Nieuw geregistreerd" : "Newly Registered"
+      });
+    }
+  });
+
   const studentsList = [
     { 
       name: lang === 'ar' ? "أمير الحسن" : "Amir Al-Hassan", 
@@ -1137,6 +1151,7 @@ export default function TrainerDashboard({
       balance: getStudentBalance("Michael van Berg"), 
       examStatus: lang === 'ar' ? "جاهز تماماً لامتحان القيادة العملي الأندلس!" : lang === 'nl' ? "Helemaal klaar voor praktijkexamen Al-Andalos!" : "Ready for practical driving exam!" 
     },
+    ...dynamicStudents
   ];
 
   const getStudentDbInfo = (name: string) => {
@@ -1480,9 +1495,9 @@ export default function TrainerDashboard({
                           onChange={(e) => setBillStudent(e.target.value)}
                           className="w-full p-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 rounded-xl dark:text-white text-xs font-bold"
                         >
-                          <option value="Amir Al-Hassan">{lang === 'ar' ? "أمير الحسن (Amir)" : "Amir Al-Hassan"}</option>
-                          <option value="Sanne de Jong">{lang === 'ar' ? "ساني دي يونغ (Sanne)" : "Sanne de Jong"}</option>
-                          <option value="Michael van Berg">{lang === 'ar' ? "مايكل فان بيرغ (Michael)" : "Michael van Berg"}</option>
+                          {studentsList.map(s => (
+                            <option key={s.name} value={s.name}>{s.name}</option>
+                          ))}
                         </select>
                       </div>
 
@@ -1586,9 +1601,9 @@ export default function TrainerDashboard({
                           onChange={(e) => setDepositStudentName(e.target.value)}
                           className="w-full p-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 rounded-xl dark:text-white text-xs font-bold"
                         >
-                          <option value="Amir Al-Hassan">{lang === 'ar' ? "أمير الحسن (Amir)" : "Amir Al-Hassan"}</option>
-                          <option value="Sanne de Jong">{lang === 'ar' ? "ساني دي يونغ (Sanne)" : "Sanne de Jong"}</option>
-                          <option value="Michael van Berg">{lang === 'ar' ? "مايكل فان بيرغ (Michael)" : "Michael van Berg"}</option>
+                          {studentsList.map(s => (
+                            <option key={s.name} value={s.name}>{s.name}</option>
+                          ))}
                         </select>
                       </div>
 
@@ -1959,9 +1974,9 @@ export default function TrainerDashboard({
                     }}
                     className="w-full p-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 rounded-xl dark:text-white text-xs font-medium"
                   >
-                    <option value="Amir Al-Hassan">{lang === 'ar' ? "أمير الحسن" : "Amir Al-Hassan"}</option>
-                    <option value="Sanne de Jong">{lang === 'ar' ? "ساني دي يونغ" : "Sanne de Jong"}</option>
-                    <option value="Michael van Berg">{lang === 'ar' ? "مايكل فان بيرغ" : "Michael van Berg"}</option>
+                    {studentsList.map(s => (
+                      <option key={s.name} value={s.name}>{s.name}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -2323,9 +2338,9 @@ export default function TrainerDashboard({
                     onChange={(e) => setSelectedReportStudent(e.target.value)}
                     className="w-full p-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 rounded-xl dark:text-white text-xs font-medium"
                   >
-                    <option value="Amir Al-Hassan">{lang === 'ar' ? "أمير الحسن" : "Amir Al-Hassan"}</option>
-                    <option value="Sanne de Jong">{lang === 'ar' ? "ساني دي يونغ" : "Sanne de Jong"}</option>
-                    <option value="Michael van Berg">{lang === 'ar' ? "مايكل فان بيرغ" : "Michael van Berg"}</option>
+                    {studentsList.map(s => (
+                      <option key={s.name} value={s.name}>{s.name}</option>
+                    ))}
                   </select>
                 </div>
 

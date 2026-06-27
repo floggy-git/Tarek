@@ -15,16 +15,36 @@ interface StudentProfileProps {
   badges: AchievementBadge[];
   setBadges: (badges: AchievementBadge[]) => void;
   currentUser?: any;
+  setCurrentUser?: (user: any) => void;
 }
 
 export default function StudentProfile({ 
-  lang, setLang, t, darkMode, setDarkMode, lessons, badges, setBadges, currentUser 
+  lang, setLang, t, darkMode, setDarkMode, lessons, badges, setBadges, currentUser, setCurrentUser 
 }: StudentProfileProps) {
   
   // Custom interactive personal info state
   const [name, setName] = useState(currentUser?.name || "Amir Al-Hassan");
   const [email, setEmail] = useState(currentUser?.email || "floggyc77@gmail.com");
   const [phone, setPhone] = useState(currentUser?.phone || "+31 6 1234 5678");
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const handleProfileSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !email.trim()) return;
+    
+    if (setCurrentUser && currentUser) {
+      setCurrentUser({
+        ...currentUser,
+        name,
+        email,
+        phone
+      });
+    }
+    setSaveSuccess(true);
+    setTimeout(() => {
+      setSaveSuccess(false);
+    }, 3000);
+  };
 
   // Profile forms
   const [oldPassword, setOldPassword] = useState('');
@@ -118,15 +138,21 @@ export default function StudentProfile({
           </div>
 
           {/* Form edit fields */}
-          <div className="p-5 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800/80 rounded-3xl shadow-sm space-y-4">
+          <form onSubmit={handleProfileSave} className="p-5 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800/80 rounded-3xl shadow-sm space-y-4">
             <h3 className="font-bold text-slate-800 dark:text-white text-sm flex items-center gap-1.5 border-b border-slate-100 dark:border-zinc-800 pb-2">
               <User className="h-4 w-4 text-blue-500" />
               {t.personalInfo}
             </h3>
 
+            {saveSuccess && (
+              <p className="text-xs font-bold text-emerald-500 animate-pulse">
+                {lang === 'ar' ? 'تم حفظ التعديلات بنجاح!' : lang === 'nl' ? 'Gegevens succesvol opgeslagen!' : 'Profile details saved successfully!'}
+              </p>
+            )}
+
             <div className="space-y-3">
               <div>
-                <label className="text-[10px] font-bold text-slate-450 block mb-1">Full Name</label>
+                <label className="text-[10px] font-bold block mb-1 text-slate-500 dark:text-zinc-400">Full Name</label>
                 <input
                   type="text"
                   value={name}
@@ -136,7 +162,7 @@ export default function StudentProfile({
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-slate-450 block mb-1">Email Address</label>
+                <label className="text-[10px] font-bold block mb-1 text-slate-500 dark:text-zinc-400">Email Address</label>
                 <input
                   type="email"
                   value={email}
@@ -146,7 +172,7 @@ export default function StudentProfile({
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-slate-400 block mb-1">Mobile Contact Phone</label>
+                <label className="text-[10px] font-bold block mb-1 text-slate-500 dark:text-zinc-400">Mobile Contact Phone</label>
                 <input
                   type="text"
                   value={phone}
@@ -154,8 +180,15 @@ export default function StudentProfile({
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 text-xs font-semibold rounded-xl dark:text-white"
                 />
               </div>
+
+              <button
+                type="submit"
+                className="w-full py-2.5 mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition cursor-pointer text-xs"
+              >
+                {lang === 'ar' ? 'حفظ البيانات الشخصية' : lang === 'nl' ? 'Persoonlijke Gegevens Opslaan' : 'Save Personal Details'}
+              </button>
             </div>
-          </div>
+          </form>
         </div>
 
         {/* Right column: settings panel, list selection, and badges system */}
