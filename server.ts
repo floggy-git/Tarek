@@ -32,7 +32,8 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   // REST full-stack endpoint for driving school chatbot assistant
   app.post('/api/chat', async (req, res) => {
@@ -92,7 +93,7 @@ async function startServer() {
   });
 
   app.post('/api/send-email', async (req, res) => {
-    const { to, subject, html, type, studentName, metadata } = req.body;
+    const { to, subject, html, type, studentName, metadata, pdfBase64 } = req.body;
     if (!to || !subject || !html) {
       return res.status(400).json({ error: 'Missing required email fields (to, subject, html)' });
     }
@@ -105,7 +106,9 @@ async function startServer() {
       html,
       type,
       studentName,
-      metadata
+      metadata,
+      pdfAttachmentName: pdfBase64 ? `Al_Andalos_Dossier_${(studentName || 'Student').replace(/[\s]+/g, '_')}.pdf` : undefined,
+      pdfBase64: pdfBase64 || undefined
     };
 
     sentEmailsLog.unshift(emailRecord);
@@ -116,7 +119,11 @@ async function startServer() {
     }
 
     // Log simulated email receipt
-    console.log(`[Simulated In-App Email Notification] To: ${to}, Subject: ${subject}`);
+    if (pdfBase64) {
+      console.log(`[Simulated In-App Email Notification] To: ${to}, Subject: ${subject} with attachment: Al_Andalos_Dossier_${(studentName || 'Student').replace(/[\s]+/g, '_')}.pdf`);
+    } else {
+      console.log(`[Simulated In-App Email Notification] To: ${to}, Subject: ${subject}`);
+    }
 
     res.json({ 
       success: true, 

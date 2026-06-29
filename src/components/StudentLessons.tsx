@@ -43,8 +43,28 @@ export default function StudentLessons({
   const LESSON_PRICE_PER_HOUR = 65;
   const computedPrice = duration * LESSON_PRICE_PER_HOUR;
 
-  // Filter lessons based on status
-  const filteredLessons = lessons.filter(l => l.status === activeTab);
+  // Check name similarity or exact match
+  const studentNamesMatch = (nameA?: string, nameB?: string) => {
+    if (!nameA || !nameB) return false;
+    const clean = (n: string) => n.toLowerCase().trim().replace(/[\s-_]/g, '');
+    const a = clean(nameA);
+    const b = clean(nameB);
+    if (a === b) return true;
+    
+    // Check known translations
+    if ((a.includes("amir") || a.includes("أمير")) && (b.includes("amir") || b.includes("أمير"))) return true;
+    if ((a.includes("sanne") || a.includes("ساني")) && (b.includes("sanne") || b.includes("ساني"))) return true;
+    if ((a.includes("michael") || a.includes("مايكل")) && (b.includes("michael") || b.includes("مايكل"))) return true;
+
+    return false;
+  };
+
+  const studentName = currentUser?.name || "Amir Al-Hassan";
+
+  // Filter lessons based on status and logged-in student
+  const filteredLessons = lessons
+    .filter(l => !l.studentName || studentNamesMatch(l.studentName, studentName))
+    .filter(l => l.status === activeTab);
 
   // Helper for available days simulation
   // Only future weekdays (Mon-Fri) are considered available. Weekends are disabled in our premium app logic
@@ -70,6 +90,24 @@ export default function StudentLessons({
 
     const activeName = currentUser?.name || "Amir Al-Hassan";
 
+    // Enforce wallet balance check (Negative balance protection for booking lessons)
+    const studentBalance = transactions
+      .filter(tx => !tx.studentName || studentNamesMatch(tx.studentName, activeName))
+      .reduce((acc, curr) => {
+        return curr.type === 'deposit' ? acc + curr.amount : acc - curr.amount;
+      }, 0);
+
+    if (studentBalance < computedPrice) {
+      alert(
+        lang === 'ar'
+          ? `عذراً! رصيد محفظتك التدريبية الحالي (€${studentBalance}) غير كافٍ لحجز هذا الدرس بقيمة (€${computedPrice}). يرجى التواصل مع المدرب سمير لشحن رصيد المحفظة لتجنب الرصيد السالب.`
+          : lang === 'nl'
+            ? `Fout: Onvoldoende saldo! Je huidige wallet-saldo is €${studentBalance}, maar deze les kost €${computedPrice}. Neem contact op met Samir om je saldo op te waarderen.`
+            : `Operation failed: Insufficient wallet balance! Your current driving school balance is €${studentBalance}, but this lesson costs €${computedPrice}. Please contact Samir to top up your account.`
+      );
+      return;
+    }
+
     const newLesson: Lesson = {
       id: `lesson-${Date.now()}`,
       studentName: activeName,
@@ -87,14 +125,15 @@ export default function StudentLessons({
       ]
     };
 
-    // Deduct from wallet transactions
+    // Deduct from wallet transactions with studentName included for 100% synchronization
     const transactionId = `trans-${Date.now()}`;
     const newTransaction: WalletTransaction = {
       id: transactionId,
       date: new Date().toISOString().split('T')[0],
       type: 'payment',
       amount: computedPrice,
-      description: `Rijles Boeking - ${selectedDate} at ${selectedTimeSlot}`
+      description: `Rijles Boeking - ${selectedDate} at ${selectedTimeSlot}`,
+      studentName: activeName
     };
 
     setLessons([newLesson, ...lessons]);

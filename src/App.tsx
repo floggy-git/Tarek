@@ -3,7 +3,7 @@ import {
   Compass, Calendar, Wallet, User, Globe, Shield, Sparkles, Bell, 
   Moon, Sun, Wifi, WifiOff, RefreshCw, X, CheckSquare, Trophy, AlertTriangle, ArrowRight, LogIn, UserPlus, LogOut
 } from 'lucide-react';
-import { Language, UserRole, TRANSLATIONS, Lesson, WalletTransaction, AchievementBadge, TrainerSchedule } from './types';
+import { Language, UserRole, TRANSLATIONS, Lesson, WalletTransaction, AchievementBadge, TrainerSchedule, Assessment } from './types';
 import { INITIAL_LESSONS, INITIAL_TRANSACTIONS, INITIAL_ACHIEVEMENTS, MOCK_TRAINER_SCHEDULE } from './data';
 
 // Import our custom sub-app workspaces
@@ -13,6 +13,7 @@ import StudentLearning from './components/StudentLearning';
 import StudentWallet from './components/StudentWallet';
 import StudentProfile from './components/StudentProfile';
 import TrainerDashboard from './components/TrainerDashboard';
+import AlAndalosLogo from './components/AlAndalosLogo';
 
 export default function App() {
   // Application general config/state
@@ -77,6 +78,49 @@ export default function App() {
   const [transactions, setTransactions] = useState<WalletTransaction[]>(INITIAL_TRANSACTIONS);
   const [badges, setBadges] = useState<AchievementBadge[]>(INITIAL_ACHIEVEMENTS);
   const [schedule, setSchedule] = useState<TrainerSchedule>(MOCK_TRAINER_SCHEDULE);
+
+  // Assessments state with localStorage persistence
+  const [assessments, setAssessments] = useState<Assessment[]>(() => {
+    try {
+      const saved = localStorage.getItem('al_andalos_assessments');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error("Error reading assessments from localStorage", e);
+    }
+    // Default initial assessments
+    return [
+      {
+        id: "REP-901",
+        date: "2026-06-15",
+        time: "14:30",
+        studentName: "Amir Al-Hassan",
+        trainerName: "Samir El-Filali",
+        lessonId: "lesson-1718461800000",
+        scores: {
+          control: 8,
+          priority: 7,
+          highway: 8,
+          maneuvers: 7,
+          theory: 9
+        },
+        overallScore: 7.8,
+        notes: "Promising control during roundabout joins and overtaking. Needs a bit more speed on highway merges.",
+        cbrReadiness: "developing",
+        status: "synced"
+      }
+    ];
+  });
+
+  // Persist assessments to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('al_andalos_assessments', JSON.stringify(assessments));
+    } catch (e) {
+      console.error("Error writing assessments to localStorage", e);
+    }
+  }, [assessments]);
 
   // Bottom Navigation tabs for student App
   const [activeTab, setActiveTab] = useState<string>('home');
@@ -264,12 +308,34 @@ export default function App() {
 
     setLessons(prev => [welcomeLesson, ...prev]);
 
+    // Create starting wallet transaction for the student's selected package
+    let packagePrice = 650;
+    if (regPackage.includes("Optimal") || regPackage.includes("20")) {
+      packagePrice = 1250;
+    } else if (regPackage.includes("Royal") || regPackage.includes("40")) {
+      packagePrice = 2400;
+    }
+
+    const packageDeposit: WalletTransaction = {
+      id: `tx-init-${Date.now()}`,
+      date: new Date().toISOString().split('T')[0],
+      type: 'deposit',
+      amount: packagePrice,
+      description: lang === 'ar'
+        ? `رصيد البداية - شراء باقة الأندلس (${regPackage})`
+        : `Initial Starting Balance - Al-Andalos Package Purchase (${regPackage})`,
+      studentName: regName,
+      trainerName: "Instructeur Samir"
+    };
+
+    setTransactions(prev => [packageDeposit, ...prev]);
+
     // Show dynamic success banner
     const successText = lang === 'ar' 
-      ? `أهلاً بك ${regName}! تم تسجيلك بنجاح في مدرسة الأندلس للتعليم العالي لتعليم القيادة. لقد قمنا بتفعيل باقة (${regPackage}) وحجز أول درس تمهيدي لك في ${welcomeLesson.pickupLocation}!` 
+      ? `أهلاً بك ${regName}! تم تسجيلك بنجاح في مدرسة الأندلس للتعليم العالي لتعليم القيادة. لقد قمنا بتفعيل باقة (${regPackage})، وشحن رصيد محفظتك بقيمة €${packagePrice}، وحجز أول درس تمهيدي لك في ${welcomeLesson.pickupLocation}!` 
       : lang === 'nl' 
-      ? `Gefeliciteerd ${regName}! Je bent succesvol ingeschreven bij Al-Andalos Rijschool. Je pakket (${regPackage}) is actief en je eerste les is ingepland op ${welcomeLesson.pickupLocation}!` 
-      : `Welcome ${regName}! You have registered successfully at Al-Andalos Driving Academy. Package (${regPackage}) is active and your intro driving session is reserved in ${welcomeLesson.pickupLocation}!`;
+      ? `Gefeliciteerd ${regName}! Je bent succesvol ingeschreven bij Al-Andalos Rijschool. Je pakket (${regPackage}) is actief, er is €${packagePrice} in je wallet gestort, en je eerste les is ingepland op ${welcomeLesson.pickupLocation}!` 
+      : `Welcome ${regName}! You have registered successfully at Al-Andalos Driving Academy. Package (${regPackage}) is active, your wallet is credited with €${packagePrice}, and your intro driving session is reserved in ${welcomeLesson.pickupLocation}!`;
     
     setRegSuccessMessage(successText);
     
@@ -413,18 +479,12 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           
           {/* Logo Brand Accent with modern badge */}
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-linear-to-tr from-blue-600 via-indigo-600 to-blue-800 text-white flex items-center justify-center font-black tracking-tighter text-lg shadow-md relative">
-              AL
-              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-              </span>
-            </div>
-            <div>
-              <h1 className="text-base font-extrabold tracking-tight dark:text-white">AL-ANDALOS RIJSCHOOL</h1>
-              <p className="text-[9px] uppercase tracking-widest text-blue-500 font-extrabold font-mono">Premium Driving Academy</p>
-            </div>
+          <div className="flex items-center gap-3 relative">
+            <AlAndalosLogo size="sm" />
+            <span className="absolute top-0 left-8 flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
           </div>
 
           {/* Configuration utility ribbon */}
@@ -560,8 +620,8 @@ export default function App() {
               {/* BRAND CARD & HERO COLUMN (Left) */}
               <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24">
                 <div className="bg-gradient-to-b from-blue-900/40 via-indigo-950/30 to-black rounded-3xl p-6 border border-indigo-500/10 shadow-xl space-y-6 text-white text-center sm:text-left">
-                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-700 flex items-center justify-center font-black text-2xl shadow-lg mx-auto sm:mx-0">
-                    AL
+                  <div className="flex justify-center sm:justify-start">
+                    <AlAndalosLogo size="md" light={true} />
                   </div>
                   
                   <div className="space-y-2">
@@ -912,6 +972,7 @@ export default function App() {
                     t={t} 
                     lessons={lessons} 
                     transactions={transactions} 
+                    badges={badges}
                     setActiveTab={setActiveTab}
                     isOffline={isOffline}
                     selectedReplayLessonId={selectedReplayLessonId}
@@ -976,6 +1037,8 @@ export default function App() {
                   setTransactions={setTransactions}
                   schedule={schedule}
                   setSchedule={setSchedule}
+                  assessments={assessments}
+                  setAssessments={setAssessments}
                 />
               </div>
             )}

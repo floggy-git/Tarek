@@ -2,13 +2,14 @@ import {
   Calendar, Wallet, CheckCircle, Flame, Trophy, 
   Sparkles, UserCheck, AlertTriangle, ChevronRight, MessageSquare 
 } from 'lucide-react';
-import { TRANSLATIONS, Language, Lesson, WalletTransaction } from '../types';
+import { TRANSLATIONS, Language, Lesson, WalletTransaction, AchievementBadge } from '../types';
 
 interface StudentHomeProps {
   lang: Language;
   t: typeof TRANSLATIONS['en'];
   lessons: Lesson[];
   transactions: WalletTransaction[];
+  badges: AchievementBadge[];
   setActiveTab: (tab: string) => void;
   isOffline: boolean;
   selectedReplayLessonId?: string;
@@ -17,24 +18,51 @@ interface StudentHomeProps {
 }
 
 export default function StudentHome({ 
-  lang, t, lessons, transactions, setActiveTab, isOffline,
+  lang, t, lessons, transactions, badges, setActiveTab, isOffline,
   selectedReplayLessonId, setSelectedReplayLessonId, currentUser
 }: StudentHomeProps) {
+  // Filter core databases to show only the logged-in student's data
+  const studentName = currentUser?.name || "Amir Al-Hassan";
+
+  // Check name similarity or exact match
+  const studentNamesMatch = (nameA?: string, nameB?: string) => {
+    if (!nameA || !nameB) return false;
+    const clean = (n: string) => n.toLowerCase().trim().replace(/[\s-_]/g, '');
+    const a = clean(nameA);
+    const b = clean(nameB);
+    if (a === b) return true;
+    
+    // Check known translations
+    if ((a.includes("amir") || a.includes("أمير")) && (b.includes("amir") || b.includes("أمير"))) return true;
+    if ((a.includes("sanne") || a.includes("ساني")) && (b.includes("sanne") || b.includes("ساني"))) return true;
+    if ((a.includes("michael") || a.includes("مايكل")) && (b.includes("michael") || b.includes("مايكل"))) return true;
+
+    return false;
+  };
+
+  const myLessons = lessons.filter(
+    l => !l.studentName || studentNamesMatch(l.studentName, studentName)
+  );
+
+  const filteredTransactions = transactions.filter(
+    tx => !tx.studentName || studentNamesMatch(tx.studentName, studentName)
+  );
+
   // Find next upcoming lesson
-  const upcomingLessonsList = lessons.filter(l => l.status === 'upcoming');
+  const upcomingLessonsList = myLessons.filter(l => l.status === 'upcoming');
   const nextLesson = upcomingLessonsList.length > 0 ? upcomingLessonsList[0] : null;
 
   // Counts
-  const completedCount = lessons.filter(l => l.status === 'completed').length;
+  const completedCount = myLessons.filter(l => l.status === 'completed').length;
   const upcomingCount = upcomingLessonsList.length;
 
   // Total completed hours (assuming 1H or 2H per lesson)
-  const completedHours = lessons
+  const completedHours = myLessons
     .filter(l => l.status === 'completed')
     .reduce((sum, current) => sum + current.duration, 0);
 
   // Calculate wallet balance
-  const currentBalance = transactions.reduce((acc, curr) => {
+  const currentBalance = filteredTransactions.reduce((acc, curr) => {
     return curr.type === 'deposit' ? acc + curr.amount : acc - curr.amount;
   }, 0);
 
@@ -43,7 +71,7 @@ export default function StudentHome({
   const examReadinessScore = Math.min(30 + completedCount * 12 + (completedHours * 1.5), 98); // dynamic calculation
 
   // Badges count
-  const earnedBadges = 2; // Hardcoded initial unlocked badge value
+  const earnedBadges = badges.filter(b => b.unlocked).length;
 
   return (
     <div className="space-y-6 pb-20">

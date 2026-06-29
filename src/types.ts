@@ -100,6 +100,26 @@ export interface AIMessage {
   timestamp: Date;
 }
 
+export interface Assessment {
+  id: string;
+  date: string; // YYYY-MM-DD
+  time?: string; // HH:MM
+  studentName: string;
+  trainerName: string;
+  lessonId?: string; // Lesson number/id if available
+  scores: {
+    control: number;
+    priority: number;
+    highway: number;
+    maneuvers: number;
+    theory: number;
+  };
+  overallScore: number;
+  notes: string;
+  cbrReadiness: 'beginner' | 'developing' | 'exam_mock' | 'ready_cbr';
+  status: 'synced' | 'pending';
+}
+
 // Translations structure
 export const TRANSLATIONS = {
   en: {

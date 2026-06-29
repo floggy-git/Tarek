@@ -4,6 +4,7 @@ import {
   Map, Star, KeyRound, AlertCircle, Compass, CheckCircle2, Sparkles 
 } from 'lucide-react';
 import { TRANSLATIONS, Language, AchievementBadge, Lesson } from '../types';
+import { getStudentPhoto, saveStudentPhoto, getStudentInitials, deleteStudentPhoto } from '../utils/studentPhoto';
 
 interface StudentProfileProps {
   lang: Language;
@@ -27,17 +28,55 @@ export default function StudentProfile({
   const [email, setEmail] = useState(currentUser?.email || "floggyc77@gmail.com");
   const [phone, setPhone] = useState(currentUser?.phone || "+31 6 1234 5678");
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [photo, setPhoto] = useState<string | null>(() => getStudentPhoto(currentUser?.name || "Amir Al-Hassan"));
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setPhoto(base64String);
+        saveStudentPhoto(name, base64String);
+        if (setCurrentUser && currentUser) {
+          setCurrentUser({
+            ...currentUser,
+            profilePhoto: base64String
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setPhoto(null);
+    deleteStudentPhoto(name);
+    if (setCurrentUser && currentUser) {
+      setCurrentUser({
+        ...currentUser,
+        profilePhoto: undefined
+      });
+    }
+  };
 
   const handleProfileSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim()) return;
     
+    if (photo) {
+      saveStudentPhoto(name, photo);
+    } else {
+      deleteStudentPhoto(name);
+    }
+
     if (setCurrentUser && currentUser) {
       setCurrentUser({
         ...currentUser,
         name,
         email,
-        phone
+        phone,
+        profilePhoto: photo || undefined
       });
     }
     setSaveSuccess(true);
@@ -64,9 +103,30 @@ export default function StudentProfile({
     }, 3000);
   };
 
+  // Check name similarity or exact match
+  const studentNamesMatch = (nameA?: string, nameB?: string) => {
+    if (!nameA || !nameB) return false;
+    const clean = (n: string) => n.toLowerCase().trim().replace(/[\s-_]/g, '');
+    const a = clean(nameA);
+    const b = clean(nameB);
+    if (a === b) return true;
+    
+    // Check known translations
+    if ((a.includes("amir") || a.includes("أمير")) && (b.includes("amir") || b.includes("أمير"))) return true;
+    if ((a.includes("sanne") || a.includes("ساني")) && (b.includes("sanne") || b.includes("ساني"))) return true;
+    if ((a.includes("michael") || a.includes("مايكل")) && (b.includes("michael") || b.includes("مايكل"))) return true;
+
+    return false;
+  };
+
+  const studentName = currentUser?.name || "Amir Al-Hassan";
+  const myLessons = lessons.filter(
+    l => !l.studentName || studentNamesMatch(l.studentName, studentName)
+  );
+
   // Driving stats calculation
-  const completedCount = lessons.filter(l => l.status === 'completed').length;
-  const totalCompletedHours = lessons
+  const completedCount = myLessons.filter(l => l.status === 'completed').length;
+  const totalCompletedHours = myLessons
     .filter(l => l.status === 'completed')
     .reduce((sum, curr) => sum + curr.duration, 0);
 
@@ -95,14 +155,58 @@ export default function StudentProfile({
         {/* Left column: Bio stats & Personal Info fields */}
         <div className="lg:col-span-4 space-y-6">
           <div className="p-5 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800/80 rounded-3xl text-center space-y-4 shadow-sm">
-            <div className="relative inline-block">
-              {/* Avatar placeholder with modern neon ring */}
-              <div className="h-20 w-20 rounded-full bg-linear-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-2xl font-black font-sans mx-auto shadow-md">
-                AH
+            <div className="relative inline-block group cursor-pointer" onClick={() => document.getElementById('student-photo-file-input')?.click()}>
+              {/* Profile Photo or Default Avatar */}
+              {photo ? (
+                <img 
+                  src={photo} 
+                  alt={name} 
+                  className="h-20 w-20 rounded-full object-cover mx-auto border-2 border-blue-500 shadow-md transition duration-300 group-hover:opacity-80"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="h-20 w-20 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-2xl font-black font-sans mx-auto shadow-md transition duration-300 group-hover:from-blue-700 group-hover:to-indigo-700">
+                  {getStudentInitials(name)}
+                </div>
+              )}
+              {/* Edit Hover Overlay */}
+              <div className="absolute inset-0 bg-black/45 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <span className="text-[10px] text-white font-extrabold uppercase tracking-wider">
+                  {lang === 'ar' ? 'تعديل' : lang === 'nl' ? 'Wijzig' : 'Edit'}
+                </span>
               </div>
-              <span className="absolute bottom-0 right-1/2 translate-x-1/2 p-1 bg-blue-600 rounded-full border-2 border-white dark:border-zinc-900 text-white text-[9px] font-black uppercase">
-                B-CLASS
+              <span className="absolute bottom-0 right-1/2 translate-x-1/2 px-2 py-0.5 bg-blue-600 rounded-full border-2 border-white dark:border-zinc-900 text-white text-[8px] font-black uppercase whitespace-nowrap">
+                Category B
               </span>
+            </div>
+
+            <div className="mt-1 flex flex-col sm:flex-row items-center justify-center gap-2">
+              <button 
+                type="button"
+                onClick={() => document.getElementById('student-photo-file-input')?.click()}
+                className="text-[11px] font-bold text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-350 transition flex items-center gap-1"
+              >
+                <span>{photo ? (lang === 'ar' ? 'تغيير الصورة' : lang === 'nl' ? 'Foto wijzigen' : 'Change Photo') : (lang === 'ar' ? 'رفع صورة شخصية' : lang === 'nl' ? 'Foto uploaden' : 'Upload Photo')}</span>
+              </button>
+              {photo && (
+                <>
+                  <span className="text-slate-300 dark:text-zinc-800 hidden sm:inline">•</span>
+                  <button 
+                    type="button"
+                    onClick={handleRemovePhoto}
+                    className="text-[11px] font-bold text-rose-600 hover:text-rose-500 dark:text-rose-400 dark:hover:text-rose-350 transition flex items-center gap-1"
+                  >
+                    <span>{lang === 'ar' ? 'إزالة الصورة' : lang === 'nl' ? 'Foto verwijderen' : 'Remove Photo'}</span>
+                  </button>
+                </>
+              )}
+              <input 
+                type="file" 
+                id="student-photo-file-input" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={handlePhotoChange} 
+              />
             </div>
 
             <div>
