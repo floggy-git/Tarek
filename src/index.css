@@ -1,12 +1,215 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 @variant dark (&:where(.dark, .dark *));
 
-@utility no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
-  &::-webkit-scrollbar {
-    display: none;  /* Chrome, Safari and Opera */
+@theme {
+  --color-primary: var(--color-primary, #2563eb);
+  --color-primary-hover: var(--color-primary-hover, #1d4ed8);
+  --color-primary-light: var(--color-primary-light, rgba(37, 99, 235, 0.1));
+  --color-secondary: var(--color-secondary, #0284c7);
+  --color-secondary-hover: var(--color-secondary-hover, #0369a1);
+  --color-accent: var(--color-accent, #f59e0b);
+
+  --color-blue-50: var(--color-primary-light, rgba(37, 99, 235, 0.08));
+  --color-blue-100: var(--color-primary-light, rgba(37, 99, 235, 0.12));
+  --color-blue-200: var(--color-primary-border, rgba(37, 99, 235, 0.2));
+  --color-blue-300: var(--color-primary-border, rgba(37, 99, 235, 0.3));
+  --color-blue-400: var(--color-primary, #2563eb);
+  --color-blue-500: var(--color-primary, #2563eb);
+  --color-blue-600: var(--color-primary, #2563eb);
+  --color-blue-700: var(--color-primary-hover, #1d4ed8);
+  --color-blue-800: var(--color-primary-hover, #1e40af);
+  --color-blue-900: var(--color-primary-hover, #1e3a8a);
+  --color-blue-950: var(--color-primary-light, rgba(37, 99, 235, 0.05));
+
+  --color-indigo-400: var(--color-primary, #2563eb);
+  --color-indigo-500: var(--color-primary, #2563eb);
+  --color-indigo-600: var(--color-primary-hover, #1d4ed8);
+  --color-indigo-700: var(--color-primary-hover, #1d4ed8);
+  --color-indigo-800: var(--color-primary-hover, #1e40af);
+  --color-indigo-900: var(--color-primary-hover, #1e3a8a);
+  --color-indigo-950: var(--color-primary-hover, #1e3a8a);
+}
+
+/* Centralized Dynamic Theme Root Variables & Overrides */
+:root {
+  --color-primary: #2563eb;
+  --color-primary-rgb: 37, 99, 235;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-light: rgba(37, 99, 235, 0.1);
+  --color-primary-border: rgba(37, 99, 235, 0.25);
+  --color-secondary: #0284c7;
+  --color-secondary-hover: #0369a1;
+  --color-accent: #f59e0b;
+}
+
+/* Dynamic theme element bindings across buttons, badges, navigation, toggles, progress bars, links, icons, and cards */
+.bg-blue-400, .bg-blue-500, .bg-blue-600, .bg-blue-700, .bg-blue-800, .bg-blue-900 {
+  background-color: var(--color-primary) !important;
+}
+
+.hover\:bg-blue-400:hover, .hover\:bg-blue-500:hover, .hover\:bg-blue-600:hover, .hover\:bg-blue-700:hover, .hover\:bg-blue-800:hover {
+  background-color: var(--color-primary-hover) !important;
+}
+
+.text-blue-300, .text-blue-400, .text-blue-500, .text-blue-600, .text-blue-700, .text-blue-800, .text-blue-900 {
+  color: var(--color-primary) !important;
+}
+
+.hover\:text-blue-400:hover, .hover\:text-blue-500:hover, .hover\:text-blue-600:hover, .hover\:text-blue-700:hover {
+  color: var(--color-primary-hover) !important;
+}
+
+.border-blue-400, .border-blue-500, .border-blue-600, .border-blue-700, .border-blue-800 {
+  border-color: var(--color-primary) !important;
+}
+
+.hover\:border-blue-400:hover, .hover\:border-blue-500:hover, .hover\:border-blue-600:hover {
+  border-color: var(--color-primary) !important;
+}
+
+.ring-blue-400, .ring-blue-500, .ring-blue-600, .focus\:ring-blue-400:focus, .focus\:ring-blue-500:focus, .focus\:ring-blue-600:focus {
+  --tw-ring-color: var(--color-primary) !important;
+}
+
+.focus\:border-blue-500:focus, .focus\:border-blue-600:focus {
+  border-color: var(--color-primary) !important;
+}
+
+.bg-blue-50, .bg-blue-100, .bg-blue-200, .bg-blue-50\/50, .bg-blue-500\/5, .bg-blue-500\/10, .bg-blue-500\/15, .bg-blue-500\/20, .bg-blue-600\/10, .bg-blue-600\/20, .bg-blue-950, .bg-blue-950\/20, .bg-blue-950\/40, .bg-blue-950\/50 {
+  background-color: var(--color-primary-light) !important;
+}
+
+.border-blue-50, .border-blue-100, .border-blue-200, .border-blue-300, .border-blue-500\/10, .border-blue-500\/15, .border-blue-500\/20, .border-blue-500\/30, .border-blue-600\/20, .border-blue-900\/40 {
+  border-color: var(--color-primary-border) !important;
+}
+
+.from-blue-400, .from-blue-500, .from-blue-600, .from-blue-700 {
+  --tw-gradient-from: var(--color-primary) !important;
+  --tw-gradient-to: rgba(var(--color-primary-rgb), 0) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+.to-blue-500, .to-blue-600, .to-blue-700, .to-indigo-600 {
+  --tw-gradient-to: var(--color-primary-hover) !important;
+}
+
+.shadow-blue-500, .shadow-blue-600, .shadow-blue-500\/10, .shadow-blue-500\/20, .shadow-blue-600\/10, .shadow-blue-600\/20 {
+  --tw-shadow-color: var(--color-primary-light) !important;
+}
+
+.fill-blue-400, .fill-blue-500, .fill-blue-600 {
+  fill: var(--color-primary) !important;
+}
+
+.stroke-blue-400, .stroke-blue-500, .stroke-blue-600 {
+  stroke: var(--color-primary) !important;
+}
+
+/* Standardized Design System Utility Rules */
+@layer utilities {
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  /* Commercial SaaS Card Tokens */
+  .saas-card {
+    background-color: var(--card-bg, #ffffff);
+    border: 1px solid var(--card-border, rgba(226, 232, 240, 0.8));
+    border-radius: 1.25rem; /* 20px uniform radius */
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.02), 0 4px 12px -2px rgba(0, 0, 0, 0.03);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .dark .saas-card {
+    --card-bg: #18181b;
+    --card-border: rgba(39, 39, 42, 0.8);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.2);
+  }
+
+  .saas-card-interactive {
+    composes: saas-card;
+    cursor: pointer;
+  }
+  .saas-card-interactive:hover {
+    border-color: var(--color-primary-border, rgba(59, 130, 246, 0.4));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px -4px var(--color-primary-light, rgba(59, 130, 246, 0.12));
+  }
+
+  /* Commercial Button System */
+  .saas-btn {
+    display: inline-flex;
+    items-center: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.875rem; /* 14px */
+    transition: all 0.15s ease-in-out;
+    cursor: pointer;
+    user-select: none;
+  }
+  .saas-btn:active {
+    transform: scale(0.98);
+  }
+
+  .saas-btn-primary {
+    composes: saas-btn;
+    background-color: var(--color-primary, #2563eb);
+    color: #ffffff;
+    box-shadow: 0 2px 8px -1px var(--color-primary-light, rgba(37, 99, 235, 0.35));
+  }
+  .saas-btn-primary:hover {
+    background-color: var(--color-primary-hover, #1d4ed8);
+    box-shadow: 0 4px 12px -2px var(--color-primary-light, rgba(37, 99, 235, 0.45));
+  }
+
+  .saas-btn-secondary {
+    composes: saas-btn;
+    background-color: #f1f5f9;
+    color: #0f172a;
+    border: 1px solid #e2e8f0;
+  }
+  .dark .saas-btn-secondary {
+    background-color: #27272a;
+    color: #f4f4f5;
+    border-color: #3f3f46;
+  }
+  .saas-btn-secondary:hover {
+    background-color: #e2e8f0;
+  }
+  .dark .saas-btn-secondary:hover {
+    background-color: #3f3f46;
+  }
+
+  /* Form Input Controls */
+  .saas-input {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    border-radius: 0.875rem;
+    border: 1px solid #e2e8f0;
+    background-color: #ffffff;
+    color: #0f172a;
+    font-size: 0.875rem;
+    transition: all 0.15s ease;
+    outline: none;
+  }
+  .dark .saas-input {
+    border-color: #27272a;
+    background-color: #18181b;
+    color: #f4f4f5;
+  }
+  .saas-input:focus {
+    border-color: var(--color-primary, #3b82f6);
+    box-shadow: 0 0 0 3px var(--color-primary-light, rgba(59, 130, 246, 0.15));
   }
 }
 
@@ -298,3 +501,18 @@
     border-color: #e2e8f0 !important;
   }
 }
+
+/* Prevent iOS Safari from auto-zooming on focus by setting font-size to 16px.
+   This preserves the exact original layout design (heights, widths, padding, margins, borders,
+   and proportions) perfectly intact, while satisfying iOS Safari's zoom prevention requirements. */
+@media screen and (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+
+
+

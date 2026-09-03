@@ -1,4 +1,4 @@
-import { jsPDF } from 'jspdf';
+import type { jsPDF } from 'jspdf';
 // @ts-ignore
 import * as reshaperNamespace from 'arabic-persian-reshaper';
 // @ts-ignore
@@ -115,10 +115,12 @@ export async function embedFonts(doc: jsPDF): Promise<void> {
     if (cachedCairoBase64) {
       doc.addFileToVFS('Cairo-Regular.ttf', cachedCairoBase64);
       doc.addFont('Cairo-Regular.ttf', 'Cairo', 'normal');
+      doc.addFont('Cairo-Regular.ttf', 'Cairo', 'bold');
     }
     if (cachedInterBase64) {
       doc.addFileToVFS('Inter-Regular.ttf', cachedInterBase64);
       doc.addFont('Inter-Regular.ttf', 'Inter', 'normal');
+      doc.addFont('Inter-Regular.ttf', 'Inter', 'bold');
     }
   } catch (err) {
     console.error("Font embedding failed, falling back to system fonts:", err);
@@ -126,7 +128,7 @@ export async function embedFonts(doc: jsPDF): Promise<void> {
 }
 
 /**
- * Generates a fully searchable, high-fidelity vector PDF with embedded fonts for Al-Andalus student dossier.
+ * Generates a fully searchable, high-fidelity vector PDF with embedded fonts for student dossier.
  */
 export async function generateSelectableDossierPDF(
   studentName: string,
@@ -138,7 +140,8 @@ export async function generateSelectableDossierPDF(
   schoolSettings: any
 ): Promise<jsPDF> {
   // Initialize jsPDF document (A4 portrait)
-  const doc = new jsPDF({
+  const { jsPDF: JsPDFClass } = await import('jspdf');
+  const doc = new JsPDFClass({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
@@ -172,7 +175,7 @@ export async function generateSelectableDossierPDF(
 
   const tMap = {
     ar: {
-      header: 'أكاديمية الأندلس لتعليم القيادة بهولندا',
+      header: 'مدرسة القيادة المعتمدة بهولندا',
       subtitle: 'الملف التدريبي والتقييم الموحد للطالب',
       ref: 'مرجع الملف',
       date: 'تاريخ الإصدار',
@@ -206,7 +209,7 @@ export async function generateSelectableDossierPDF(
       descCol: 'الوصف'
     },
     en: {
-      header: 'Al-Andalus Driving Academy Netherlands',
+      header: schoolSettings?.name ? `${schoolSettings.name}` : 'Driving School Netherlands',
       subtitle: 'Unified Training Dossier & Assessment',
       ref: 'Dossier Ref',
       date: 'Date of Issue',
@@ -240,7 +243,7 @@ export async function generateSelectableDossierPDF(
       descCol: 'Description'
     },
     nl: {
-      header: 'Al-Andalus Rijopleidingen Nederland',
+      header: schoolSettings?.name ? `${schoolSettings.name}` : 'Rijopleidingen Nederland',
       subtitle: 'Geïntegreerd Trainingsdossier & Beoordeling',
       ref: 'Dossier Referentie',
       date: 'Datum van Uitgifte',
@@ -533,6 +536,366 @@ export async function generateSelectableDossierPDF(
     doc.line(15, transY + 9, 195, transY + 9);
     transY += 9;
   });
+
+  return doc;
+}
+
+/**
+ * Generates a fully searchable, high-fidelity vector PDF invoice with embedded fonts.
+ */
+export async function generateInvoicePDF(
+  invoice: any,
+  lang: Language,
+  schoolSettings?: any
+): Promise<jsPDF> {
+  // Initialize jsPDF document (A4 portrait)
+  const { jsPDF: JsPDFClass } = await import('jspdf');
+  const doc = new JsPDFClass({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+    compress: true
+  });
+
+  // Embed the fonts
+  await embedFonts(doc);
+
+  // Set default font to Cairo (supports Arabic + Latin + Dutch) or Inter
+  const isRtl = lang === 'ar';
+  const primaryFont = isRtl ? 'Cairo' : 'Inter';
+  doc.setFont(primaryFont, 'normal');
+
+  // School Settings Extraction (with fallback to generic Driving School)
+  const sName = schoolSettings?.name || "Driving School";
+  const sEmail = schoolSettings?.email || "info@drivingschool.nl";
+  const sPhone = schoolSettings?.phone || "+31 6 1234 5678";
+  const sAddress = schoolSettings?.address || "Netherlands";
+  const sWebsite = schoolSettings?.website || "www.drivingschool.nl";
+  const sKvk = schoolSettings?.kvk || "";
+  const sBtw = schoolSettings?.btw || "";
+  const sLogo = schoolSettings?.logoUrl || "";
+
+  // Translations Map
+  const tMap = {
+    ar: {
+      title: 'فاتورة',
+      invoiceNo: 'رقم الفاتورة',
+      date: 'التاريخ',
+      studentName: 'اسم الطالب',
+      paymentMethod: 'طريقة الدفع',
+      paymentStatus: 'حالة الدفع',
+      description: 'البيان / الوصف',
+      unitPrice: 'سعر الوحدة',
+      qty: 'الكمية',
+      total: 'المجموع',
+      subtotal: 'المجموع الفرعي',
+      vat: 'ضريبة القيمة المضافة',
+      grandTotal: 'المجموع النهائي',
+      lessonBilled: 'حصة تدريب قيادة',
+      hours: 'ساعة',
+      extraAdjustment: 'إضافة / تعديل',
+      statusPaid: 'مدفوع',
+      statusUnpaid: 'غير مدفوع',
+      methodCash: 'كاش / نقدي',
+      methodWallet: 'رصيد المحفظة',
+      methodTransfer: 'تحويل بنكي',
+      methodCard: 'بطاقة دفع',
+      footer: `شكراً لتعاملكم معنا - ${sName}`
+    },
+    en: {
+      title: 'Invoice',
+      invoiceNo: 'Invoice No',
+      date: 'Date',
+      studentName: 'Candidate Name',
+      paymentMethod: 'Payment Method',
+      paymentStatus: 'Payment Status',
+      description: 'Description',
+      unitPrice: 'Unit Price',
+      qty: 'Qty',
+      total: 'Total',
+      subtotal: 'Subtotal',
+      vat: 'VAT',
+      grandTotal: 'Grand Total',
+      lessonBilled: 'Practical Driving Lesson',
+      extraAdjustment: 'Extra / Adjustment',
+      hours: 'hrs',
+      statusPaid: 'Paid',
+      statusUnpaid: 'Unpaid',
+      methodCash: 'Cash',
+      methodWallet: 'Wallet Payment',
+      methodTransfer: 'Bank Transfer',
+      methodCard: 'Card',
+      footer: `Thank you for your business - ${sName}`
+    },
+    nl: {
+      title: 'Factuur',
+      invoiceNo: 'Factuurnummer',
+      date: 'Datum',
+      studentName: 'Naam Kandidaat',
+      paymentMethod: 'Betaalmethode',
+      paymentStatus: 'Betalingsstatus',
+      description: 'Omschrijving',
+      unitPrice: 'Eenheidsprijs',
+      qty: 'Aantal',
+      total: 'Totaal',
+      subtotal: 'Subtotaal',
+      vat: 'BTW',
+      grandTotal: 'Totaalbedrag',
+      lessonBilled: 'Praktische Rijles',
+      extraAdjustment: 'Extra toeslag',
+      hours: 'uur',
+      statusPaid: 'Betaald',
+      statusUnpaid: 'Onbetaald',
+      methodCash: 'Contant',
+      methodWallet: 'Wallet Betaling',
+      methodTransfer: 'Bankoverschrijving',
+      methodCard: 'Pinnen / Kaart',
+      footer: `Bedankt voor uw vertrouwen - ${sName}`
+    }
+  };
+
+  const labels = tMap[lang] || tMap['en'];
+
+  const drawText = (txt: string, x: number, y: number, align: 'left' | 'right' | 'center' = 'left') => {
+    const formatted = isRtl ? prepareArabicForJsPDF(txt) : txt;
+    doc.text(formatted, x, y, { align: isRtl ? (align === 'left' ? 'right' : align === 'right' ? 'left' : 'center') : align });
+  };
+
+  // HEADER BLOCK
+  doc.setFillColor(15, 23, 42); // Slate-900
+  doc.rect(0, 0, 210, 35, 'F');
+  
+  doc.setFillColor(217, 119, 6); // Amber-600 gold border line
+  doc.rect(0, 35, 210, 1.5, 'F');
+
+  // Logo Rendering (if available)
+  if (sLogo) {
+    try {
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(15, 6, 23, 23, 2, 2, 'F');
+      doc.addImage(sLogo, 'PNG', 16, 7, 21, 21);
+    } catch (err) {
+      console.warn("Failed to embed school logo in PDF invoice:", err);
+    }
+  }
+
+  // School Name and Website in Header
+  doc.setTextColor(255, 255, 255);
+  doc.setFont(primaryFont, 'bold');
+  doc.setFontSize(14);
+  const schoolNameX = sLogo ? 43 : 15;
+  drawText(sName, schoolNameX, 16, 'left');
+
+  doc.setFont(primaryFont, 'normal');
+  doc.setFontSize(9.5);
+  doc.setTextColor(156, 163, 175);
+  drawText(sWebsite, schoolNameX, 25, 'left');
+
+  // Invoice Title and ID on the right
+  doc.setTextColor(255, 255, 255);
+  doc.setFont(primaryFont, 'bold');
+  doc.setFontSize(18);
+  drawText(labels.title, 195, 16, 'right');
+
+  doc.setFont(primaryFont, 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(217, 119, 6); // Golden Amber color for Invoice No
+  drawText(`${labels.invoiceNo}: ${invoice.invoiceId}`, 195, 25, 'right');
+
+  // Reset text color
+  doc.setTextColor(15, 23, 42);
+
+  // Dynamic Translations for status and method
+  const statusLabel = invoice.paymentStatus === 'paid' ? labels.statusPaid : labels.statusUnpaid;
+  const rawMethod = invoice.paymentMethod;
+  let methodLabel = '';
+  if (rawMethod === 'wallet') methodLabel = labels.methodWallet;
+  else if (rawMethod === 'cash') methodLabel = labels.methodCash;
+  else if (rawMethod === 'transfer') methodLabel = labels.methodTransfer;
+  else if (rawMethod === 'card') methodLabel = labels.methodCard;
+  else methodLabel = rawMethod || '-';
+
+  // METADATA COLUMNS (FROM vs TO)
+  // Determine dynamic positions based on RTL setting to swap columns for a native look
+  const labelFrom = isRtl ? 'من (بيانات المدرسة):' : lang === 'nl' ? 'Van (Rijschool Gegevens):' : 'From (School Info):';
+  const labelTo = isRtl ? 'إلى (بيانات المتدرب):' : lang === 'nl' ? 'Factureren aan (Kandidaat):' : 'Bill To (Candidate Info):';
+
+  const col1X = 15;
+  const col2X = 115;
+  const colRightEdgeX = 195;
+
+  const schoolX = isRtl ? colRightEdgeX : col1X;
+  const schoolAlign = isRtl ? 'right' : 'left';
+
+  const studentX = isRtl ? col1X : col2X;
+  const studentAlign = isRtl ? 'left' : 'left';
+
+  // Draw From (School Info) Column
+  doc.setFont(primaryFont, 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(100, 116, 139); // Slate-500
+  drawText(labelFrom, schoolX, 48, schoolAlign);
+
+  doc.setFont(primaryFont, 'normal');
+  doc.setTextColor(15, 23, 42); // Slate-900
+  
+  let schoolY = 54;
+  doc.setFont(primaryFont, 'bold');
+  drawText(sName, schoolX, schoolY, schoolAlign);
+  doc.setFont(primaryFont, 'normal');
+  schoolY += 6;
+
+  if (sAddress) {
+    drawText(sAddress, schoolX, schoolY, schoolAlign);
+    schoolY += 6;
+  }
+  if (sPhone) {
+    drawText(sPhone, schoolX, schoolY, schoolAlign);
+    schoolY += 6;
+  }
+  if (sEmail) {
+    drawText(sEmail, schoolX, schoolY, schoolAlign);
+    schoolY += 6;
+  }
+  if (sKvk) {
+    drawText(`${isRtl ? 'رقم السجل التجاري' : 'KvK'}: ${sKvk}`, schoolX, schoolY, schoolAlign);
+    schoolY += 6;
+  }
+  if (sBtw) {
+    drawText(`${isRtl ? 'الرقم الضريبي' : 'BTW'}: ${sBtw}`, schoolX, schoolY, schoolAlign);
+    schoolY += 6;
+  }
+
+  // Draw To (Student/Invoice Info) Column
+  doc.setFont(primaryFont, 'bold');
+  doc.setTextColor(100, 116, 139); // Slate-500
+  drawText(labelTo, studentX, 48, studentAlign);
+
+  doc.setFont(primaryFont, 'normal');
+  doc.setTextColor(15, 23, 42); // Slate-900
+
+  let studentY = 54;
+  doc.setFont(primaryFont, 'bold');
+  drawText(invoice.studentName, studentX, studentY, studentAlign);
+  doc.setFont(primaryFont, 'normal');
+  studentY += 6;
+
+  drawText(`${labels.date}: ${invoice.date}`, studentX, studentY, studentAlign);
+  studentY += 6;
+
+  drawText(`${labels.paymentMethod}: ${methodLabel}`, studentX, studentY, studentAlign);
+  studentY += 6;
+
+  drawText(`${labels.paymentStatus}: ${statusLabel}`, studentX, studentY, studentAlign);
+  studentY += 6;
+
+  // Let table start below the longest block of metadata
+  let tableY = Math.max(schoolY, studentY) + 6;
+
+  // TABLE OF ITEMS
+  doc.setFillColor(241, 245, 249);
+  doc.rect(15, tableY, 180, 8, 'F');
+  
+  doc.setFontSize(9);
+  doc.setTextColor(71, 85, 105);
+
+  // Column X coordinates for table headers and items
+  const descColX = isRtl ? 190 : 20;
+  const descColAlign = isRtl ? 'right' : 'left';
+
+  const qtyColX = isRtl ? 90 : 120;
+  const qtyColAlign = isRtl ? 'right' : 'left';
+
+  const priceColX = isRtl ? 55 : 145;
+  const priceColAlign = isRtl ? 'right' : 'left';
+
+  const totalColX = isRtl ? 20 : 175;
+  const totalColAlign = isRtl ? 'right' : 'left';
+  
+  // Table headers
+  drawText(labels.description, descColX, tableY + 5.5, descColAlign);
+  drawText(labels.qty, qtyColX, tableY + 5.5, qtyColAlign);
+  drawText(labels.unitPrice, priceColX, tableY + 5.5, priceColAlign);
+  drawText(labels.total, totalColX, tableY + 5.5, totalColAlign);
+
+  doc.setDrawColor(226, 232, 240);
+  doc.line(15, tableY + 8, 195, tableY + 8);
+  
+  tableY += 8;
+  doc.setTextColor(15, 23, 42);
+  doc.setFontSize(9.5);
+
+  // Render Billed Lessons
+  const lessons: Lesson[] = invoice.billedLessons || [];
+  lessons.forEach((les) => {
+    const descText = `${labels.lessonBilled} (${les.date} ${les.time})`;
+    drawText(descText, descColX, tableY + 6, descColAlign);
+    drawText(`${les.duration} ${labels.hours}`, qtyColX, tableY + 6, qtyColAlign);
+    
+    // Base unit price
+    const unitPriceVal = les.duration > 0 ? (les.price / les.duration) : les.price;
+    drawText(`€${unitPriceVal.toFixed(2)}`, priceColX, tableY + 6, priceColAlign);
+    drawText(`€${les.price.toFixed(2)}`, totalColX, tableY + 6, totalColAlign);
+
+    doc.line(15, tableY + 9, 195, tableY + 9);
+    tableY += 9;
+  });
+
+  // Render Custom adjustment if present
+  if (invoice.adjustmentLabel && invoice.adjustmentPrice) {
+    const adjLabel = invoice.adjustmentLabel || labels.extraAdjustment;
+    drawText(adjLabel, descColX, tableY + 6, descColAlign);
+    drawText(`1`, qtyColX, tableY + 6, qtyColAlign);
+    drawText(`€${invoice.adjustmentPrice.toFixed(2)}`, priceColX, tableY + 6, priceColAlign);
+    drawText(`€${invoice.adjustmentPrice.toFixed(2)}`, totalColX, tableY + 6, totalColAlign);
+
+    doc.line(15, tableY + 9, 195, tableY + 9);
+    tableY += 9;
+  }
+
+  // TOTALS BLOCK (Dynamic alignment based on RTL)
+  const totalsY = tableY + 6;
+  doc.setFontSize(10);
+
+  const totalsBoxX = isRtl ? 15 : 110;
+  const totalsBoxW = 85;
+
+  const totalsLabelX = isRtl ? (totalsBoxX + totalsBoxW - 5) : (totalsBoxX + 5);
+  const totalsLabelAlign = isRtl ? 'right' : 'left';
+
+  const totalsValueX = isRtl ? (totalsBoxX + 10) : (totalsBoxX + totalsBoxW - 10);
+  const totalsValueAlign = isRtl ? 'left' : 'right';
+  
+  // Draw light background for totals
+  doc.setFillColor(248, 250, 252);
+  doc.rect(totalsBoxX, totalsY, totalsBoxW, 34, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.rect(totalsBoxX, totalsY, totalsBoxW, 34, 'D');
+
+  // Subtotal
+  drawText(labels.subtotal, totalsLabelX, totalsY + 6, totalsLabelAlign);
+  drawText(`€${(invoice.subtotal ?? 0).toFixed(2)}`, totalsValueX, totalsY + 6, totalsValueAlign);
+
+  // VAT
+  const vatLabelStr = `${labels.vat} (${invoice.vatRate}%)`;
+  drawText(vatLabelStr, totalsLabelX, totalsY + 14, totalsLabelAlign);
+  drawText(`€${(invoice.vatAmount ?? 0).toFixed(2)}`, totalsValueX, totalsY + 14, totalsValueAlign);
+
+  // Divider
+  const lineStartX = totalsBoxX + 5;
+  const lineEndX = totalsBoxX + totalsBoxW - 5;
+  doc.line(lineStartX, totalsY + 20, lineEndX, totalsY + 20);
+
+  // Grand Total
+  doc.setFont(primaryFont, 'bold');
+  drawText(labels.grandTotal, totalsLabelX, totalsY + 27, totalsLabelAlign);
+  drawText(`€${(invoice.grandTotal ?? 0).toFixed(2)}`, totalsValueX, totalsY + 27, totalsValueAlign);
+  doc.setFont(primaryFont, 'normal');
+
+  // FOOTER BLOCK
+  doc.setFontSize(9);
+  doc.setTextColor(148, 163, 184); // Slate-400
+  drawText(labels.footer, 105, 280, 'center');
 
   return doc;
 }

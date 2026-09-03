@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Navigation, Play, Square, Activity, Wifi, WifiOff, History, User, Trash2, Eye, Compass, MapPin
+  Navigation, Play, Square, Activity, Wifi, WifiOff, History, User, Trash2, Eye, Compass, MapPin, AlertTriangle
 } from 'lucide-react';
 import { Language } from '../types';
+import { safeSetItem } from '../utils/safeStorage';
+import LiveNavigationMap from './LiveNavigationMap';
 
 interface TrackedPoint {
   lat: number;
@@ -60,7 +62,7 @@ const calculateTotalDistance = (points: TrackedPoint[]): number => {
   return total;
 };
 
-export default function ExamTracker({ lang, lessons, onRouteSaved }: ExamTrackerProps) {
+function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps) {
   // Get student names from the passed lessons list
   const activeLessons = lessons || [];
   const activeStudents = activeLessons.map(l => l.studentName);
@@ -93,6 +95,7 @@ export default function ExamTracker({ lang, lessons, onRouteSaved }: ExamTracker
   // History state loaded from localStorage
   const [savedRoutes, setSavedRoutes] = useState<SavedExamRoute[]>([]);
   const [reviewRoute, setReviewRoute] = useState<SavedExamRoute | null>(null);
+  const [routeToDelete, setRouteToDelete] = useState<string | null>(null);
 
   // References for Leaflet map integration
   const mapRef = useRef<any>(null);
@@ -103,72 +106,9 @@ export default function ExamTracker({ lang, lessons, onRouteSaved }: ExamTracker
   const gpsWatchIdRef = useRef<number | null>(null);
   const simIntervalRef = useRef<any>(null);
 
-  // Load Leaflet library dynamically
+  // Load Leaflet library
   const loadLeaflet = (callback: () => void) => {
-    if ((window as any).L) {
-      callback();
-      return;
-    }
-
-    if (!(window as any)._leafletCallbacks) {
-      (window as any)._leafletCallbacks = [];
-    }
-    (window as any)._leafletCallbacks.push(callback);
-
-    if ((window as any)._leafletLoading) {
-      return;
-    }
-    (window as any)._leafletLoading = true;
-
-    if (!document.getElementById('leaflet-css')) {
-      const link = document.createElement('link');
-      link.id = 'leaflet-css';
-      link.rel = 'stylesheet';
-      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css';
-      link.onerror = (e) => {
-        console.warn("Leaflet stylesheet failed to load gracefully in sandbox:", e);
-      };
-      document.head.appendChild(link);
-    }
-
-    let script = document.getElementById('leaflet-js') as HTMLScriptElement;
-    if (!script) {
-      script = document.createElement('script');
-      script.id = 'leaflet-js';
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
-      script.async = true;
-      script.crossOrigin = 'anonymous';
-      script.onerror = (e) => {
-        console.warn("Leaflet script failed to load or CORS error in sandbox:", e);
-      };
-      document.body.appendChild(script);
-    }
-
-    const runCallbacks = () => {
-      const callbacks = (window as any)._leafletCallbacks || [];
-      (window as any)._leafletCallbacks = [];
-      callbacks.forEach((cb: () => void) => {
-        try {
-          cb();
-        } catch (e) {
-          console.error("Error running Leaflet callback:", e);
-        }
-      });
-    };
-
-    const interval = setInterval(() => {
-      if ((window as any).L) {
-        clearInterval(interval);
-        runCallbacks();
-      }
-    }, 50);
-
-    script.onload = () => {
-      if ((window as any).L) {
-        clearInterval(interval);
-        runCallbacks();
-      }
-    };
+    callback();
   };
 
   // Seed default history or load from local storage
@@ -209,11 +149,7 @@ export default function ExamTracker({ lang, lessons, onRouteSaved }: ExamTracker
         }
       ];
       setSavedRoutes(initialMockRoutes);
-      try {
-        localStorage.setItem('rijschool_tracked_exams', JSON.stringify(initialMockRoutes));
-      } catch (e) {
-        console.warn("localStorage is not accessible", e);
-      }
+      safeSetItem('rijschool_tracked_exams', JSON.stringify(initialMockRoutes));
     }
   }, [lang]);
 
@@ -230,146 +166,14 @@ export default function ExamTracker({ lang, lessons, onRouteSaved }: ExamTracker
     return () => clearInterval(interval);
   }, [trackingMode, trackingStartTime]);
 
-  // Clean up timers & GPS watchers on unmount
+  // Clean up timers on unmount
   useEffect(() => {
     return () => {
-      if (gpsWatchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(gpsWatchIdRef.current);
-      }
       if (simIntervalRef.current) {
         clearInterval(simIntervalRef.current);
       }
     };
   }, []);
-
-  // Initialize and update Leaflet map for tracking or review
-  useEffect(() => {
-    const mapContainer = document.getElementById('exam-leaflet-map-element');
-    if (!mapContainer || trackingMode === 'idle') {
-      if (mapRef.current) {
-        try {
-          mapRef.current.remove();
-        } catch (e) {
-          console.warn(e);
-        }
-        mapRef.current = null;
-        polylineRef.current = null;
-        carMarkerRef.current = null;
-        startMarkerRef.current = null;
-      }
-      return;
-    }
-
-    loadLeaflet(() => {
-      const L = (window as any).L;
-      if (!L) return;
-
-      // Determine center position
-      let centerPos: [number, number] = [52.3892, 4.8378]; // Default Sloterdijk
-      let pathPoints: TrackedPoint[] = [];
-
-      if (trackingMode === 'tracking') {
-        pathPoints = currentPoints;
-        if (currentPoints.length > 0) {
-          centerPos = [currentPoints[currentPoints.length - 1].lat, currentPoints[currentPoints.length - 1].lng];
-        }
-      } else if (trackingMode === 'review' && reviewRoute) {
-        // Backwards compatibility for old records with X/Y points
-        pathPoints = reviewRoute.points.map(p => {
-          if ('lat' in p) return p;
-          const x = (p as any).x;
-          const y = (p as any).y;
-          return {
-            lat: 52.3892 + (y - 350) * -0.0001,
-            lng: 4.8378 + (x - 320) * 0.0001
-          };
-        });
-        if (pathPoints.length > 0) {
-          centerPos = [pathPoints[0].lat, pathPoints[0].lng];
-        }
-      }
-
-      if (!mapRef.current) {
-        const mapContainerEl = document.getElementById('exam-leaflet-map-element');
-        if (mapContainerEl && (mapContainerEl as any)._leaflet_id) {
-          (mapContainerEl as any)._leaflet_id = null;
-          mapContainerEl.innerHTML = '';
-        }
-
-        const map = L.map('exam-leaflet-map-element', {
-          zoomControl: true,
-          attributionControl: false
-        }).setView(centerPos, 15);
-
-        const isDark = document.documentElement.classList.contains('dark');
-        const tileUrl = isDark 
-          ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' 
-          : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-
-        L.tileLayer(tileUrl, { maxZoom: 19 }).addTo(map);
-        mapRef.current = map;
-      }
-
-      const map = mapRef.current;
-
-      // Draw Polyline path
-      if (polylineRef.current) {
-        map.removeLayer(polylineRef.current);
-        polylineRef.current = null;
-      }
-
-      if (pathPoints.length > 1) {
-        const latlngs = pathPoints.map(p => [p.lat, p.lng]);
-        polylineRef.current = L.polyline(latlngs, {
-          color: trackingMode === 'review' ? '#10b981' : '#3b82f6',
-          weight: 5,
-          opacity: 0.9,
-          lineJoin: 'round'
-        }).addTo(map);
-      }
-
-      // Start position marker
-      if (startMarkerRef.current) {
-        map.removeLayer(startMarkerRef.current);
-        startMarkerRef.current = null;
-      }
-
-      if (pathPoints.length > 0) {
-        const startIcon = L.divIcon({
-          className: 'active-start-marker',
-          html: `<div style="background-color: #10b981; width: 14px; height: 14px; border-radius: 50%; border: 2.5px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.4);"></div>`,
-          iconSize: [14, 14],
-          iconAnchor: [7, 7]
-        });
-        startMarkerRef.current = L.marker([pathPoints[0].lat, pathPoints[0].lng], { icon: startIcon })
-          .addTo(map)
-          .bindPopup(`<b>${lang === 'ar' ? 'البداية' : 'Start'}</b>`);
-      }
-
-      // Current car position marker
-      if (carMarkerRef.current) {
-        map.removeLayer(carMarkerRef.current);
-        carMarkerRef.current = null;
-      }
-
-      if (pathPoints.length > 0) {
-        const currentCarPos = [pathPoints[pathPoints.length - 1].lat, pathPoints[pathPoints.length - 1].lng];
-        const carIcon = L.divIcon({
-          className: 'active-car-marker',
-          html: `
-            <div style="position: relative; display: flex; align-items: center; justify-content: center;">
-              <div style="position: absolute; width: 34px; height: 34px; background-color: rgba(59, 130, 246, 0.25); border-radius: 50%; animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-              <div style="background-color: #3b82f6; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 3px 8px rgba(59,130,246,0.5); display: flex; align-items: center; justify-content: center; font-size: 8px;">🚗</div>
-            </div>
-          `,
-          iconSize: [16, 16],
-          iconAnchor: [8, 8]
-        });
-        carMarkerRef.current = L.marker(currentCarPos, { icon: carIcon }).addTo(map);
-        map.panTo(currentCarPos);
-      }
-    });
-  }, [trackingMode, currentPoints, reviewRoute]);
 
   // Start tracking
   const startTracking = () => {
@@ -380,7 +184,7 @@ export default function ExamTracker({ lang, lessons, onRouteSaved }: ExamTracker
     setGpsError(null);
 
     if (isDemoMode) {
-      // Simulate route points around Amsterdam Sloterdijk Al-Andalos
+      // Simulate route points for CBR exam simulation
       const demoPoints: TrackedPoint[] = [
         { lat: 52.3892, lng: 4.8378 },
         { lat: 52.3881, lng: 4.8415 },
@@ -405,56 +209,11 @@ export default function ExamTracker({ lang, lessons, onRouteSaved }: ExamTracker
           simIntervalRef.current = null;
         }
       }, 3000);
-    } else {
-      if (!navigator.geolocation) {
-        setGpsError(lang === 'ar' ? 'جهازك لا يدعم نظام تحديد المواقع GPS.' : 'Geolocation not supported by device.');
-        return;
-      }
-
-      // Fetch immediately
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const newPt = { lat: position.coords.latitude, lng: position.coords.longitude };
-          setCurrentPoints([newPt]);
-        },
-        (err) => {
-          console.warn("Initial Geolocation Error:", err);
-          // Fallback center if error
-          setCurrentPoints([{ lat: 52.3892, lng: 4.8378 }]);
-        },
-        { enableHighAccuracy: true, timeout: 5000 }
-      );
-
-      // Watch updates
-      const watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          const newPt = { lat: position.coords.latitude, lng: position.coords.longitude };
-          setCurrentPoints(prev => {
-            if (prev.length === 0) return [newPt];
-            const last = prev[prev.length - 1];
-            // Only add if vehicle moved slightly (minimum 5 meters)
-            if (getDistanceBetweenPoints(last, newPt) > 0.005) {
-              return [...prev, newPt];
-            }
-            return prev;
-          });
-        },
-        (err) => {
-          console.warn("GPS stream watch issue (expected in headless non-GPS environments):", err);
-          setGpsError(lang === 'ar' ? 'ضعف أو انقطاع إشارة الـ GPS' : 'GPS signal lost or weak');
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-      gpsWatchIdRef.current = watchId;
     }
   };
 
   // Finish and save route
   const saveTrackedRoute = () => {
-    if (gpsWatchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(gpsWatchIdRef.current);
-      gpsWatchIdRef.current = null;
-    }
     if (simIntervalRef.current) {
       clearInterval(simIntervalRef.current);
       simIntervalRef.current = null;
@@ -489,11 +248,7 @@ export default function ExamTracker({ lang, lessons, onRouteSaved }: ExamTracker
 
       const updated = [newRoute, ...savedRoutes];
       setSavedRoutes(updated);
-      try {
-        localStorage.setItem('rijschool_tracked_exams', JSON.stringify(updated));
-      } catch (e) {
-        console.warn(e);
-      }
+      safeSetItem('rijschool_tracked_exams', JSON.stringify(updated));
     } else if (currentPoints.length >= 1) {
       const newRoute: SavedExamRoute = {
         id: `exam-${Date.now()}`,
@@ -511,11 +266,7 @@ export default function ExamTracker({ lang, lessons, onRouteSaved }: ExamTracker
 
       const updated = [newRoute, ...savedRoutes];
       setSavedRoutes(updated);
-      try {
-        localStorage.setItem('rijschool_tracked_exams', JSON.stringify(updated));
-      } catch (e) {
-        console.warn(e);
-      }
+      safeSetItem('rijschool_tracked_exams', JSON.stringify(updated));
     }
 
     if (onRouteSaved) {
@@ -526,21 +277,21 @@ export default function ExamTracker({ lang, lessons, onRouteSaved }: ExamTracker
     alert(lang === 'ar' ? `تم إيقاف التتبع وحفظ مسار الدرس للمتدرب (${selectedStudent}) بنجاح. يرجى إكمال تفاصيل الدرس والدفع من سجل الدروس.` : `GPS route tracking stopped and saved for ${selectedStudent} successfully. Please complete the lesson and payment details from the Lesson Log.`);
   };
 
-  // Delete recorded track
+  // Delete recorded track - open custom warning modal instead of native confirm
   const deleteRoute = (id: string) => {
-    if (confirm(lang === 'ar' ? "هل أنت متأكد من حذف مسار هذا الاختبار من السجلات؟" : "Are you sure you want to delete this recorded route?")) {
-      const updated = savedRoutes.filter(r => r.id !== id);
-      setSavedRoutes(updated);
-      try {
-        localStorage.setItem('rijschool_tracked_exams', JSON.stringify(updated));
-      } catch (e) {
-        console.warn(e);
-      }
-      if (reviewRoute?.id === id) {
-        setReviewRoute(null);
-        setTrackingMode('idle');
-      }
+    setRouteToDelete(id);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!routeToDelete) return;
+    const updated = savedRoutes.filter(r => r.id !== routeToDelete);
+    setSavedRoutes(updated);
+    safeSetItem('rijschool_tracked_exams', JSON.stringify(updated));
+    if (reviewRoute?.id === routeToDelete) {
+      setReviewRoute(null);
+      setTrackingMode('idle');
     }
+    setRouteToDelete(null);
   };
 
   const formatDuration = (sec: number) => {
@@ -587,15 +338,15 @@ export default function ExamTracker({ lang, lessons, onRouteSaved }: ExamTracker
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3.5">
               <div>
-                <label className="text-slate-400 block mb-1.5 text-[10px] font-bold uppercase tracking-wider">
+                <label className="text-xs font-bold text-slate-500 dark:text-zinc-400 block mb-1.5">
                   {lang === 'ar' ? 'اختر المتدرب:' : 'Select Student:'}
                 </label>
                 <select
                   value={selectedStudent}
                   onChange={(e) => setSelectedStudent(e.target.value)}
-                  className="w-full p-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold dark:text-white"
+                  className="w-full h-8 px-3 py-1 text-xs font-semibold bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 >
                   {students.map((std, idx) => (
                     <option key={idx} value={std.name}>{std.name}</option>
@@ -661,13 +412,6 @@ export default function ExamTracker({ lang, lessons, onRouteSaved }: ExamTracker
                 <span className="text-slate-400 font-bold">{lang === 'ar' ? 'المدة الزمنية:' : 'Duration:'}</span>
                 <span className="font-black text-slate-850 dark:text-white font-mono">
                   {formatDuration(duration)}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-400 font-bold">{lang === 'ar' ? 'عدد الإحداثيات:' : 'Points Count:'}</span>
-                <span className="font-black text-blue-500 font-mono">
-                  {currentPoints.length}
                 </span>
               </div>
             </div>
@@ -739,7 +483,7 @@ export default function ExamTracker({ lang, lessons, onRouteSaved }: ExamTracker
           <div>
             <h2 className="font-extrabold text-sm tracking-wide uppercase flex items-center gap-1.5">
               <span>🗺️</span>
-              {lang === 'ar' ? 'نظام الأندلس للمسار والموقع الفعلي' : 'Al-Andalos Live GPS Trajectory Terminal'}
+              {lang === 'ar' ? 'تتبع درس القيادة المباشر' : 'Live Lesson Tracking'}
             </h2>
             <p className="text-[10px] text-slate-400 mt-0.5">
               {trackingMode === 'tracking' 
@@ -751,25 +495,34 @@ export default function ExamTracker({ lang, lessons, onRouteSaved }: ExamTracker
           </div>
         </div>
 
-        {/* Real Dynamic Leaflet Map Frame */}
-        <div className="h-[480px] rounded-3xl overflow-hidden border border-slate-100 dark:border-zinc-800 shadow-md relative bg-slate-100 dark:bg-zinc-950 z-10">
-          {trackingMode === 'idle' ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 space-y-3 z-20">
-              <Compass className="h-10 w-10 text-blue-500 animate-spin" style={{ animationDuration: '10s' }} />
-              <div>
-                <h4 className="font-extrabold text-slate-800 dark:text-white text-sm">
-                  {lang === 'ar' ? 'خريطة التتبع المباشر بالـ GPS' : 'Live GPS Tracker Map Terminal'}
-                </h4>
-                <p className="text-[11px] text-slate-450 max-w-sm mt-1">
-                  {lang === 'ar' 
-                    ? 'سيتم تفعيل الخريطة فوراً وعرض موقعك الفعلي ورسم مسارك التلقائي بمجرد النقر على "بدء تتبع الدرس".' 
-                    : 'The map container will initialize immediately, fetch your current real-time GPS location, and start drawing the path automatically.'}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div id="exam-leaflet-map-element" className="w-full h-full z-10"></div>
-          )}
+        {/* Real Dynamic Live Navigation Map Frame */}
+        <div className="h-[460px] lg:h-[480px] rounded-3xl overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-lg relative bg-slate-100 dark:bg-slate-900 z-10">
+          <LiveNavigationMap 
+            points={
+              trackingMode === 'tracking' 
+                ? currentPoints 
+                : trackingMode === 'review' && reviewRoute 
+                  ? reviewRoute.points.map(p => ('lat' in p ? p : { lat: 52.3892 + ((p as any).y - 350) * -0.0001, lng: 4.8378 + ((p as any).x - 320) * 0.0001 }))
+                  : []
+            }
+            isTracking={trackingMode === 'tracking'}
+            lang={lang}
+            height="100%"
+            studentName={selectedStudent || 'Student'}
+            activeLessonTitle={trackingMode === 'review' && reviewRoute ? reviewRoute.title : 'Driving Exam Track'}
+            elapsedSeconds={duration}
+            showTelemetry={false}
+            onLocationUpdate={(pt) => {
+              setCurrentPoints(prev => {
+                if (prev.length === 0) return [pt];
+                const last = prev[prev.length - 1];
+                if (getDistanceBetweenPoints(last, pt) >= 0.002) {
+                  return [...prev, pt];
+                }
+                return prev;
+              });
+            }}
+          />
         </div>
 
         {/* Recorded Exams History Archive */}
@@ -858,6 +611,49 @@ export default function ExamTracker({ lang, lessons, onRouteSaved }: ExamTracker
 
       </div>
 
+      {/* Beautiful Custom Deletion Warning Modal */}
+      {routeToDelete && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-2xl shrink-0">
+                <AlertTriangle className="h-6 w-6 stroke-[2]" />
+              </div>
+              <div className="space-y-1.5 flex-1">
+                <h4 className="font-extrabold text-slate-900 dark:text-white text-base flex items-center gap-1.5">
+                  <span>{lang === 'ar' ? '⚠️ تحذير: حذف مسار القيادة' : '⚠️ Warning: Delete Driving Route'}</span>
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 font-bold leading-relaxed">
+                  {lang === 'ar' 
+                    ? 'هل أنت متأكد من حذف مسار هذا الدرس العملي نهائياً من السجلات؟ لا يمكن التراجع عن هذا الإجراء لكي يبقى التطبيق نظيفاً.'
+                    : 'Are you sure you want to permanently delete this driving track? This action cannot be undone, to keep the application clean.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end pt-2 border-t border-slate-100 dark:border-zinc-850/60">
+              <button
+                type="button"
+                onClick={() => setRouteToDelete(null)}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-900 transition cursor-pointer"
+              >
+                {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-500/10 transition cursor-pointer"
+              >
+                {lang === 'ar' ? 'نعم، احذف السجل' : 'Yes, Delete Record'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
+
+const ExamTracker = React.memo(ExamTrackerComponent);
+export default ExamTracker;

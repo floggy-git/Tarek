@@ -3,7 +3,8 @@ import {
   User, Car, Award, Calendar, Wallet, FileText, Activity, Check, X
 } from 'lucide-react';
 import { Lesson, WalletTransaction, Assessment, Language } from '../types';
-import { getStudentPhoto, getStudentInitials } from '../utils/studentPhoto';
+import { getStudentPhoto, getStudentInitials, getTrainerPhoto } from '../utils/studentPhoto';
+import { getLocalTxDesc } from '../utils/translationHelper';
 
 interface DossierA4PagesProps {
   studentName: string;
@@ -20,7 +21,7 @@ interface DossierA4PagesProps {
   mode?: 'preview' | 'export';
 }
 
-export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
+const DossierA4PagesComponent: React.FC<DossierA4PagesProps> = ({
   studentName,
   lang,
   lessons,
@@ -54,11 +55,11 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
   const dltMap = {
     ar: {
       coverTitle: 'الملف التدريبي والتقييم الموحد للطالب',
-      coverSubtitle: 'أكاديمية الأندلس لتعليم القيادة بهولندا - كشف معتمد',
+      coverSubtitle: 'مدرسة القيادة المعتمدة - كشف رسمي',
       studentPortrait: 'صورة الطالب المعتمدة',
       dossierTitle: 'ملف تقييم الطالب والملخص المالي الموحد',
       subTitle: 'سجل تدريب معتمد ودفتر فواتير ضريبي رسمي',
-      licenseAuthority: 'ترخيص التدريب من هيئة المرور الهولندية (CBR)',
+      licenseAuthority: 'ترخيص وتوجيه مدرسة القيادة الرسمية',
       dossierRef: 'مرجع الملف',
       generatedDate: 'تاريخ الإصدار',
       trainer: 'المدرب المسؤول',
@@ -69,7 +70,7 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
       fullName: 'الاسم الكامل للمتدرب',
       dob: 'تاريخ الميلاد / العنوان',
       assignedPackage: 'الباقة المخصصة',
-      registrationDate: 'تاريخ التسجيل بالأكاديمية',
+      registrationDate: 'تاريخ التسجيل بمدرسة القيادة',
       progressCbr: 'نسبة التقدم والجاهزية للامتحان',
       walletBalance: 'رصيد محفظة الطالب',
       outstandingLessons: 'المستحقات غير المفوترة',
@@ -87,8 +88,8 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
       highwayDriving: 'القيادة والاندماج على الطرق السريعة والتجاوز',
       specialManeuvers: 'المناورات الخاصة بالركن والرجوع والانحدار',
       theorySigns: 'الوعي بقوانين السير وتوقع المخاطر',
-      cbrReadiness: 'مستوى الجاهزية لاختبار الـ CBR',
-      feedbackNotes: 'التوصيات والملاحظات النهائية من المدرب الكابتن سمير',
+      cbrReadiness: 'مستوى الجاهزية للامتحان العملي',
+      feedbackNotes: 'التوصيات والملاحظات النهائية من المدرب المسؤول',
       lessonsLogTitle: 'سجل دروس القيادة الميدانية المنجزة',
       dateTime: 'التاريخ والوقت',
       location: 'نقطة الانطلاق والمسار',
@@ -106,15 +107,15 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
       taxInvoicesTitle: 'الفواتير الضريبية والمستندات المالية الصادرة',
       reference: 'رقم المرجع الفاتوري',
       method: 'طريقة الدفع المعتمدة',
-      readinessCertificateTitle: 'شهادة الجاهزية الرسمية للامتحان العملي للـ CBR',
+      readinessCertificateTitle: 'شهادة الجاهزية الرسمية للامتحان العملي',
       certifiedReady: 'مستند تصديق الجاهزية - الطالب المعتمد',
-      readinessDesc: 'تشهد إدارة أكاديمية الأندلس لتعليم القيادة بأن المتدرب المذكور أعلاه قد أكمل بنجاح كافة الكفاءات المطلوبة وحصل على درجات تقييم ممتازة تؤهله رسمياً لاجتياز اختبار القيادة العملي النهائي التابع لبلدية أمستردام وهيئة الـ CBR بنجاح تام.',
-      cbrReadyBadge: '🏆 معتمد للـ CBR',
-      disclaimer: 'هذا الكشف رسمي ومعتمد وصادر إلكترونياً عن مدرسة الأندلس لتعليم القيادة بهولندا، وهو خاضع لشروط هيئة المرور والمواصلات الهولندية (CBR).',
-      allRightsReserved: 'جميع الحقوق محفوظة لأكاديمية الأندلس لتعليم القيادة والتعليم الفني بهولندا.',
+      readinessDesc: 'تشهد إدارة مدرسة القيادة بأن المتدرب المذكور أعلاه قد أكمل بنجاح كافة الكفاءات المطلوبة وحصل على درجات تقييم ممتازة تؤهله رسمياً لاجتياز اختبار القيادة العملي النهائي بنجاح تام.',
+      cbrReadyBadge: '🏆 جاهز للامتحان',
+      disclaimer: 'هذا الكشف رسمي ومعتمد وصادر إلكترونياً عن مدرسة القيادة.',
+      allRightsReserved: 'جميع الحقوق محفوظة لمدرسة القيادة والتعليم الفني.',
       officialStamp: 'الختم والتوقيع الرسمي',
-      instructorInfo: 'معلومات المدرب والترخيص',
-      finalRemarksTitle: 'التقييم الشامل وملاحظات الإدارة والمدرب الرئيسي',
+      instructorInfo: 'معلومات المدرب والمركبة',
+      finalRemarksTitle: 'التقييم الشامل وملاحظات الإدارة ومدرسة القيادة',
       technicalReview: 'التقرير الفني العام ومؤشرات المهارة الميدانية',
       recommendationsChecklist: 'توصيات التدريب والتوجيه الفني',
       instructorSignature: 'توقيع المدرب المسؤول',
@@ -122,11 +123,11 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
     },
     nl: {
       coverTitle: 'OFFICIEEL LEERLINGENDOSSIER & EVALUATIERAPPORT',
-      coverSubtitle: 'Al-Andalos Rijschool Nederland • Gecertificeerd Opleidingsdocument',
+      coverSubtitle: 'Erkende Rijschool • Gecertificeerd Opleidingsdocument',
       studentPortrait: 'PASFOTO KANDIDAAT',
       dossierTitle: 'Leerlingendossier & Financieel Evaluatierapport',
       subTitle: 'Officieel Trainingsdossier en Fiscaal Factuurgrootboek',
-      licenseAuthority: 'CBR Erkende Rijschool Licentiehouder',
+      licenseAuthority: 'Erkende Rijschool Licentiehouder',
       dossierRef: 'Dossier Ref',
       generatedDate: 'Uitgiftedatum',
       trainer: 'Hoofdinstructeur',
@@ -138,7 +139,7 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
       dob: 'Geboortedatum / Woonplaats',
       assignedPackage: 'Toegewezen Lespakket',
       registrationDate: 'Registratiedatum Academie',
-      progressCbr: 'Voortgang & CBR Examenstatus',
+      progressCbr: 'Voortgang & Examenstatus',
       walletBalance: 'Saldo Leskaart / Wallet',
       outstandingLessons: 'Niet-Gefactureerde Rijlessen',
       depositsPayments: 'Totaal Stortingen & Betalingen',
@@ -155,8 +156,8 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
       highwayDriving: 'Snelwegintegratie & Inhalen/Rijstrookwissel',
       specialManeuvers: 'Bijzondere Manoeuvres & Hellingproef',
       theorySigns: 'Verkeersinzicht, Borden & Gevaarherkenning',
-      cbrReadiness: 'CBR Examenbereidheid Niveau',
-      feedbackNotes: 'Evaluatie & Aanbevelingen van Instructeur Samir',
+      cbrReadiness: 'Examenbereidheid Niveau',
+      feedbackNotes: 'Evaluatie & Aanbevelingen van de Hoofdinstructeur',
       lessonsLogTitle: 'Gereden Rijlessen & Praktijkverslagen',
       dateTime: 'Datum & Tijdstip',
       location: 'Ophaallocatie / Route',
@@ -174,14 +175,14 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
       taxInvoicesTitle: 'Uitgegeven Fiscale Facturen',
       reference: 'Factuurnummer',
       method: 'Betaalmethode',
-      readinessCertificateTitle: 'CBR Examenbereidheidscertificaat',
+      readinessCertificateTitle: 'Examenbereidheidscertificaat',
       certifiedReady: 'Geverifieerd & Examenklaar Bevonden - Kandidaat',
-      readinessDesc: 'Al-Andalos Rijschool verklaart hierbij dat de bovengenoemde leerling alle vereiste rijvaardigheden en examenonderdelen succesvol heeft doorlopen en met uitstekende resultaten is klaargestoomd voor het officiële CBR praktijkexamen in de regio Amsterdam.',
-      cbrReadyBadge: '🏆 CBR KLAAR',
-      disclaimer: 'Dit is een officieel en geverifieerd lesdocument uitgegeven door Al-Andalos Rijschool, gecertificeerd volgens de richtlijnen van het CBR.',
-      allRightsReserved: 'Alle rechten voorbehouden © Al-Andalos Rijschool & Educatie Nederland.',
+      readinessDesc: 'Onze Rijschool verklaart hierbij dat de bovengenoemde leerling alle vereiste rijvaardigheden en examenonderdelen succesvol heeft doorlopen en met uitstekende resultaten is klaargestoomd voor het officiële praktijkexamen.',
+      cbrReadyBadge: '🏆 EXAMENKLAAR',
+      disclaimer: 'Dit is een officieel en geverifieerd lesdocument uitgegeven door onze Rijschool.',
+      allRightsReserved: 'Alle rechten voorbehouden © Erkende Rijschool & Educatie.',
       officialStamp: 'Handtekening & Stempel',
-      instructorInfo: 'Instructeursinformatie & Licenties',
+      instructorInfo: 'Instructeursinformatie & Voertuig',
       finalRemarksTitle: 'Eindevaluatie, Instructeursadvies & Officiële Verificatie',
       technicalReview: 'Technische Rijvaardigheid & Praktische Beoordeling',
       recommendationsChecklist: 'Aanbevelingen & Gerichte Aandachtspunten',
@@ -190,11 +191,11 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
     },
     en: {
       coverTitle: 'OFFICIAL STUDENT TRAINING DOSSIER & REPORT',
-      coverSubtitle: 'Al-Andalos Driving Academy Netherlands • Certified Record Book',
+      coverSubtitle: 'Accredited Driving School • Certified Record Book',
       studentPortrait: 'CANDIDATE PORTRAIT',
       dossierTitle: 'Student Dossier & Financial Ledger',
-      subTitle: 'Official Training Progress File & Tax Compliant Statement',
-      licenseAuthority: 'CBR Accredited Training Center',
+      subTitle: 'Official Training Progress File & Statement',
+      licenseAuthority: 'Accredited Driving School Training Center',
       dossierRef: 'Dossier Ref',
       generatedDate: 'Date Issued',
       trainer: 'Lead Instructor',
@@ -206,7 +207,7 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
       dob: 'Date of Birth / City',
       assignedPackage: 'Assigned Package',
       registrationDate: 'Registration Date',
-      progressCbr: 'Course Progress & CBR Standing',
+      progressCbr: 'Course Progress & Exam Readiness',
       walletBalance: 'Student Wallet Balance',
       outstandingLessons: 'Unbilled Outstanding Balance',
       depositsPayments: 'Deposits / Training Value Delivered',
@@ -223,8 +224,8 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
       highwayDriving: 'Highway Merging & High-Speed Lane Changes',
       specialManeuvers: 'Precision Maneuvers & Hill/Slope Starts',
       theorySigns: 'Traffic Signage Comprehension & Hazard Prevention',
-      cbrReadiness: 'CBR Practical Exam Readiness Level',
-      feedbackNotes: "Captain Samir's Written Observations & Feedback",
+      cbrReadiness: 'Practical Exam Readiness Level',
+      feedbackNotes: "Lead Instructor's Written Observations & Feedback",
       lessonsLogTitle: 'Comprehensive Road Practice Log',
       dateTime: 'Date & Time',
       location: 'Pickup/Route Location',
@@ -242,15 +243,15 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
       taxInvoicesTitle: 'Issued Fiscale Tax Invoices',
       reference: 'Invoice Reference',
       method: 'Method',
-      readinessCertificateTitle: 'CBR Examination Readiness Certificate',
+      readinessCertificateTitle: 'Practical Examination Readiness Certificate',
       certifiedReady: 'Readiness Verification — Certified Candidate',
-      readinessDesc: 'Al-Andalos Driving Academy hereby certifies that the student named above has completed comprehensive training, scoring excellent marks across all driving disciplines, and is officially declared fully prepared for the CBR Practical Driving Examination in Amsterdam.',
-      cbrReadyBadge: '🏆 CBR READY',
-      disclaimer: 'This document is an official training file record and tax ledger statement issued by Al-Andalos, compliant with the standards set by the CBR (Central Office for Motor Vehicle Driver Testing).',
-      allRightsReserved: 'All rights reserved © Al-Andalos Driving Academy & Educatie Netherlands.',
+      readinessDesc: 'Our Driving School hereby certifies that the student named above has completed comprehensive training, scoring excellent marks across all driving disciplines, and is officially declared fully prepared for the Practical Driving Examination.',
+      cbrReadyBadge: '🏆 EXAM READY',
+      disclaimer: 'This document is an official training file record and statement issued by our Driving School.',
+      allRightsReserved: 'All rights reserved © Accredited Driving School.',
       officialStamp: 'Official Authorization Seal & Signature',
       instructorInfo: 'Instructor Credentials & Vehicle Info',
-      finalRemarksTitle: 'Final Evaluation, Technical Advice & Academy Verification',
+      finalRemarksTitle: 'Final Evaluation, Technical Advice & School Verification',
       technicalReview: 'Overall Driving Performance & Core Mastery Review',
       recommendationsChecklist: 'Strategic Development Recommendations',
       instructorSignature: 'Lead Instructor Signature',
@@ -267,9 +268,9 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
     name: studentName,
     package: "Compleet Rijopleiding Pakket",
     dob: "12-04-2002",
-    city: "Amsterdam",
+    city: "Maastricht",
     regDate: "15-01-2026",
-    email: "student@al-andalos.nl",
+    email: "student@drivingschool.nl",
     phone: "+31 6 12345678",
     progress: "85%",
     examStatus: "In Progress",
@@ -277,11 +278,28 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
   };
 
   const safeSchoolSettings = schoolSettings || {
-    name: "Al-Andalos Rijschool",
-    instructorName: "Samir El-Filali",
+    name: "Driving School",
+    instructorName: "Lead Instructor",
     kvk: "84729384",
-    btw: "NL847293842B01"
+    btw: "NL847293842B01",
+    city: "Maastricht",
+    address: "Maastricht, Netherlands"
   };
+
+  // Derive training vehicle configuration
+  const vehicleName = safeSchoolSettings?.primaryVehicle?.trim();
+  const transType = safeSchoolSettings?.transmissionType || safeProfile?.transmissionType;
+  const transLabel = transType === 'automatic'
+    ? (lang === 'ar' ? 'أوتوماتيك' : lang === 'nl' ? 'Automaat' : 'Automatic')
+    : transType === 'manual'
+      ? (lang === 'ar' ? 'يدوي' : lang === 'nl' ? 'Handgeschakeld' : 'Manual')
+      : transType === 'both'
+        ? (lang === 'ar' ? 'يدوي / أوتوماتيك' : lang === 'nl' ? 'Hand & Automaat' : 'Manual & Automatic')
+        : '';
+
+  const vehicleDisplay = vehicleName
+    ? (transLabel ? `${vehicleName} (${transLabel})` : vehicleName)
+    : null;
 
   // Gather student statistics
   const studentLessons = lessons.filter(l => studentNamesMatch(l.studentName, studentName));
@@ -336,9 +354,10 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
     } else if (isMichael) {
       scControl = 10; scPriority = 9; scHighway = 10; scManeuvers = 9; scTheory = 10;
       cbrReadiness = "cbr_ready";
+      const schCity = safeSchoolSettings?.city || "Maastricht";
       reportNotes = lang === 'ar'
-        ? "أداء قيادة استثنائي ورائع! التحكم بالسيارة والسرعة والملاحظة المرورية كلها في مستوى الامتياز. جاهز تماماً للاختبار العملي لبلدية أمستردام."
-        : "Exceptional and outstanding driving performance! Vehicle control, speed merging, and observational safety are all at excellence level. Fully ready for the Amsterdam CBR practical test.";
+        ? `أداء قيادة استثنائي ورائع! التحكم بالسيارة والسرعة والملاحظة المرورية كلها في مستوى الامتياز. جاهز تماماً للاختبار العملي لبلدية ${schCity}.`
+        : `Exceptional and outstanding driving performance! Vehicle control, speed merging, and observational safety are all at excellence level. Fully ready for the ${schCity} practical driving test.`;
     }
   }
 
@@ -447,10 +466,14 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
       <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-4 shrink-0" dir={isRTL ? 'rtl' : 'ltr'}>
         <div className="flex items-center gap-3">
           {/* Professional Gold-Accent Logo */}
-          <div className="w-9 h-9 rounded-lg bg-slate-950 flex flex-col items-center justify-center border border-amber-500 relative shadow-sm shrink-0">
-            <span className="text-amber-400 font-extrabold text-[12px] leading-none">A</span>
-            <span className="text-white text-[5.5px] font-black tracking-widest leading-none mt-0.5">ANDALOS</span>
-          </div>
+          {schoolSettings?.logoUrl ? (
+            <img src={schoolSettings.logoUrl} alt="School Logo" className="w-9 h-9 rounded-lg object-contain shadow-sm shrink-0 bg-white border border-slate-200" referrerPolicy="no-referrer" />
+          ) : (
+            <div className="w-9 h-9 rounded-lg bg-slate-950 flex flex-col items-center justify-center border border-amber-500 relative shadow-sm shrink-0">
+              <span className="text-amber-400 font-extrabold text-[12px] leading-none">{(safeSchoolSettings.name || 'S')[0].toUpperCase()}</span>
+              <span className="text-white text-[5.5px] font-black tracking-widest leading-none mt-0.5">{(safeSchoolSettings.shortName || safeSchoolSettings.name || 'SCHOOL').substring(0,6).toUpperCase()}</span>
+            </div>
+          )}
           <div className="text-left">
             <p className="font-sans font-black text-[11px] text-slate-900 leading-tight tracking-tight uppercase">
               {safeSchoolSettings.name}
@@ -476,7 +499,7 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
           {dlt.disclaimer}
         </p>
         <p className="mt-0.5 font-mono text-[6.5px] text-slate-400">
-          {dlt.allRightsReserved} KvK: {safeSchoolSettings.kvk} • BTW: {safeSchoolSettings.btw} • Official CBR Accreditations
+          {dlt.allRightsReserved} KvK: {safeSchoolSettings.kvk} • BTW: {safeSchoolSettings.btw}
         </p>
         {customNotes && (
           <p className="mt-1 text-blue-600 font-bold italic text-[8px]">
@@ -551,8 +574,8 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
                     <p className="text-[7px] text-slate-500 font-bold uppercase mt-2 tracking-wider text-center leading-tight">
                       {dlt.studentPortrait}
                     </p>
-                    <div className="absolute bottom-1 right-1 px-1 py-0.5 bg-amber-500 text-slate-950 font-mono text-[5px] font-black rounded uppercase">
-                      CBR
+                    <div className="absolute bottom-1 right-1 px-1 py-0.5 bg-blue-600 text-white font-mono text-[5px] font-black rounded uppercase">
+                      PASS
                     </div>
                   </div>
                 )}
@@ -581,14 +604,23 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
                 <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100 dark:border-zinc-800">
                   <div>
                     <span className="text-[8px] uppercase text-slate-400 dark:text-zinc-500 font-bold block">{dlt.trainer}</span>
-                    <span className="font-extrabold text-slate-900 dark:text-zinc-100 mt-0.5 block">{safeSchoolSettings.instructorName}</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {getTrainerPhoto(safeSchoolSettings.instructorName) && (
+                        <img src={getTrainerPhoto(safeSchoolSettings.instructorName)!} alt="Trainer" className="w-4 h-4 rounded-full object-cover shrink-0 border border-slate-200 dark:border-zinc-700" />
+                      )}
+                      <span className="font-extrabold text-slate-900 dark:text-zinc-100 block">{safeSchoolSettings.instructorName}</span>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-[8px] uppercase text-slate-400 dark:text-zinc-500 font-bold block">Vehicle</span>
-                    <span className="font-bold text-slate-700 dark:text-zinc-300 mt-0.5 block">
-                      Golf VIII ({safeProfile.transmissionType === 'automatic' ? (lang === 'ar' ? 'أوتوماتيك' : lang === 'nl' ? 'Automaat' : 'Automatic') : (lang === 'ar' ? 'يدوي' : lang === 'nl' ? 'Handgeschakeld' : 'Manual')})
-                    </span>
-                  </div>
+                  {vehicleDisplay && (
+                    <div>
+                      <span className="text-[8px] uppercase text-slate-400 dark:text-zinc-500 font-bold block">
+                        {lang === 'ar' ? 'المركبة التدريبية' : lang === 'nl' ? 'Lesvoertuig' : 'Training Vehicle'}
+                      </span>
+                      <span className="font-bold text-slate-700 dark:text-zinc-300 mt-0.5 block">
+                        {vehicleDisplay}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -744,7 +776,7 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
                   <div key={tr.id} className="p-2.5 bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-xl flex items-center justify-between text-[10px]">
                     <div>
                       <span className="font-mono font-bold text-slate-900 dark:text-zinc-200 block">{tr.date}</span>
-                      <span className="text-slate-500 dark:text-zinc-400 text-[9px] mt-0.5 block">{tr.description}</span>
+                      <span className="text-slate-500 dark:text-zinc-400 text-[9px] mt-0.5 block">{getLocalTxDesc(tr, lang)}</span>
                     </div>
                     <div className="text-right">
                       <span className={`px-1.5 py-0.5 text-[8px] uppercase font-bold rounded block text-center mb-1 ${
@@ -795,7 +827,7 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
                     </div>
 
                     <div className="text-[9px] text-slate-600 dark:text-zinc-400 flex justify-between items-center">
-                      <span>{inv.date} • {inv.description}</span>
+                      <span>{inv.date} • {getLocalTxDesc(inv as any, lang)}</span>
                       <span className="font-mono font-black text-slate-900 dark:text-zinc-200">€{inv.amount.toFixed(2)}</span>
                     </div>
                   </div>
@@ -857,13 +889,13 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
                       {dlt.certifiedReady}
                     </p>
                     <p className="text-slate-600 dark:text-zinc-400 leading-tight text-[8px]">
-                      {dlt.readinessDesc}
+                      {dlt.readinessDesc.replace(/Amsterdam/g, safeSchoolSettings.city || "Maastricht").replace(/أمستردام/g, safeSchoolSettings.city || "ماستريخت")}
                     </p>
                   </div>
 
                   <div className="flex flex-col items-center shrink-0">
                     <div className="w-12 h-12 rounded-full border-double border-2 border-amber-600 flex flex-col items-center justify-center text-center p-1 rotate-[-3deg] bg-white/70 shadow-sm">
-                      <div className="text-[3px] font-extrabold uppercase text-amber-600 leading-none">AL-ANDALOS</div>
+                      <div className="text-[3px] font-extrabold uppercase text-amber-600 leading-none">{(safeSchoolSettings.shortName || safeSchoolSettings.name || 'SCHOOL').substring(0, 10).toUpperCase()}</div>
                       <div className="text-[4px] font-black uppercase text-amber-600 mt-0.5">★ READY ★</div>
                     </div>
                   </div>
@@ -877,9 +909,9 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
                 <div className="flex justify-center">
                   <div className="relative w-16 h-16 flex items-center justify-center rounded-full border border-dashed border-red-600/50 text-red-600/60 p-1 font-mono uppercase text-center rotate-[-4deg] select-none shadow-xs">
                     <div className="leading-none scale-90">
-                      <p className="text-[3px] font-black">AL-ANDALOS</p>
+                      <p className="text-[3px] font-black">{(safeSchoolSettings.shortName || safeSchoolSettings.name || 'SCHOOL').substring(0, 10).toUpperCase()}</p>
                       <p className="text-[4.5px] font-black text-red-600">★ VERIFIED ★</p>
-                      <p className="text-[3px] font-bold">AMSTERDAM</p>
+                      <p className="text-[3px] font-bold">{(safeSchoolSettings.city || 'Maastricht').toUpperCase()}</p>
                     </div>
                   </div>
                 </div>
@@ -952,19 +984,23 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
               <div className="flex items-center justify-between border-b-2 border-slate-900 pb-3">
                 <div className="flex items-center gap-3">
                   {/* Grand School Logo */}
-                  <div className="w-12 h-12 rounded-lg bg-slate-950 flex flex-col items-center justify-center border-2 border-amber-500 shadow-sm shrink-0">
-                    <Award className="h-6 w-6 text-amber-400" />
-                    <span className="text-[5px] font-black tracking-widest text-white leading-none mt-0.5">ANDALOS</span>
-                  </div>
+                  {schoolSettings?.logoUrl ? (
+                    <img src={schoolSettings.logoUrl} alt="School Logo" className="w-12 h-12 rounded-lg object-contain shadow-sm shrink-0 bg-white border border-slate-200" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-slate-950 flex flex-col items-center justify-center border-2 border-amber-500 shadow-sm shrink-0">
+                      <Award className="h-6 w-6 text-amber-400" />
+                      <span className="text-[5px] font-black tracking-widest text-white leading-none mt-0.5">{(safeSchoolSettings.shortName || safeSchoolSettings.name || 'SCHOOL').substring(0, 8).toUpperCase()}</span>
+                    </div>
+                  )}
                   <div className="text-left animate-none">
                     <h2 className="text-[11px] font-black tracking-tight text-slate-900 uppercase">
                       {safeSchoolSettings.name}
                     </h2>
                     <p className="text-[7.5px] text-slate-500 font-bold tracking-wide uppercase mt-0.5">
-                      {dlt.licenseAuthority} • AMSTERDAM
+                      {dlt.licenseAuthority} • {(safeSchoolSettings.city || 'Maastricht').toUpperCase()}
                     </p>
                     <p className="text-[7px] text-slate-400 font-mono">
-                      KvK: {safeSchoolSettings.kvk || '82937402'} • BTW: {safeSchoolSettings.btw || 'NL82937402B01'}
+                      KvK: {safeSchoolSettings.kvk || '[Niet geconfigureerd]'} • BTW: {safeSchoolSettings.btw || '[Niet geconfigureerd]'}
                     </p>
                   </div>
                 </div>
@@ -988,22 +1024,33 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
               <div className="grid grid-cols-12 gap-5 items-start">
                 {/* Left: Passport photo placeholder (4 cols) */}
                 <div className="col-span-4 flex justify-start">
-                  <div className="flex flex-col items-center justify-center p-3 border border-slate-200 bg-slate-50 rounded-lg h-[140px] w-[105px] shadow-xs relative overflow-hidden shrink-0">
-                    <div className="absolute top-1 left-1 px-1 py-0.5 bg-blue-600 text-white font-mono text-[4.5px] font-bold rounded">
-                      NL
-                    </div>
-                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-400 border border-slate-300">
-                      <User className="h-5 w-5 text-slate-400/80" />
-                    </div>
-                    <p className="text-[6.5px] text-slate-500 font-bold uppercase mt-3 tracking-wider text-center leading-tight">
-                      {dlt.studentPortrait}
-                    </p>
-                    <p className="text-[5px] text-slate-400 font-semibold uppercase tracking-widest text-center mt-0.5">
-                      PASFOTO KANDIDAAT
-                    </p>
-                    <div className="absolute bottom-1 right-1 px-1 py-0.5 bg-amber-500 text-slate-950 font-mono text-[4.5px] font-black rounded uppercase">
-                      CBR
-                    </div>
+                  <div className="flex flex-col items-center justify-center p-1 border border-slate-200 bg-slate-50 rounded-lg h-[140px] w-[105px] shadow-xs relative overflow-hidden shrink-0">
+                    {getStudentPhoto(studentName) ? (
+                      <img 
+                        src={getStudentPhoto(studentName)!} 
+                        alt={studentName} 
+                        className="w-full h-full object-cover rounded-md"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center p-2 w-full h-full">
+                        <div className="absolute top-1 left-1 px-1 py-0.5 bg-blue-600 text-white font-mono text-[4.5px] font-bold rounded">
+                          NL
+                        </div>
+                        <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-400 border border-slate-300">
+                          <User className="h-5 w-5 text-slate-400/80" />
+                        </div>
+                        <p className="text-[6.5px] text-slate-500 font-bold uppercase mt-3 tracking-wider text-center leading-tight">
+                          {dlt.studentPortrait}
+                        </p>
+                        <p className="text-[5px] text-slate-400 font-semibold uppercase tracking-widest text-center mt-0.5">
+                          PASFOTO KANDIDAAT
+                        </p>
+                        <div className="absolute bottom-1 right-1 px-1 py-0.5 bg-blue-600 text-white font-mono text-[4.5px] font-black rounded uppercase">
+                          PASS
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1044,15 +1091,24 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
                     <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[8px] text-slate-600 mt-2">
                       <div>
                         <span className="block text-[6px] uppercase text-slate-400 font-bold">{dlt.trainer}</span>
-                        <span className="font-extrabold text-slate-900 mt-0.5 block">{safeSchoolSettings.instructorName}</span>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {getTrainerPhoto(safeSchoolSettings.instructorName) && (
+                            <img src={getTrainerPhoto(safeSchoolSettings.instructorName)!} alt="Trainer" className="w-3.5 h-3.5 rounded-full object-cover shrink-0 border border-slate-200" />
+                          )}
+                          <span className="font-extrabold text-slate-900 block">{safeSchoolSettings.instructorName}</span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="block text-[6px] uppercase text-slate-400 font-bold">Training Vehicle</span>
-                        <span className="font-bold text-slate-700 mt-0.5 block">Volkswagen Golf VIII (Manual)</span>
-                      </div>
+                      {vehicleDisplay && (
+                        <div>
+                          <span className="block text-[6px] uppercase text-slate-400 font-bold">
+                            {lang === 'ar' ? 'المركبة التدريبية' : lang === 'nl' ? 'Lesvoertuig' : 'Training Vehicle'}
+                          </span>
+                          <span className="font-bold text-slate-700 mt-0.5 block">{vehicleDisplay}</span>
+                        </div>
+                      )}
                       <div>
                         <span className="block text-[6px] uppercase text-slate-400 font-bold">Instructor Credentials</span>
-                        <span className="font-mono text-slate-700 mt-0.5 block">WRM-8849-ANDALOS</span>
+                        <span className="font-mono text-slate-700 mt-0.5 block">WRM-8849-CERT</span>
                       </div>
                       <div>
                         <span className="block text-[6px] uppercase text-slate-400 font-bold">Report Reference ID</span>
@@ -1067,8 +1123,8 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
               <div className="pt-8 border-t border-slate-200 flex justify-between items-end text-[7px] text-slate-400">
                 <div className="space-y-0.5 text-left">
                   <p className="font-bold text-slate-500">Official Certification Authority</p>
-                  <p>Bureau Al-Andalos Driving Education & CBR Exam Preparatory Center</p>
-                  <p className="font-mono">Amsterdam West, Netherlands</p>
+                  <p>Bureau {safeSchoolSettings.name || 'Driving Education'} & CBR Exam Preparatory Center</p>
+                  <p className="font-mono">{safeSchoolSettings.address || `${safeSchoolSettings.city || 'Maastricht'}, Netherlands`}</p>
                 </div>
                 <div className="text-right font-mono space-y-0.5">
                   <p className="font-bold text-slate-600">ISSUE DATE: {new Date().toISOString().split('T')[0]}</p>
@@ -1208,7 +1264,7 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
 
                   {/* Progress details comment */}
                   <div className="pt-2 border-t border-slate-200/60 flex justify-between items-center text-[8px] text-slate-400">
-                    <span>Evaluation Index verified by Al-Andalos Administrative Desk</span>
+                    <span>Evaluation Index verified by Driving School Administrative Desk</span>
                     <span className="font-mono font-bold text-slate-500">ACCURACY RATING: HIGHLY ACCURATE (98%)</span>
                   </div>
                 </div>
@@ -1345,7 +1401,7 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
                               </span>
                             </td>
                             <td className="p-2 font-semibold text-slate-700">
-                              {tr.description} {tr.invoiceId && <span className="text-slate-400 font-mono">({tr.invoiceId})</span>}
+                              {getLocalTxDesc(tr, lang)} {tr.invoiceId && <span className="text-slate-400 font-mono">({tr.invoiceId})</span>}
                             </td>
                             <td className={`p-2 pr-3 text-right font-mono font-extrabold whitespace-nowrap ${
                               tr.type === 'deposit' ? 'text-emerald-600' : 'text-slate-800'
@@ -1392,7 +1448,7 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
                           <tr key={inv.invoiceId} className="hover:bg-slate-50/50 even:bg-slate-50/20 break-inside-avoid">
                             <td className="p-2.5 pl-3 font-mono font-black text-blue-600">{inv.invoiceId}</td>
                             <td className="p-2.5 font-mono">{inv.date}</td>
-                            <td className="p-2.5 truncate max-w-[150px] font-medium">{inv.description}</td>
+                            <td className="p-2.5 truncate max-w-[150px] font-medium">{getLocalTxDesc(inv as any, lang)}</td>
                             <td className="p-2.5 text-right font-mono font-black text-slate-900">€{inv.amount.toFixed(2)}</td>
                             <td className="p-2.5 text-center capitalize font-semibold">{inv.paymentMethod}</td>
                             <td className="p-2.5 pr-3 text-center">
@@ -1474,14 +1530,14 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
                         {dlt.certifiedReady} — {studentName}
                       </p>
                       <p className="text-slate-600 leading-normal">
-                        {dlt.readinessDesc}
+                        {dlt.readinessDesc.replace(/Amsterdam/g, safeSchoolSettings.city || "Maastricht").replace(/أمستردام/g, safeSchoolSettings.city || "ماستريخت")}
                       </p>
                     </div>
 
                     {/* Seal */}
                     <div className="flex flex-col items-center shrink-0">
                       <div className="w-16 h-16 rounded-full border-double border-2 border-amber-600 flex flex-col items-center justify-center text-center p-1 rotate-[-3deg] relative bg-white/70 shadow-sm">
-                        <div className="text-[4.5px] font-extrabold uppercase tracking-widest text-amber-600 leading-tight">AL-ANDALOS</div>
+                        <div className="text-[4.5px] font-extrabold uppercase tracking-widest text-amber-600 leading-tight">{(safeSchoolSettings.shortName || safeSchoolSettings.name || 'SCHOOL').substring(0, 10).toUpperCase()}</div>
                         <div className="text-[6px] font-black uppercase text-amber-600 tracking-wider">★ CERTIFIED ★</div>
                         <div className="text-[4px] font-bold text-amber-500/80 uppercase mt-0.5">EXAM READY</div>
                       </div>
@@ -1493,15 +1549,19 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
                 {/* Signatures Area */}
                 <div className="grid grid-cols-12 gap-4 pt-4 border-t border-slate-200">
                   <div className="col-span-5 flex items-center justify-center border-r border-slate-100 pr-2">
-                    <div className="relative w-20 h-20 flex items-center justify-center rounded-full border-2 border-dashed border-red-600/60 text-red-600/70 p-1.5 font-mono uppercase text-center rotate-[-6deg] select-none scale-95 shadow-xs">
-                      <div className="absolute inset-0.5 rounded-full border border-red-500/20"></div>
-                      <div className="space-y-0.5 leading-none">
-                        <p className="text-[4.5px] font-black tracking-wider">AL-ANDALOS</p>
-                        <p className="text-[6px] font-black text-red-600 tracking-widest">★ VERIFIED ★</p>
-                        <p className="text-[4.5px] font-bold text-red-500/60">AMSTERDAM</p>
-                        <p className="text-[3.5px] font-bold text-red-500/50 mt-1 font-mono">OFFICIAL SEAL</p>
+                    {schoolSettings?.schoolStamp ? (
+                      <img src={schoolSettings.schoolStamp} alt="Official School Stamp" className="max-h-16 max-w-[120px] object-contain rotate-[-4deg]" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="relative w-20 h-20 flex items-center justify-center rounded-full border-2 border-dashed border-red-600/60 text-red-600/70 p-1.5 font-mono uppercase text-center rotate-[-6deg] select-none scale-95 shadow-xs">
+                        <div className="absolute inset-0.5 rounded-full border border-red-500/20"></div>
+                        <div className="space-y-0.5 leading-none">
+                          <p className="text-[4.5px] font-black tracking-wider">{(safeSchoolSettings.shortName || safeSchoolSettings.name || 'SCHOOL').substring(0, 10).toUpperCase()}</p>
+                          <p className="text-[6px] font-black text-red-600 tracking-widest">★ VERIFIED ★</p>
+                          <p className="text-[4.5px] font-bold text-red-500/60">{(schoolSettings?.city || 'Maastricht').toUpperCase()}</p>
+                          <p className="text-[3.5px] font-bold text-red-500/50 mt-1 font-mono">OFFICIAL SEAL</p>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   <div className="col-span-7 flex flex-col gap-3.5 pl-2">
@@ -1512,9 +1572,13 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
                             {dlt.instructorSignature}
                           </span>
                           <div className="h-10 border-b border-slate-200 relative flex items-center justify-center bg-slate-50 rounded-t-lg overflow-hidden">
-                            <span className="font-serif text-xs text-blue-600 font-bold italic rotate-[-2deg] tracking-wide select-none">
-                              {signatoryName}
-                            </span>
+                            {schoolSettings?.instructorSignature ? (
+                              <img src={schoolSettings.instructorSignature} alt="Instructor Signature" className="max-h-10 object-contain rotate-[-1deg]" referrerPolicy="no-referrer" />
+                            ) : (
+                              <span className="font-serif text-xs text-blue-600 font-bold italic rotate-[-2deg] tracking-wide select-none">
+                                {signatoryName}
+                              </span>
+                            )}
                           </div>
                           <span className="text-[7px] text-slate-500 font-bold mt-1 block">{signatoryName}</span>
                           <span className="text-[5.5px] text-slate-400 font-mono block">Licensed CBR Coach</span>
@@ -1550,3 +1614,5 @@ export const DossierA4Pages: React.FC<DossierA4PagesProps> = ({
     </div>
   );
 };
+
+export const DossierA4Pages = React.memo(DossierA4PagesComponent);

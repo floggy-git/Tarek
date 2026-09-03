@@ -19,6 +19,20 @@ export interface EmailDetails {
   vatAmount?: number;
   grandTotal?: number;
   notes?: string;
+  cancellationReason?: string;
+  cancellationNotes?: string;
+  paymentLink?: string;
+  lessonId?: string;
+  lessonNumber?: number | string;
+  lang?: string;
+  whatsappNumber?: string;
+  website?: string;
+  logoUrl?: string;
+  primaryColor?: string;
+  kvk?: string;
+  openingHours?: string;
+  city?: string;
+  postalCode?: string;
   // Extra fields for dossier
   studentId?: string;
   package?: string;
@@ -39,6 +53,9 @@ export interface EmailDetails {
   phone?: string;
   email?: string;
   address?: string;
+  transmissionType?: string;
+  vehicleModel?: string;
+  icsContent?: string;
 }
 
 /**
@@ -47,7 +64,7 @@ export interface EmailDetails {
  */
 export async function sendAppEmail(
   toName: string,
-  type: 'booking' | 'cancellation' | 'completion' | 'deposit' | 'invoice' | 'dossier',
+  type: 'booking' | 'cancellation' | 'completion' | 'deposit' | 'invoice' | 'dossier' | 'reminder',
   details: EmailDetails,
   pdfBase64?: string
 ) {
@@ -83,97 +100,408 @@ export async function sendAppEmail(
   }
 }
 
-function getEmailSubject(type: string, details: EmailDetails): string {
-  switch (type) {
-    case 'booking':
-      return `🚙 تم تأكيد حجز درس القيادة الخاص بك - مدرسة الأندلس للقيادة`;
-    case 'cancellation':
-      return `⚠️ تنبيه: تم إلغاء درس القيادة الخاص بك - مدرسة الأندلس للقيادة`;
-    case 'completion':
-      return `📝 تقرير درس القيادة وملاحظات المدرب سمير - مدرسة الأندلس`;
-    case 'deposit':
-      return `💰 تأكيد شحن رصيد محفظتك الرقمية - مدرسة الأندلس`;
-    case 'invoice':
-      return `🧾 فاتورة ضريبية رسمية جديدة (${details.invoiceId || 'INV'}) - مدرسة الأندلس`;
-    case 'dossier':
-      return `📋 ملف الطالب والتقرير الشامل للتدريب - مدرسة الأندلس للقيادة | Al-Andalus Dossier`;
-    default:
-      return `🔔 إشعار جديد من مدرسة الأندلس للقيادة`;
+export interface DirectEmailPayload {
+  to: string;
+  subject: string;
+  html: string;
+  pdfBase64?: string;
+}
+
+/**
+ * Dispatches a direct email notification with custom HTML and optional PDF attachment.
+ */
+export async function sendEmailNotification(payload: DirectEmailPayload) {
+  try {
+    const encodedBody = new TextEncoder().encode(JSON.stringify(payload));
+    const response = await fetch('/api/send-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8'
+      },
+      body: encodedBody
+    });
+    return await response.json();
+  } catch (error) {
+    console.warn("Direct email notification error:", error);
+    return { success: false, error: String(error) };
   }
 }
 
-function getEmailHtml(toName: string, type: 'booking' | 'cancellation' | 'completion' | 'deposit' | 'invoice' | 'dossier', details: EmailDetails): string {
+function getEmailSubject(type: string, details: EmailDetails): string {
+  const sName = details.schoolName || 'Driving School';
+  const lang = details.lang || 'ar';
+  switch (type) {
+    case 'reminder':
+      if (lang === 'nl') return `Betalingsherinnering rijles - ${sName}`;
+      if (lang === 'en') return `Driving Lesson Payment Reminder - ${sName}`;
+      return `تذكير بمستحقات درس القيادة - ${sName}`;
+    case 'booking':
+      return `تم تأكيد حجز درس القيادة الخاص بك - ${sName}`;
+    case 'cancellation':
+      return `تنبيه: تم إلغاء درس القيادة الخاص بك - ${sName}`;
+    case 'completion':
+      return `تقرير درس القيادة وملاحظات المدرب - ${sName}`;
+    case 'deposit':
+      return `تأكيد شحن رصيد محفظتك الرقمية - ${sName}`;
+    case 'invoice':
+      return `فاتورة ضريبية رسمية جديدة (${details.invoiceId || 'INV'}) - ${sName}`;
+    case 'dossier':
+      return `ملف الطالب والتقرير الشامل للتدريب - ${sName}`;
+    default:
+      return `إشعار جديد من ${sName}`;
+  }
+}
+
+function getEmailHtml(toName: string, type: 'booking' | 'cancellation' | 'completion' | 'deposit' | 'invoice' | 'dossier' | 'reminder', details: EmailDetails): string {
   const dateStr = details.date || new Date().toISOString().split('T')[0];
   const timeStr = details.time || '10:00';
+  const schoolName = details.schoolName || 'مدرسة القيادة المعتمدة';
+  const lang = details.lang || 'ar';
+  const isRtl = lang === 'ar';
   
   // Style config variables
   const primaryColor = "#0f172a"; // Slate-900
   const accentColor = "#1e40af"; // Blue-800
   const goldColor = "#d97706"; // Amber-600
+
+  // Dedicated Premium / Minimal Payment Reminder Email Layout
+  if (type === 'reminder') {
+    const brandColor = details.primaryColor || "#0f172a";
+    const greetingText = lang === 'ar' 
+      ? `مرحباً ${toName || 'بك'}،` 
+      : lang === 'nl' 
+        ? `Beste ${toName || 'student'},` 
+        : `Hello ${toName || 'there'},`;
+    
+    const subgreetingText = lang === 'ar' 
+      ? 'نتمنى أن تكون بخير.' 
+      : lang === 'nl' 
+        ? 'We hopen dat alles goed met je gaat.' 
+        : 'We hope you are doing well.';
+        
+    const introText = lang === 'ar' 
+      ? 'نود أن نذكرك بلطف بأن رسوم درس القيادة الموضح أدناه ما زالت غير مسددة. يمكنك سداد المبلغ بسهولة عبر الضغط على زر الدفع أدناه.'
+      : lang === 'nl' 
+        ? 'Hierbij willen we je er vriendelijk aan herinneren dat het lesgeld voor de onderstaande rijles nog openstaat. Je kunt het bedrag eenvoudig voldoen via de onderstaande betaalknop.'
+        : 'We would like to kindly remind you that the payment for the driving lesson shown below is still outstanding. You can easily settle the amount using the payment button below.';
+    
+    const cardTitle = lang === 'ar' ? 'تفاصيل الدرس' : lang === 'nl' ? 'Lesdetails' : 'Lesson Details';
+    const lessonNumLabel = lang === 'ar' ? 'رقم الدرس' : lang === 'nl' ? 'Lesnummer' : 'Lesson Ref';
+    const dateLabel = lang === 'ar' ? 'تاريخ الدرس' : lang === 'nl' ? 'Datum' : 'Date';
+    const timeLabel = lang === 'ar' ? 'وقت الدرس' : lang === 'nl' ? 'Tijdstip' : 'Time';
+    const pickupLabel = lang === 'ar' ? 'مكان الالتقاء' : lang === 'nl' ? 'Ophaallocatie' : 'Pickup Location';
+    const amountLabel = lang === 'ar' ? 'المبلغ المستحق' : lang === 'nl' ? 'Openstaand bedrag' : 'Amount Due';
+    const payNowText = lang === 'ar' ? 'دفع الآن' : lang === 'nl' ? 'Nu betalen' : 'Pay Now';
+    
+    const friendlyClosing = lang === 'ar'
+      ? 'شكراً لاختيارك مدرستنا وثقتك بنا، ونتطلع لرؤيتك في درسك القادم.'
+      : lang === 'nl'
+        ? 'Hartelijk dank voor je vertrouwen in onze rijschool. We kijken ernaar uit je bij de volgende les te zien.'
+        : 'Thank you for choosing our driving school and for your trust. We look forward to seeing you at your next lesson.';
+    
+    const instructorNoteTitle = lang === 'ar' ? 'رسالة من مدربك' : lang === 'nl' ? 'Bericht van je instructeur' : 'Message from your instructor';
+    const helpTitle = lang === 'ar' ? 'تحتاج إلى مساعدة؟' : lang === 'nl' ? 'Hulp nodig?' : 'Need help?';
+    const contactUsText = lang === 'ar' ? 'تواصل معنا:' : lang === 'nl' ? 'Neem contact met ons op:' : 'Contact us:';
+
+    const lessonRef = details.lessonId || 'LES-000001';
+    const priceFormatted = details.price !== undefined ? `€${details.price}` : '€0';
+    const locationStr = details.pickupLocation || details.address || '';
+    const paymentLinkUrl = details.paymentLink || '#';
+
+    const contactItems: string[] = [];
+    if (details.phone) contactItems.push(`${details.phone}`);
+    if (details.whatsappNumber) contactItems.push(`WhatsApp: ${details.whatsappNumber}`);
+    if (details.email) contactItems.push(`${details.email}`);
+    if (details.website) contactItems.push(`${details.website}`);
+    const contactRowHtml = contactItems.join(' &bull; ');
+
+    const fullAddressParts = [details.address, details.postalCode, details.city].filter(Boolean);
+    const fullAddressHtml = fullAddressParts.length > 0 ? fullAddressParts.join(', ') : '';
+
+    return `
+      <!DOCTYPE html>
+      <html lang="${lang}" dir="${isRtl ? 'rtl' : 'ltr'}">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${getEmailSubject('reminder', details)}</title>
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #0f172a;">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 24px 12px;">
+          <tr>
+            <td align="center">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; max-width: 540px; overflow: hidden; text-align: ${isRtl ? 'right' : 'left'};">
+                
+                <!-- School Header -->
+                <tr>
+                  <td style="padding: 28px 28px 20px 28px; border-bottom: 1px solid #f1f5f9;">
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td>
+                          ${details.logoUrl ? `
+                            <img src="${details.logoUrl}" alt="${schoolName}" style="max-height: 44px; max-width: 160px; object-fit: contain; margin-bottom: 8px; display: block;" />
+                          ` : ''}
+                          <span style="font-size: 18px; font-weight: 800; color: #0f172a; display: block; letter-spacing: -0.2px;">${schoolName}</span>
+                          ${details.phone || details.email ? `<span style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">${[details.phone, details.email].filter(Boolean).join(' &bull; ')}</span>` : ''}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Content Area -->
+                <tr>
+                  <td style="padding: 28px;">
+                    <!-- Greeting -->
+                    <h2 style="font-size: 17px; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">${greetingText}</h2>
+                    <p style="font-size: 13px; color: #475569; margin: 0 0 8px 0; line-height: 1.5;">${subgreetingText}</p>
+                    <p style="font-size: 13px; color: #475569; margin: 0 0 20px 0; line-height: 1.6;">${introText}</p>
+
+                    <!-- Lesson Details Card -->
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 24px; padding: 18px;">
+                      <tr>
+                        <td style="padding-bottom: 12px; border-bottom: 1px solid #e2e8f0;">
+                          <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                              <td style="font-size: 11px; font-weight: 700; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">${cardTitle}</td>
+                              <td align="${isRtl ? 'left' : 'right'}" style="font-size: 11px; font-family: monospace; color: #64748b; font-weight: 600;">#${lessonRef}</td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding-top: 12px;">
+                          <table width="100%" border="0" cellspacing="0" cellpadding="5">
+                            <tr>
+                              <td style="font-size: 12px; color: #64748b; width: 40%;">${dateLabel}</td>
+                              <td align="${isRtl ? 'left' : 'right'}" style="font-size: 12px; color: #0f172a; font-weight: 600; font-family: monospace;">${dateStr}</td>
+                            </tr>
+                            <tr>
+                              <td style="font-size: 12px; color: #64748b;">${timeLabel}</td>
+                              <td align="${isRtl ? 'left' : 'right'}" style="font-size: 12px; color: #0f172a; font-weight: 600; font-family: monospace;">${timeStr}</td>
+                            </tr>
+                            ${locationStr ? `
+                            <tr>
+                              <td style="font-size: 12px; color: #64748b;">${pickupLabel}</td>
+                              <td align="${isRtl ? 'left' : 'right'}" style="font-size: 12px; color: #0f172a; font-weight: 600;">${locationStr}</td>
+                            </tr>
+                            ` : ''}
+                            <tr>
+                              <td style="padding-top: 10px; font-size: 13px; color: #0f172a; font-weight: 700; border-top: 1px solid #e2e8f0;">${amountLabel}</td>
+                              <td align="${isRtl ? 'left' : 'right'}" style="padding-top: 10px; font-size: 17px; color: #0f172a; font-weight: 800; font-family: monospace; border-top: 1px solid #e2e8f0;">${priceFormatted}</td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Prominent Large Payment CTA Button -->
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0 20px 0;">
+                      <tr>
+                        <td align="center">
+                          <a href="${paymentLinkUrl}" target="_blank" style="background-color: ${brandColor}; color: #ffffff; padding: 16px 28px; font-size: 16px; font-weight: 700; text-decoration: none; border-radius: 12px; display: block; width: 100%; box-sizing: border-box; text-align: center; letter-spacing: 0.3px; line-height: 1.2;">
+                            ${payNowText}
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Friendly note -->
+                    <p style="font-size: 12px; color: #64748b; text-align: center; line-height: 1.5; margin: 0 0 20px 0;">
+                      ${friendlyClosing}
+                    </p>
+
+                    <!-- Instructor's Note (Conditional - Completely hidden if empty) -->
+                    ${details.notes && details.notes.trim() ? `
+                    <div style="background-color: #f8fafc; border-${isRtl ? 'right' : 'left'}: 3px solid #cbd5e1; padding: 14px 16px; border-radius: 8px; margin: 20px 0;">
+                      <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 4px;">${instructorNoteTitle}</span>
+                      <p style="font-size: 12px; color: #334155; margin: 0; line-height: 1.5; font-style: italic;">"${details.notes.trim()}"</p>
+                    </div>
+                    ` : ''}
+
+                    <!-- Contact & Help (Only visible if contact details exist) -->
+                    ${contactRowHtml ? `
+                    <div style="border-top: 1px solid #f1f5f9; padding-top: 20px; text-align: center; font-size: 11px; color: #64748b; line-height: 1.6;">
+                      <span style="font-weight: 600; color: #334155;">${helpTitle}</span> ${contactUsText}<br />
+                      <span>${contactRowHtml}</span>
+                    </div>
+                    ` : ''}
+
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr style="background-color: #fafafa; border-top: 1px solid #f1f5f9;">
+                  <td style="padding: 20px 28px; text-align: center; font-size: 10px; color: #94a3b8; line-height: 1.5;">
+                    <strong style="color: #64748b;">${schoolName}</strong><br />
+                    ${fullAddressHtml ? `${fullAddressHtml}<br />` : ''}
+                    ${details.kvk ? `KvK: ${details.kvk}<br />` : ''}
+                    &copy; ${new Date().getFullYear()} ${schoolName}. All rights reserved.
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+  }
   
   let contentHtml = "";
 
   if (type === 'booking') {
+    const rawLessonNum = details.lessonNumber || 1;
+    const lessonNumLabel = lang === 'ar' 
+      ? `الدرس ${rawLessonNum}` 
+      : lang === 'nl' 
+      ? `Les ${rawLessonNum}` 
+      : `Lesson ${rawLessonNum}`;
+
+    const calendarBtnLabel = lang === 'ar'
+      ? 'إضافة الدرس إلى تقويمك 📅'
+      : lang === 'nl'
+      ? 'Les aan je agenda toevoegen 📅'
+      : 'Add lesson to your calendar 📅';
+
+    const instructorDisplay = details.instructorName || 'سمير الفيلالي';
+    const vehicleTypeDisplay = details.transmissionType === 'automatic'
+      ? (lang === 'ar' ? 'أوتوماتيك' : lang === 'nl' ? 'Automaat' : 'Automatic')
+      : (lang === 'ar' ? 'عادي / يدوي' : lang === 'nl' ? 'Handgeschakeld' : 'Manual');
+
+    // Create safe data URI for client/email calendar opening
+    const icsBase64 = details.icsContent ? btoa(unescape(encodeURIComponent(details.icsContent))) : '';
+    const icsDataUri = icsBase64 ? `data:text/calendar;charset=utf-8;base64,${icsBase64}` : '#';
+
     contentHtml = `
-      <div style="direction: rtl; text-align: right; font-family: 'Inter', sans-serif;">
-        <h2 style="color: ${accentColor}; margin-bottom: 15px;">تهانينا، تم تأكيد حجز الدرس بنجاح! 🎉</h2>
+      <div style="direction: ${isRtl ? 'rtl' : 'ltr'}; text-align: ${isRtl ? 'right' : 'left'}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+        <h2 style="color: ${accentColor}; margin-bottom: 15px;">
+          ${lang === 'ar' ? 'تهانينا، تم تأكيد حجز الدرس بنجاح! 🎉' : lang === 'nl' ? 'Gefeliciteerd, je rijles is bevestigd! 🎉' : 'Congratulations, your lesson is confirmed! 🎉'}
+        </h2>
         <p style="font-size: 14px; line-height: 1.6; color: #334155;">
-          عزيزي المتدرب <strong>${toName}</strong>، يسعدنا إبلاغك بأنه قد تم تسجيل وتأكيد درس القيادة الميداني الخاص بك بنجاح في جدول المدرب <strong>سمير الفيلالي</strong>.
+          ${lang === 'ar' 
+            ? `عزيزي المتدرب <strong>${toName}</strong>، يسعدنا إبلاغك بأنه قد تم تسجيل وتأكيد درس القيادة الميداني الخاص بك (${lessonNumLabel}) بنجاح في جدول المدرب <strong>${instructorDisplay}</strong>.`
+            : lang === 'nl'
+            ? `Beste <strong>${toName}</strong>, we zijn verheugd te bevestigen dat je praktijkles (${lessonNumLabel}) succesvol is ingepland bij instructeur <strong>${instructorDisplay}</strong>.`
+            : `Dear <strong>${toName}</strong>, we are pleased to confirm that your practical driving lesson (${lessonNumLabel}) has been scheduled with instructor <strong>${instructorDisplay}</strong>.`}
         </p>
         
-        <div style="background-color: #f8fafc; border-right: 4px solid ${accentColor}; padding: 15px; margin: 20px 0; border-radius: 4px;">
+        <div style="background-color: #f8fafc; border-${isRtl ? 'right' : 'left'}: 4px solid ${accentColor}; padding: 16px; margin: 20px 0; border-radius: 8px;">
           <table style="width: 100%; border-collapse: collapse;">
             <tr>
-              <td style="padding: 6px 0; font-size: 13px; color: #64748b;"><strong>التاريخ والوقت:</strong></td>
-              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; text-align: left;"><strong>${dateStr} (الساعة ${timeStr})</strong></td>
+              <td style="padding: 6px 0; font-size: 13px; color: #64748b;"><strong>${lang === 'ar' ? 'رقم الدرس:' : lang === 'nl' ? 'Lesnummer:' : 'Lesson Number:'}</strong></td>
+              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; text-align: ${isRtl ? 'left' : 'right'}; font-weight: bold; font-family: monospace;">${lessonNumLabel}</td>
             </tr>
             <tr>
-              <td style="padding: 6px 0; font-size: 13px; color: #64748b;"><strong>مدة الدرس:</strong></td>
-              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; text-align: left;">${details.duration || 1} ساعة تدريبية</td>
+              <td style="padding: 6px 0; font-size: 13px; color: #64748b;"><strong>${lang === 'ar' ? 'التاريخ والوقت:' : lang === 'nl' ? 'Datum & Tijd:' : 'Date & Time:'}</strong></td>
+              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; text-align: ${isRtl ? 'left' : 'right'};"><strong>${dateStr} (${timeStr})</strong></td>
             </tr>
             <tr>
-              <td style="padding: 6px 0; font-size: 13px; color: #64748b;"><strong>نقطة الالتقاء:</strong></td>
-              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; text-align: left;">${details.pickupLocation || 'موقعك المختار'}</td>
+              <td style="padding: 6px 0; font-size: 13px; color: #64748b;"><strong>${lang === 'ar' ? 'مدة الدرس:' : lang === 'nl' ? 'Lesduur:' : 'Duration:'}</strong></td>
+              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; text-align: ${isRtl ? 'left' : 'right'};">${details.duration || 1} ${lang === 'ar' ? (details.duration === 1 ? 'ساعة تدريبية' : 'ساعات تدريبية') : lang === 'nl' ? 'uur' : 'hour(s)'}</td>
             </tr>
             <tr>
-              <td style="padding: 6px 0; font-size: 13px; color: #64748b;"><strong>التكلفة الإجمالية:</strong></td>
-              <td style="padding: 6px 0; font-size: 14px; color: ${goldColor}; text-align: left; font-weight: bold;">€${details.price || 65}</td>
+              <td style="padding: 6px 0; font-size: 13px; color: #64748b;"><strong>${lang === 'ar' ? 'المدرب المسؤول:' : lang === 'nl' ? 'Instructeur:' : 'Instructor:'}</strong></td>
+              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; text-align: ${isRtl ? 'left' : 'right'}; font-weight: 600;">${instructorDisplay}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; font-size: 13px; color: #64748b;"><strong>${lang === 'ar' ? 'نوع المركبة:' : lang === 'nl' ? 'Type voertuig:' : 'Vehicle Type:'}</strong></td>
+              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; text-align: ${isRtl ? 'left' : 'right'};">${vehicleTypeDisplay} ${details.vehicleModel ? `(${details.vehicleModel})` : ''}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; font-size: 13px; color: #64748b;"><strong>${lang === 'ar' ? 'نقطة الالتقاء:' : lang === 'nl' ? 'Ophaallocatie:' : 'Pickup Location:'}</strong></td>
+              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; text-align: ${isRtl ? 'left' : 'right'};">${details.pickupLocation || 'موقعك المختار'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; font-size: 13px; color: #64748b;"><strong>${lang === 'ar' ? 'التكلفة الإجمالية:' : lang === 'nl' ? 'Totaalprijs:' : 'Total Price:'}</strong></td>
+              <td style="padding: 6px 0; font-size: 15px; color: ${goldColor}; text-align: ${isRtl ? 'left' : 'right'}; font-weight: bold;">€${details.price || 65}</td>
             </tr>
           </table>
         </div>
 
-        <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin-top: 15px;">
-          ⚠️ <strong>ملاحظة هامة للسلامة:</strong> يرجى التواجد في مكان الالتقاء المحدد قبل الموعد بـ 5 دقائق وإحضار بطاقة الهوية الخاصة بك. إذا كنت بحاجة لإلغاء الدرس أو تعديله، يرجى القيام بذلك قبل 24 ساعة على الأقل من موعد الدرس لتجنب احتساب الرسوم.
+        <!-- Prominent Calendar Action CTA in Email -->
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0 20px 0;">
+          <tr>
+            <td align="center">
+              <a href="${icsDataUri}" download="driving-lesson-${dateStr}.ics" target="_blank" style="background-color: #059669; color: #ffffff; padding: 15px 28px; font-size: 15px; font-weight: 700; text-decoration: none; border-radius: 12px; display: block; width: 100%; max-width: 440px; box-sizing: border-box; text-align: center; letter-spacing: 0.3px; box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);">
+                ${calendarBtnLabel}
+              </a>
+            </td>
+          </tr>
+        </table>
+
+        <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin-top: 15px;">
+          ⚠️ <strong>${lang === 'ar' ? 'ملاحظة هامة للسلامة:' : lang === 'nl' ? 'Belangrijke opmerking:' : 'Important Note:'}</strong> 
+          ${lang === 'ar' 
+            ? 'يرجى التواجد في مكان الالتقاء المحدد قبل الموعد بـ 5 دقائق وإحضار بطاقة الهوية الخاصة بك. إذا كنت بحاجة لإلغاء الدرس أو تعديله، يرجى القيام بذلك قبل 24 ساعة على الأقل من موعد الدرس لتجنب احتساب الرسوم.'
+            : lang === 'nl'
+            ? 'Zorg dat je 5 minuten voor aanvang aanwezig bent op de afgesproken locatie met je identiteitsbewijs. Annuleren kan tot 24 uur van tevoren kosteloos.'
+            : 'Please be at the agreed pickup location 5 minutes prior with your ID card. Cancellations must be made at least 24 hours in advance.'}
         </p>
       </div>
     `;
   } else if (type === 'cancellation') {
     contentHtml = `
-      <div style="direction: rtl; text-align: right; font-family: 'Inter', sans-serif;">
-        <h2 style="color: #dc2626; margin-bottom: 15px;">تنبيه: تم إلغاء درس القيادة ⚠️</h2>
+      <div style="direction: ${isRtl ? 'rtl' : 'ltr'}; text-align: ${isRtl ? 'right' : 'left'}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+        <h2 style="color: #dc2626; margin-bottom: 15px;">
+          ${lang === 'ar' ? 'تنبيه: تم إلغاء درس القيادة ⚠️' : lang === 'nl' ? 'Let op: Rijles Geannuleerd ⚠️' : 'Notice: Driving Lesson Cancelled ⚠️'}
+        </h2>
         <p style="font-size: 14px; line-height: 1.6; color: #334155;">
-          عزيزي المتدرب <strong>${toName}</strong>، نود إبلاغك بأنه قد تم إلغاء درس القيادة العملي الذي كان مجدولاً مسبقاً.
+          ${lang === 'ar' 
+            ? `عزيزي المتدرب <strong>${toName}</strong>، نود إبلاغك بأنه قد تم إلغاء درس القيادة العملي الذي كان مجدولاً مسبقاً.`
+            : lang === 'nl'
+            ? `Beste <strong>${toName}</strong>, hierbij informeren wij je dat de geplande rijles is geannuleerd.`
+            : `Dear <strong>${toName}</strong>, this is to inform you that your scheduled driving lesson has been cancelled.`}
         </p>
 
-        <div style="background-color: #fef2f2; border-right: 4px solid #dc2626; padding: 15px; margin: 20px 0; border-radius: 4px;">
+        <div style="background-color: #fef2f2; border-${isRtl ? 'right' : 'left'}: 4px solid #dc2626; padding: 16px; margin: 20px 0; border-radius: 8px;">
           <table style="width: 100%; border-collapse: collapse;">
             <tr>
-              <td style="padding: 6px 0; font-size: 13px; color: #991b1b;"><strong>موعد الدرس الملغي:</strong></td>
-              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; text-align: left;"><strong>${dateStr} (الساعة ${timeStr})</strong></td>
+              <td style="padding: 6px 0; font-size: 13px; color: #991b1b;"><strong>${lang === 'ar' ? 'موعد الدرس الملغي:' : lang === 'nl' ? 'Geannuleerde datum/tijd:' : 'Cancelled Date & Time:'}</strong></td>
+              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; text-align: ${isRtl ? 'left' : 'right'};"><strong>${dateStr} (${timeStr})</strong></td>
             </tr>
             <tr>
-              <td style="padding: 6px 0; font-size: 13px; color: #991b1b;"><strong>المدرب:</strong></td>
-              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; text-align: left;">سمير الفيلالي</td>
+              <td style="padding: 6px 0; font-size: 13px; color: #991b1b;"><strong>${lang === 'ar' ? 'المدرب:' : lang === 'nl' ? 'Instructeur:' : 'Instructor:'}</strong></td>
+              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; text-align: ${isRtl ? 'left' : 'right'};">${details.instructorName || 'سمير الفيلالي'}</td>
             </tr>
             <tr>
-              <td style="padding: 6px 0; font-size: 13px; color: #991b1b;"><strong>حالة المستحقات المادية:</strong></td>
-              <td style="padding: 6px 0; font-size: 13px; color: #16a34a; text-align: left; font-weight: bold;">تمت إعادة رصيد الدرس كاملاً (€${details.price || 65}) إلى محفظتك الإلكترونية</td>
+              <td style="padding: 6px 0; font-size: 13px; color: #991b1b;"><strong>${lang === 'ar' ? 'سبب الإلغاء:' : lang === 'nl' ? 'Reden van annulering:' : 'Cancellation Reason:'}</strong></td>
+              <td style="padding: 6px 0; font-size: 14px; color: #dc2626; text-align: ${isRtl ? 'left' : 'right'}; font-weight: bold;">${details.cancellationReason || (lang === 'ar' ? 'إلغاء تنظيمي' : 'Administrative cancellation')}</td>
+            </tr>
+            ${details.cancellationNotes ? `
+            <tr>
+              <td style="padding: 6px 0; font-size: 13px; color: #991b1b;"><strong>${lang === 'ar' ? 'ملاحظات إضافية:' : lang === 'nl' ? 'Opmerkingen:' : 'Notes:'}</strong></td>
+              <td style="padding: 6px 0; font-size: 13px; color: #334155; text-align: ${isRtl ? 'left' : 'right'};">${details.cancellationNotes}</td>
+            </tr>
+            ` : ''}
+            <tr>
+              <td style="padding: 6px 0; font-size: 13px; color: #991b1b;"><strong>${lang === 'ar' ? 'حالة المستحقات المادية:' : lang === 'nl' ? 'Financiële status:' : 'Financial Status:'}</strong></td>
+              <td style="padding: 6px 0; font-size: 13px; color: #16a34a; text-align: ${isRtl ? 'left' : 'right'}; font-weight: bold;">
+                ${lang === 'ar' ? `تمت إعادة رصيد الدرس (€${details.price || 65}) إلى محفظتك الإلكترونية` : lang === 'nl' ? `Het lesbedrag (€${details.price || 65}) is teruggestort naar je tegoed` : `Lesson fee (€${details.price || 65}) has been refunded to your wallet`}
+              </td>
             </tr>
           </table>
         </div>
 
+        <!-- Personal Calendar Removal Notice -->
+        <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 14px; margin: 16px 0;">
+          <p style="margin: 0; font-size: 12px; color: #92400e; line-height: 1.5;">
+            🗓️ <strong>${lang === 'ar' ? 'تنبيه التقويم الشخصي:' : lang === 'nl' ? 'Persoonlijke Agenda:' : 'Personal Calendar:'}</strong>
+            ${lang === 'ar' 
+              ? 'إذا كنت قد أضفت هذا الدرس سابقاً إلى تقويمك الشخصي (Apple Calendar أو Google Calendar أو غيره)، يرجى حذفه يدوياً من تقويمك.'
+              : lang === 'nl'
+              ? 'Als je deze les eerder hebt toegevoegd aan je persoonlijke agenda (Apple Calendar, Google Calendar, etc.), vergeet deze dan niet handmatig te verwijderen.'
+              : 'If you previously added this lesson to your personal calendar (Apple Calendar, Google Calendar, etc.), please remove it manually from your calendar.'}
+          </p>
+        </div>
+
         <p style="font-size: 13px; color: #475569; line-height: 1.5;">
-          بإمكانك الدخول إلى حسابك وحجز موعد بديل في أي وقت يناسبك من خلال جدول المواعيد المتاحة الجديد للمدرب.
+          ${lang === 'ar' 
+            ? 'بإمكانك الدخول إلى حسابك وحجز موعد بديل في أي وقت يناسبك من خلال جدول المواعيد المتاحة الجديد للمدرب.'
+            : lang === 'nl'
+            ? 'Je kunt op elk gewenst moment via de app een nieuwe rijles inplannen.'
+            : 'You can log into your student account and book an alternative lesson at any time.'}
         </p>
       </div>
     `;
@@ -219,7 +547,7 @@ function getEmailHtml(toName: string, type: 'booking' | 'cancellation' | 'comple
       <div style="direction: rtl; text-align: right; font-family: 'Inter', sans-serif;">
         <h2 style="color: ${goldColor}; margin-bottom: 15px;">تم إيداع الدفعة بنجاح! 💳</h2>
         <p style="font-size: 14px; line-height: 1.6; color: #334155;">
-          عزيزي المتدرب <strong>${toName}</strong>، نؤكد لك استلام وإضافة الدفعة المالية المذكورة أدناه إلى حساب محفظتك الرقمية المعتمدة لدى مدرسة الأندلس للقيادة.
+          عزيزي المتدرب <strong>${toName}</strong>، نؤكد لك استلام وإضافة الدفعة المالية المذكورة أدناه إلى حساب محفظتك الرقمية المعتمدة لدى ${schoolName}.
         </p>
 
         <div style="background-color: #fffbeb; border-right: 4px solid ${goldColor}; padding: 15px; margin: 20px 0; border-radius: 4px;">
@@ -244,7 +572,7 @@ function getEmailHtml(toName: string, type: 'booking' | 'cancellation' | 'comple
         </div>
 
         <p style="font-size: 13px; color: #475569; line-height: 1.5;">
-          بإمكانك استهلاك هذا الرصيد لحجز حصص القيادة الميدانية أو تمويل باقات التدريب الإضافية بسهولة تامة من تطبيق الطالب الخاص بك. شكراً لثقتكم بمدرسة الأندلس.
+          بإمكانك استهلاك هذا الرصيد لحجز حصص القيادة الميدانية أو تمويل باقات التدريب الإضافية بسهولة تامة من تطبيق الطالب الخاص بك. شكراً لثقتكم بنا.
         </p>
       </div>
     `;
@@ -260,7 +588,7 @@ function getEmailHtml(toName: string, type: 'booking' | 'cancellation' | 'comple
           <table style="width: 100%; border-collapse: collapse;">
             <tr>
               <td>
-                <h1 style="color: ${primaryColor}; margin: 0; font-size: 22px; font-weight: 900; letter-spacing: 1px;">AL-ANDALOS RIJSCHOOL</h1>
+                <h1 style="color: ${primaryColor}; margin: 0; font-size: 22px; font-weight: 900; letter-spacing: 1px;">${(details.schoolName || 'DRIVING SCHOOL').toUpperCase()}</h1>
                 <p style="margin: 3px 0 0 0; font-size: 11px; color: #64748b; font-weight: bold;">فاتورة ضريبية رسمية مبسطة | Factuur</p>
               </td>
               <td style="text-align: left; vertical-align: top;">
@@ -274,7 +602,7 @@ function getEmailHtml(toName: string, type: 'booking' | 'cancellation' | 'comple
 
         <p style="font-size: 14px; line-height: 1.6; color: #334155;">
           المتلقّي الكرام، <strong>${toName}</strong>،<br />
-          نرفق لكم طيه بيان الفاتورة الضريبية الصادرة عن مدرسة الأندلس لتعليم القيادة بهولندا لقاء الدروس أو الخدمات الإضافية المذكورة أدناه:
+          نرفق لكم طيه بيان الفاتورة الضريبية الصادرة عن ${details.schoolName || 'مدرسة القيادة'} لقاء الدروس أو الخدمات الإضافية المذكورة أدناه:
         </p>
 
         <div style="margin: 20px 0;">
@@ -318,12 +646,12 @@ function getEmailHtml(toName: string, type: 'booking' | 'cancellation' | 'comple
         <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px; margin: 20px 0; text-align: center;">
           <span style="font-size: 12px; font-weight: bold; color: #15803d; display: block; margin-bottom: 3px;">ℹ️ طريقة التحصيل والسداد</span>
           <p style="font-size: 11px; color: #166534; margin: 0; line-height: 1.4;">
-            سيتم خصم هذه المعاملة تلقائياً من محفظتكم الرقمية المعتمدة في مدرسة الأندلس، أو بإمكانكم السداد بالبطاقة البنكية مباشرة عبر مسح الـ QR في حسابكم أو عبر الرابط المرفق بالتطبيق.
+            سيتم خصم هذه المعاملة تلقائياً من محفظتكم الرقمية المعتمدة في ${details.schoolName || 'مدرسة القيادة'}، أو بإمكانكم السداد بالبطاقة البنكية مباشرة عبر مسح الـ QR في حسابكم أو عبر الرابط المرفق بالتطبيق.
           </p>
         </div>
 
         <p style="font-size: 11px; text-align: center; color: #94a3b8; margin-top: 30px; border-top: 1px solid #f1f5f9; padding-top: 15px;">
-          Al-Andalos Rijschool B.V. | Amsterdam | KVK: 78945612 | BTW: NL888899999B01
+          ${details.schoolName || 'Driving School'} | ${details.address ? (details.address.includes('Amsterdam') ? 'Maastricht' : details.address.split(',')[1]?.trim() || 'Maastricht') : 'Maastricht'} | KVK: 78945612 | BTW: NL888899999B01
         </p>
       </div>
     `;
@@ -345,18 +673,18 @@ function getEmailHtml(toName: string, type: 'booking' | 'cancellation' | 'comple
     const cbrReadiness = details.cbrReadiness || "developing";
     const notes = details.notes || "";
     
-    const schoolName = details.schoolName || "Al-Andalus Driving School";
-    const instructorName = details.instructorName || "Samir El-Filali";
-    const phone = details.phone || "+31 6 9876 5432";
-    const email = details.email || "samir@al-andalos.nl";
-    const address = details.address || "Sloterdijk Area, Amsterdam, NL";
+    const schoolName = details.schoolName || "Driving School";
+    const instructorName = details.instructorName || "Driving Instructor";
+    const phone = details.phone || "+31 6 1234 5678";
+    const email = details.email || "info@drivingschool.nl";
+    const address = details.address || "Maastricht, Netherlands";
 
     contentHtml = `
       <div style="direction: rtl; text-align: right; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
         <div style="border-bottom: 2px solid ${primaryColor}; padding-bottom: 15px; margin-bottom: 25px;">
           <h2 style="color: ${primaryColor}; margin: 0; font-size: 20px; font-weight: 800;">📋 ملف الطالب والتقرير الشامل للتدريب</h2>
           <p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b; font-weight: bold;">
-            وثيقة رسمية صادرة عن مدرسة الأندلس لتعليم القيادة بهولندا لقاء تفاصيل السجل العملي والمالي للطالب
+            وثيقة رسمية صادرة عن ${schoolName} لقاء تفاصيل السجل العملي والمالي للطالب
           </p>
         </div>
 
@@ -364,7 +692,7 @@ function getEmailHtml(toName: string, type: 'booking' | 'cancellation' | 'comple
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
           <tr>
             <td style="padding: 15px; vertical-align: top;">
-              <h3 style="margin: 0 0 8px 0; font-size: 13px; color: #0f172a;">🏫 معلومات الأكاديمية:</h3>
+              <h3 style="margin: 0 0 8px 0; font-size: 13px; color: #0f172a;">🏫 معلومات المدرسة:</h3>
               <p style="margin: 2px 0; font-size: 12px; color: #475569;"><strong>المدرسة:</strong> ${schoolName}</p>
               <p style="margin: 2px 0; font-size: 12px; color: #475569;"><strong>العنوان:</strong> ${address}</p>
               <p style="margin: 2px 0; font-size: 12px; color: #475569;"><strong>اتصال:</strong> ${phone} | ${email}</p>
@@ -390,7 +718,7 @@ function getEmailHtml(toName: string, type: 'booking' | 'cancellation' | 'comple
           <tr style="border-bottom: 1px solid #e2e8f0;">
             <td style="padding: 10px; background-color: #f1f5f9; font-size: 12px; color: #475569;"><strong>الباقة التدريبية:</strong></td>
             <td style="padding: 10px; font-size: 13px; color: #0f172a;">${packageName}</td>
-            <td style="padding: 10px; background-color: #f1f5f9; font-size: 12px; color: #475569;"><strong>التقدم العام ومستوى CBR:</strong></td>
+            <td style="padding: 10px; background-color: #f1f5f9; font-size: 12px; color: #475569;"><strong>التقدم العام ومستوى الجاهزية:</strong></td>
             <td style="padding: 10px; font-size: 13px; color: #0f172a;">
               <span style="background-color: #1e40af; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold;">${progress}</span>
               <span style="background-color: #f59e0b; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-right: 4px;">${examStatus}</span>
@@ -413,7 +741,7 @@ function getEmailHtml(toName: string, type: 'booking' | 'cancellation' | 'comple
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #e2e8f0;">
           <thead>
             <tr style="background-color: #f1f5f9; border-bottom: 2px solid #e2e8f0;">
-              <th style="padding: 10px; font-size: 12px; text-align: right; color: #475569;">المعيار الأساسي للـ CBR</th>
+              <th style="padding: 10px; font-size: 12px; text-align: right; color: #475569;">المعيار الأساسي للتقييم</th>
               <th style="padding: 10px; font-size: 12px; text-align: center; color: #475569; width: 100px;">النتيجة</th>
               <th style="padding: 10px; font-size: 12px; text-align: right; color: #475569;">مستوى الإتقان</th>
             </tr>
@@ -445,9 +773,9 @@ function getEmailHtml(toName: string, type: 'booking' | 'cancellation' | 'comple
               <td style="padding: 10px; font-size: 11px; color: #64748b;">${scTheory >= 8 ? 'كفاءة ممتازة' : scTheory >= 6 ? 'قيد التطوير الفعال' : 'مبتدئ يحتاج ممارسة'}</td>
             </tr>
             <tr style="background-color: #f8fafc; font-weight: bold;">
-              <td style="padding: 12px 10px; font-size: 13px; color: #0f172a;">مؤشر جاهزية امتحان الـ CBR الإجمالي:</td>
+              <td style="padding: 12px 10px; font-size: 13px; color: #0f172a;">مؤشر جاهزية الامتحان العملي الإجمالي:</td>
               <td style="padding: 12px 10px; font-size: 13px; text-align: center; color: #1e40af; text-transform: uppercase;" colspan="2">
-                ${cbrReadiness === 'cbr_ready' ? '🔥 جاهز للامتحان العملي (CBR READY)' : cbrReadiness === 'developing' ? '📈 قيد التطور والتحضير (DEVELOPING)' : '🚗 مستوى مبتدئ (BEGINNER)'}
+                ${cbrReadiness === 'cbr_ready' ? '🔥 جاهز للامتحان العملي (EXAM READY)' : cbrReadiness === 'developing' ? '📈 قيد التطور والتحضير (DEVELOPING)' : '🚗 مستوى مبتدئ (BEGINNER)'}
               </td>
             </tr>
           </tbody>
@@ -464,7 +792,7 @@ function getEmailHtml(toName: string, type: 'booking' | 'cancellation' | 'comple
         ` : ''}
 
         <p style="font-size: 12px; color: #64748b; line-height: 1.6; margin-top: 25px; text-align: center; border-top: 1px dashed #cbd5e1; padding-top: 15px;">
-          ملاحظة للمتدرب: يرجى مراجعة هذا التقرير بانتظام مع مدربك المباشر لتعزيز النقاط التي تحتاج إلى تقوية وضمان الجاهزية الكاملة قبل التقديم على حجز الامتحان العملي النهائي لدى هيئة الـ CBR بهولندا.
+          ملاحظة للمتدرب: يرجى مراجعة هذا التقرير بانتظام مع مدربك المباشر لتعزيز النقاط التي تحتاج إلى تقوية وضمان الجاهزية الكاملة قبل التقديم على حجز الامتحان العملي النهائي.
         </p>
       </div>
     `;
@@ -496,8 +824,8 @@ function getEmailHtml(toName: string, type: 'booking' | 'cancellation' | 'comple
               <!-- Header Bar -->
               <tr>
                 <td style="background-color: ${primaryColor}; padding: 25px 30px; text-align: center; border-bottom: 4px solid ${goldColor};">
-                  <span style="color: #ffffff; font-size: 20px; font-weight: 900; letter-spacing: 3px; display: block;">AL-ANDALOS RIJSCHOOL</span>
-                  <span style="color: #94a3b8; font-size: 11px; font-weight: bold; letter-spacing: 1px; display: block; margin-top: 4px; text-transform: uppercase;">Premium Dutch Driving Academy</span>
+                  <span style="color: #ffffff; font-size: 20px; font-weight: 900; letter-spacing: 3px; display: block;">${(details.schoolName || 'DRIVING SCHOOL').toUpperCase()}</span>
+                  <span style="color: #94a3b8; font-size: 11px; font-weight: bold; letter-spacing: 1px; display: block; margin-top: 4px; text-transform: uppercase;">Licensed Driving Instruction</span>
                 </td>
               </tr>
               <!-- Content Body -->
@@ -509,10 +837,10 @@ function getEmailHtml(toName: string, type: 'booking' | 'cancellation' | 'comple
               <!-- Footer Section -->
               <tr>
                 <td style="background-color: #f8fafc; padding: 25px 30px; text-align: center; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 11px; line-height: 1.6;">
-                  <strong style="color: #334155;">مدرسة الأندلس لتعليم القيادة بهولندا</strong><br />
-                  موقعنا الرئيسي: Sloterdijk Area, Amsterdam, NL<br />
-                  البريد الإلكتروني للدعم: support@al-andalos.nl | جوال: +31 6 9876 5432<br />
-                  <span style="color: #94a3b8; display: block; margin-top: 10px;">&copy; 2026 Al-Andalos Rijschool. All Rights Reserved.</span>
+                  <strong style="color: #334155;">${details.schoolName || 'Driving School'}</strong><br />
+                  Location: ${details.address || "Netherlands"}<br />
+                  Email Support: ${details.email || "info@drivingschool.nl"} | Phone: ${details.phone || "+31 6 1234 5678"}<br />
+                  <span style="color: #94a3b8; display: block; margin-top: 10px;">&copy; 2026 ${details.schoolName || 'Driving School'}. All Rights Reserved.</span>
                 </td>
               </tr>
             </table>

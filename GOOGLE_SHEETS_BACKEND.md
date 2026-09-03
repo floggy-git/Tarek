@@ -236,8 +236,8 @@ To deploy and link this backend to your React client:
 
 1. Open your Spreadsheet.
 2. Go to **Extensions** -> **Apps Script**.
-3. Paste the contents of `google_apps_script_backend.js` completely.
-4. Click **Save** (floppy disk icon).
+3. Recreate the codebase in Google Apps Script by adding the files from the `/google-apps-script/` directory matching their names (e.g. `Code.gs`, `API.gs`, `Students.gs`, etc.).
+4. Click **Save** for all files.
 5. Click **Run** on the `initDatabase` dropdown function to auto-build all 16 Sheets, establish formatting, set default business multipliers, and seed mock profiles!
 6. Click **Deploy** -> **New deployment**.
 7. Choose **Web app** as the deployment type.

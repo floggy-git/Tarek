@@ -6,10 +6,34 @@ import {defineConfig} from 'vite';
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
+    define: {
+      'process.env.GOOGLE_MAPS_PLATFORM_KEY': JSON.stringify(process.env.GOOGLE_MAPS_PLATFORM_KEY || '')
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
       },
+      dedupe: ['react', 'react-dom'],
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules/jspdf') || id.includes('node_modules/arabic-persian-reshaper') || id.includes('node_modules/canvg') || id.includes('node_modules/dompurify')) {
+              return 'jspdf-vendor';
+            }
+            if (id.includes('node_modules/html2canvas') || id.includes('node_modules/html2canvas-pro') || id.includes('node_modules/html-to-image')) {
+              return 'html2canvas-vendor';
+            }
+            if (id.includes('node_modules/leaflet')) {
+              return 'leaflet-vendor';
+            }
+            if (id.includes('node_modules/lucide-react') || id.includes('node_modules/@phosphor-icons')) {
+              return 'icons-vendor';
+            }
+          }
+        }
+      }
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

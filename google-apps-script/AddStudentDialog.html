@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-[#0f172a] text-slate-100 min-h-screen flex flex-col p-6">
+  <!-- Title Header Banner -->
+  <div class="flex items-center gap-3 border-b border-slate-700 pb-4 mb-6">
+    <div class="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/20">
+      <span class="text-xl">🚙</span>
+    </div>
+    <div>
+      <h2 class="text-lg font-extrabold tracking-tight text-white">Al-Andalos Driving Academy</h2>
+      <p class="text-xs text-amber-500 font-medium">ERP Student Registration Control</p>
+    </div>
+  </div>
+
+  <!-- Form -->
+  <form id="studentForm" class="space-y-4 flex-1 flex flex-col" onsubmit="submitForm(event)">
+    <div class="space-y-4 max-h-[380px] overflow-y-auto pr-1">
+      <div>
+        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Full Name</label>
+        <input type="text" id="name" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500" placeholder="e.g. Amir Al-Hassan">
+      </div>
+      
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Email Address</label>
+          <input type="email" id="email" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500" placeholder="student@example.com">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Phone Number</label>
+          <input type="text" id="phone" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500" placeholder="+31 6 ...">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Date of Birth</label>
+          <input type="date" id="dob" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">City</label>
+          <input type="text" id="city" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500" placeholder="Amsterdam">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Selected Package</label>
+          <select id="package" class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
+            <option value="Premium Manual 30H">Premium Manual 30H</option>
+            <option value="Standard Manual 20H">Standard Manual 20H</option>
+            <option value="Starter Manual 10H">Starter Manual 10H</option>
+            <option value="Flexible Package">Flexible Package (Pay-As-You-Go)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Portal Password</label>
+          <input type="password" id="password" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500" placeholder="Minimum 6 chars">
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="pt-4 border-t border-slate-700 mt-auto flex items-center justify-end gap-3">
+      <button type="button" onclick="google.script.host.close()" class="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white transition duration-150">
+        Cancel
+      </button>
+      <button type="submit" id="submitBtn" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs px-5 py-2.5 rounded-lg transition duration-150 flex items-center gap-2">
+        <span id="btnText">Register Profile</span>
+        <div id="spinner" class="hidden animate-spin rounded-full h-3.5 w-3.5 border-2 border-slate-950 border-t-transparent"></div>
+      </button>
+    </div>
+  </form>
+
+  <!-- Error/Success Alerts -->
+  <div id="alertBox" class="hidden mt-4 p-3 rounded-lg text-xs font-semibold"></div>
+
+  <script>
+    function submitForm(event) {
+      event.preventDefault();
+      
+      const submitBtn = document.getElementById('submitBtn');
+      const btnText = document.getElementById('btnText');
+      const spinner = document.getElementById('spinner');
+      const alertBox = document.getElementById('alertBox');
+
+      submitBtn.disabled = true;
+      btnText.textContent = "Registering...";
+      spinner.classList.remove('hidden');
+      alertBox.classList.add('hidden');
+
+      const params = {
+        name: document.getElementById('name').value,
+        email: document.getElementById('email').value,
+        phone: document.getElementById('phone').value,
+        dob: document.getElementById('dob').value,
+        city: document.getElementById('city').value,
+        package: document.getElementById('package').value,
+        password: document.getElementById('password').value
+      };
+
+      // Call Google Apps Script server function
+      google.script.run
+        .withSuccessHandler(function(response) {
+          submitBtn.disabled = false;
+          btnText.textContent = "Register Profile";
+          spinner.classList.add('hidden');
+          
+          alertBox.className = "mt-4 p-3 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+          alertBox.innerHTML = "🎉 Successfully registered student " + params.name + "! Profile synced immediately.";
+          alertBox.classList.remove('hidden');
+
+          // Reset Form
+          document.getElementById('studentForm').reset();
+          
+          // Auto-close dialog after 2.5 seconds
+          setTimeout(function() {
+            google.script.host.close();
+          }, 2500);
+        })
+        .withFailureHandler(function(error) {
+          submitBtn.disabled = false;
+          btnText.textContent = "Register Profile";
+          spinner.classList.add('hidden');
+
+          alertBox.className = "mt-4 p-3 rounded-lg text-xs font-semibold bg-rose-500/20 text-rose-400 border border-rose-500/30";
+          alertBox.textContent = "❌ Error: " + error.message;
+          alertBox.classList.remove('hidden');
+        })
+        .createStudent(params);
+    }
+  </script>
+</body>
+</html>

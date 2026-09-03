@@ -158,8 +158,6 @@ const FILENAME_OVERRIDES: Record<string, string> = {
   'A1-120': 'Nederlands_verkeersbord_A1-120.svg',
   'A1-130': 'Nederlands_verkeersbord_A1-130.svg',
   'A2': 'Nederlands_verkeersbord_A2.svg',
-  'A2-30': 'Nederlands_verkeersbord_A2-30.svg',
-  'A2-50': 'Nederlands_verkeersbord_A2-50.svg',
   'E8-Permit': 'Nederlands_verkeersbord_E8.svg',
 };
 

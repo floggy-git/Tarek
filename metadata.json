@@ -1,6 +1,6 @@
 {
-  "name": "Al-Andalos Rijschool",
-  "description": "Premium modern European driving school platform with Arabic, Dutch, and English instant translations, student and trainer views.",
-  "requestFramePermissions": ["geolocation"],
+  "name": "Smart Driving School",
+  "description": "Complete white-label ready driving school platform with Arabic, Dutch, and English instant translations, student learning portal, and trainer management dashboard.",
+  "requestFramePermissions": ["geolocation", "camera", "microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
