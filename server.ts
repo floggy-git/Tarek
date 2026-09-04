@@ -2398,8 +2398,8 @@ ${studentSummary}`;
   // REAL-TIME TWO-WAY SYNCHRONIZATION ENGINE & WEBHOOK SECURITY
   // ==========================================
 
-  const SHEETS_WEBHOOK_SECRET = process.env.SHEETS_WEBHOOK_SECRET || 'andalos_sec_sheets_webhook_2026_x9k2m1q8';
-  const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY || 'andalos_admin_sec_2026_root_auth';
+  const SHEETS_WEBHOOK_SECRET = process.env.SHEETS_WEBHOOK_SECRET || '';
+  const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY || '';
 
   // Strict Administrator Role & Secret Authentication Middleware
   const requireAdminAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -2423,7 +2423,7 @@ ${studentSummary}`;
     const isValidAdminSecret = Boolean(ADMIN_SECRET_KEY && token === ADMIN_SECRET_KEY);
     const isAdminRoleWithValidToken = (userRole === 'admin' || userRole === 'administrator' || userRole === 'superadmin') && token.length >= 10;
 
-    if (!isValidAdminSecret && !isAdminRoleWithToken) {
+    if (!isValidAdminSecret) {
       return res.status(403).json({ success: false, error: 'Forbidden: Valid administrator authentication required' });
     }
 
