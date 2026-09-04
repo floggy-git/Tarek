@@ -1,0 +1,34 @@
+name: Apply Canonical Sheets Repair
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/repair_canonical_sheets.cjs'
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply deterministic repair
+        run: node scripts/repair_canonical_sheets.cjs
+      - name: Validate TypeScript
+        run: |
+          npm install --no-audit --no-fund
+          npm run lint
+      - name: Commit repair and remove one-time tooling
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git restore package-lock.json
+          rm -f scripts/repair_canonical_sheets.cjs .github/workflows/apply-canonical-repair.yml
+          git add src/utils/googleSheets.ts
+          git add -u scripts/repair_canonical_sheets.cjs .github/workflows/apply-canonical-repair.yml
+          git diff --cached --quiet && exit 0 || true
+          git commit -m 'fix: enforce canonical Sheets schemas'
+          git push
