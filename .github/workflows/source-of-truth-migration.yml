@@ -24,6 +24,7 @@ jobs:
           node scripts/fix_google_sheets_source_of_truth.cjs
           node scripts/fix_password_reset_security.cjs
           node scripts/fix_email_record_id.cjs
+          node scripts/fix_send_email_security.cjs
 
       - name: Commit migration
         run: |
@@ -34,5 +35,5 @@ jobs:
             echo 'No changes required.'
             exit 0
           fi
-          git commit -m 'fix: enforce canonical Sheets and reset security'
+          git commit -m 'fix: enforce canonical Sheets and email security'
           git push
