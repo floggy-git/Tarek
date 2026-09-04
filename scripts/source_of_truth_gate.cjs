@@ -1,0 +1,43 @@
+const fs = require('fs');
+const path = require('path');
+
+const root = process.cwd();
+const files = [
+  'src/utils/googleSheets.ts',
+  'src/services/googleSheetsService.ts'
+];
+const failures = [];
+
+for (const relative of files) {
+  const filePath = path.join(root, relative);
+  if (!fs.existsSync(filePath)) continue;
+  const source = fs.readFileSync(filePath, 'utf8');
+
+  if (/localStorage\.(getItem|setItem)\([^)]*(ACCESS_TOKEN|OAUTH_TOKEN|accessToken)/i.test(source) || /parsed\.accessToken/.test(source)) {
+    failures.push(`${relative}: OAuth access tokens must never use persistent localStorage.`);
+  }
+}
+
+const source = fs.readFileSync(path.join(root, 'src/utils/googleSheets.ts'), 'utf8');
+const canonicalStudents = [
+  'Student ID', 'Name', 'Email', 'Phone', 'Date of Birth', 'City',
+  'Current Package', 'Balance (€)', 'Exam Readiness (%)', 'Status',
+  'Theory Exam Status', 'Drive Folder ID'
+];
+for (const header of canonicalStudents) {
+  if (!source.includes(`'${header}'`)) {
+    failures.push(`googleSheets.ts: canonical Students header missing: ${header}`);
+  }
+}
+
+if (/student123/.test(source)) {
+  failures.push('googleSheets.ts: fallback student password must not exist.');
+}
+
+if (failures.length) {
+  console.error('Source-of-truth gate FAILED:');
+  failures.forEach(f => console.error(`- ${f}`));
+  process.exit(1);
+}
+
+console.log('Source-of-truth gate PASSED.');
