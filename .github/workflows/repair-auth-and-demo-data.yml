@@ -1,10 +1,12 @@
 name: One-time auth repair
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
 permissions:
   contents: write
 jobs:
   repair:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,20 +22,13 @@ jobs:
       if (!isValidAdminSecret && !isAdminRoleWithToken) {"""
           new="""      const isValidAdminSecret = Boolean(ADMIN_SECRET_KEY && token === ADMIN_SECRET_KEY);
       if (!isValidAdminSecret) {"""
-          if old in s:
-              s=s.replace(old,new,1)
+          s=s.replace(old,new,1)
           p.write_text(s)
-
           p=Path('src/App.tsx')
-          s=p.read_text()
-          s=s.replace("password: \"student123\",", "password: \"\",")
-          s=s.replace("password: s.password || 'student123'", "password: s.password || ''")
-          s=s.replace("const storedPassword = matchedStudent.password || 'student123';", "const storedPassword = String(matchedStudent.password || '');")
+          s=p.read_text().replace('password: "student123",','password: "",').replace("password: s.password || 'student123'", "password: s.password || ''").replace("const storedPassword = matchedStudent.password || 'student123';", "const storedPassword = String(matchedStudent.password || '');")
           p.write_text(s)
-          
           p=Path('src/data.ts')
-          s=p.read_text().replace('Express Course (15h)', 'Starter Core Pack')
-          p.write_text(s)
+          p.write_text(p.read_text().replace('Express Course (15h)', 'Starter Core Pack'))
           PY
       - name: Verify
         run: |
