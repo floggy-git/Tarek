@@ -49,6 +49,7 @@ export function sanitizeSpreadsheetCell(val: any, allowFormula: boolean = false)
 
 
 
+
 export function getSheetsConfig(): GoogleSheetsConfig {
   const env = (import.meta as any).env || {};
   let spreadsheetId = env.VITE_GOOGLE_SPREADSHEET_ID || '1nKF40i125QY7MQMghOoOnyqjpHLFWKM12ZYIIGxW9Ck';
@@ -272,6 +273,7 @@ export async function writePackagesToGoogleSheet(config: GoogleSheetsConfig, pac
  */
 
 
+
 export function getSampleSpreadsheetStructure() {
   return [
     {
@@ -350,6 +352,7 @@ export function isDemoLesson(lesson: Partial<Lesson>): boolean {
 /**
  * Converts StudentRecord array into sheet rows format.
  */
+
 
 
 export function convertStudentsToSheetRows(students: StudentRecord[]): any[][] {
