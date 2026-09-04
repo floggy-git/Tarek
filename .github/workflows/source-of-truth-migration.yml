@@ -23,6 +23,7 @@ jobs:
           node scripts/fix_password_reset_security.cjs
           node scripts/fix_email_record_id.cjs
           node scripts/fix_send_email_security.cjs
+          node scripts/fix_send_email_newlines.cjs
       - name: Commit migration
         run: |
           git config user.name 'github-actions[bot]'
