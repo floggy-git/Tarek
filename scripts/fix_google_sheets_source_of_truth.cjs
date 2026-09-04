@@ -42,49 +42,19 @@ out = replaceExport(out, 'getSampleSpreadsheetStructure', `
 export function getSampleSpreadsheetStructure() {
   return [
     {
-      id: 'PKG-000001',
-      name: 'Starter Core Pack',
-      description: 'Basic theory app & standard lessons.',
-      hours: 10,
-      price: 650,
-      discountPrice: '',
-      badge: 'Essential',
-      popular: 'FALSE',
-      recommended: 'FALSE',
-      colorTheme: 'blue',
-      displayOrder: 1,
-      isActive: 'TRUE',
-      features: ''
+      id: 'PKG-000001', name: 'Starter Core Pack', description: 'Basic theory app & standard lessons.',
+      hours: 10, price: 650, discountPrice: '', badge: 'Essential', popular: 'FALSE', recommended: 'FALSE',
+      colorTheme: 'blue', displayOrder: 1, isActive: 'TRUE', features: ''
     },
     {
-      id: 'PKG-000002',
-      name: 'Optimal Progress Pack',
-      description: 'Structured lessons and practical exam preparation.',
-      hours: 20,
-      price: 1250,
-      discountPrice: '',
-      badge: 'Most Popular',
-      popular: 'TRUE',
-      recommended: 'TRUE',
-      colorTheme: 'indigo',
-      displayOrder: 2,
-      isActive: 'TRUE',
-      features: ''
+      id: 'PKG-000002', name: 'Optimal Progress Pack', description: 'Structured lessons and practical exam preparation.',
+      hours: 20, price: 1250, discountPrice: '', badge: 'Most Popular', popular: 'TRUE', recommended: 'TRUE',
+      colorTheme: 'indigo', displayOrder: 2, isActive: 'TRUE', features: ''
     },
     {
-      id: 'PKG-000003',
-      name: 'Complete Guarantee Pack',
-      description: 'Comprehensive driving training and exam preparation.',
-      hours: 40,
-      price: 2400,
-      discountPrice: '',
-      badge: 'Recommended',
-      popular: 'FALSE',
-      recommended: 'TRUE',
-      colorTheme: 'amber',
-      displayOrder: 3,
-      isActive: 'TRUE',
-      features: ''
+      id: 'PKG-000003', name: 'Complete Guarantee Pack', description: 'Comprehensive driving training and exam preparation.',
+      hours: 40, price: 2400, discountPrice: '', badge: 'Recommended', popular: 'FALSE', recommended: 'TRUE',
+      colorTheme: 'amber', displayOrder: 3, isActive: 'TRUE', features: ''
     }
   ];
 }
@@ -99,8 +69,7 @@ export function parseSheetRowsToStudents(rows: any[][]): StudentRecord[] {
     'current package', 'balance (€)', 'exam readiness (%)', 'status',
     'theory exam status', 'drive folder id'
   ];
-  const index = (header: string) => headers.indexOf(header);
-  const idx = requiredHeaders.map(index);
+  const idx = requiredHeaders.map(header => headers.indexOf(header));
   if (idx.some(i => i === -1)) {
     throw new Error('Students sheet schema mismatch. Expected canonical 12-column schema.');
   }
@@ -112,22 +81,16 @@ export function parseSheetRowsToStudents(rows: any[][]): StudentRecord[] {
     if (!name) continue;
     const rawId = String(row[idx[0]] ?? '').trim();
     if (!/^ST-\\d{6}$/.test(rawId)) {
-      throw new Error(`Invalid Student ID at Students row ${i + 1}: ${rawId || '(empty)'}`);
+      throw new Error('Invalid Student ID at Students row ' + (i + 1) + ': ' + (rawId || '(empty)'));
     }
     const readinessRaw = Number(row[idx[8]] ?? 0);
     parsedStudents.push({
-      id: rawId,
-      studentId: rawId,
-      name,
-      email: String(row[idx[2]] ?? '').trim(),
-      phone: String(row[idx[3]] ?? '').trim(),
-      dob: String(row[idx[4]] ?? '').trim(),
-      city: String(row[idx[5]] ?? '').trim(),
-      currentPackage: String(row[idx[6]] ?? '').trim(),
-      balance: Number(row[idx[7]] ?? 0) || 0,
+      id: rawId, studentId: rawId, name,
+      email: String(row[idx[2]] ?? '').trim(), phone: String(row[idx[3]] ?? '').trim(),
+      dob: String(row[idx[4]] ?? '').trim(), city: String(row[idx[5]] ?? '').trim(),
+      currentPackage: String(row[idx[6]] ?? '').trim(), balance: Number(row[idx[7]] ?? 0) || 0,
       readiness: Number.isFinite(readinessRaw) ? readinessRaw : 0,
-      status: String(row[idx[9]] ?? '').trim(),
-      theoryExamStatus: String(row[idx[10]] ?? '').trim(),
+      status: String(row[idx[9]] ?? '').trim(), theoryExamStatus: String(row[idx[10]] ?? '').trim(),
       driveFolderId: String(row[idx[11]] ?? '').trim() || undefined
     });
   }
@@ -146,20 +109,13 @@ export function convertStudentsToSheetRows(students: StudentRecord[]): any[][] {
   for (const student of students) {
     const studentId = student.studentId || student.id;
     if (!/^ST-\\d{6}$/.test(studentId)) {
-      throw new Error(`Invalid Student ID for Sheets write: ${studentId || '(empty)'}`);
+      throw new Error('Invalid Student ID for Sheets write: ' + (studentId || '(empty)'));
     }
     rows.push([
-      sanitizeSpreadsheetCell(studentId),
-      sanitizeSpreadsheetCell(student.name),
-      sanitizeSpreadsheetCell(student.email),
-      sanitizeSpreadsheetCell(student.phone),
-      sanitizeSpreadsheetCell(student.dob),
-      sanitizeSpreadsheetCell(student.city),
-      sanitizeSpreadsheetCell(student.currentPackage),
-      Number(student.balance ?? 0),
-      Number(student.readiness ?? 0),
-      sanitizeSpreadsheetCell(student.status || ''),
-      sanitizeSpreadsheetCell(student.theoryExamStatus || ''),
+      sanitizeSpreadsheetCell(studentId), sanitizeSpreadsheetCell(student.name), sanitizeSpreadsheetCell(student.email),
+      sanitizeSpreadsheetCell(student.phone), sanitizeSpreadsheetCell(student.dob), sanitizeSpreadsheetCell(student.city),
+      sanitizeSpreadsheetCell(student.currentPackage), Number(student.balance ?? 0), Number(student.readiness ?? 0),
+      sanitizeSpreadsheetCell(student.status || ''), sanitizeSpreadsheetCell(student.theoryExamStatus || ''),
       sanitizeSpreadsheetCell(student.driveFolderId || '')
     ]);
   }
