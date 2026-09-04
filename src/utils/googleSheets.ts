@@ -463,129 +463,53 @@ export async function writeStudentsToGoogleSheet(config: GoogleSheetsConfig, stu
  */
 export function parseSheetRowsToLessons(rows: any[][]): Lesson[] {
   if (!rows || rows.length <= 1) return [];
-
-  const headers = rows[0].map(h => String(h).trim().toLowerCase());
-
-  const getIdx = (name: string) => headers.indexOf(name.toLowerCase());
-
-  const idIdx = getIdx('id') !== -1 ? getIdx('id') : getIdx('lesson id');
-  const studentIdIdx = getIdx('student id') !== -1 ? getIdx('student id') : getIdx('studentid');
-  const trainerIdIdx = getIdx('trainer id') !== -1 ? getIdx('trainer id') : getIdx('trainerid');
-  const vehicleIdIdx = getIdx('vehicle id') !== -1 ? getIdx('vehicle id') : getIdx('vehicleid');
-  const numIdx = getIdx('lesson number') !== -1 ? getIdx('lesson number') : getIdx('lessonnumber');
-  const studentIdx = getIdx('student name') !== -1 ? getIdx('student name') : getIdx('studentname');
-  const trainerIdx = getIdx('trainer name') !== -1 ? getIdx('trainer name') : getIdx('trainername');
-  const dateIdx = getIdx('date');
-  const timeIdx = getIdx('time');
-  const durationIdx = getIdx('duration');
-  const priceIdx = getIdx('price');
-  const locationIdx = getIdx('pickup location') !== -1 ? getIdx('pickup location') : getIdx('pickuplocation');
-  const statusIdx = getIdx('status');
-  const payStatusIdx = getIdx('payment status') !== -1 ? getIdx('payment status') : getIdx('paystatus');
-  const payMethodIdx = getIdx('payment method') !== -1 ? getIdx('payment method') : getIdx('paymethod');
-  const ratingIdx = getIdx('performance rating') !== -1 ? getIdx('performance rating') : getIdx('performancerating');
-  const evalIdx = getIdx('performance evaluation') !== -1 ? getIdx('performance evaluation') : getIdx('performanceevaluation');
-  const topicsIdx = getIdx('topics covered') !== -1 ? getIdx('topics covered') : getIdx('lessonnotes');
-  const notesIdx = getIdx('instructor notes') !== -1 ? getIdx('instructor notes') : getIdx('instructornotes');
-  const completedAtIdx = getIdx('completion timestamp') !== -1 ? getIdx('completion timestamp') : getIdx('completedat');
-
-  const parsedLessons: Lesson[] = [];
-
+  const headers = rows[0].map(h => String(h ?? '').trim().toLowerCase());
+  const idx = (name: string) => headers.indexOf(name.toLowerCase());
+  const required = ['lesson id','student id','student name','trainer name','date','time','duration (h)','price (€)','pickup location','status','calendar event id','instructor notes','rating'];
+  const positions = required.map(idx);
+  if (positions.some(i => i === -1)) throw new Error('Lessons sheet schema mismatch. Expected canonical 13-column schema.');
+  const parsed: Lesson[] = [];
   for (let i = 1; i < rows.length; i++) {
-    const row = rows[i];
-    if (!row || row.length === 0) continue;
-
-    const id = idIdx !== -1 && row[idIdx] ? String(row[idIdx]) : `LES-${String(i).padStart(6, '0')}`;
-    const studentName = studentIdx !== -1 && row[studentIdx] ? String(row[studentIdx]) : '';
-    let studentId = studentIdIdx !== -1 && row[studentIdIdx] ? String(row[studentIdIdx]) : undefined;
-    if (!studentId && studentName) {
-      studentId = getStudentId(studentName);
-    }
-    const trainerName = trainerIdx !== -1 && row[trainerIdx] ? String(row[trainerIdx]) : '';
-    const trainerId = trainerIdIdx !== -1 && row[trainerIdIdx] ? String(row[trainerIdIdx]) : 'TR-000001';
-    const vehicleId = vehicleIdIdx !== -1 && row[vehicleIdIdx] ? String(row[vehicleIdIdx]) : 'VEH-000001';
-
-    const date = dateIdx !== -1 && row[dateIdx] ? String(row[dateIdx]) : '';
-    const time = timeIdx !== -1 && row[timeIdx] ? String(row[timeIdx]) : '10:00';
-    const duration = durationIdx !== -1 && row[durationIdx] ? (parseInt(row[durationIdx], 10) === 2 ? 2 : 1) : 1;
-    const price = priceIdx !== -1 && row[priceIdx] ? parseFloat(row[priceIdx]) || 50 : 50;
-    const pickupLocation = locationIdx !== -1 && row[locationIdx] ? String(row[locationIdx]) : 'School HQ';
-    const status = statusIdx !== -1 && row[statusIdx] ? (String(row[statusIdx]).toLowerCase() as any) : 'upcoming';
-    const payStatus = payStatusIdx !== -1 && row[payStatusIdx] ? (String(row[payStatusIdx]).toLowerCase() as any) : 'unpaid';
-    const payMethod = payMethodIdx !== -1 && row[payMethodIdx] ? String(row[payMethodIdx]) : undefined;
-    const performanceRating = ratingIdx !== -1 && row[ratingIdx] ? parseInt(row[ratingIdx], 10) : undefined;
-    const performanceEvaluation = evalIdx !== -1 && row[evalIdx] ? (String(row[evalIdx]).toLowerCase() as any) : undefined;
-    const lessonNotes = topicsIdx !== -1 && row[topicsIdx] ? String(row[topicsIdx]) : undefined;
-    const instructorNotes = notesIdx !== -1 && row[notesIdx] ? String(row[notesIdx]) : undefined;
-    const lessonNumber = numIdx !== -1 && row[numIdx] ? parseInt(row[numIdx], 10) : undefined;
-    const completedAt = completedAtIdx !== -1 && row[completedAtIdx] ? String(row[completedAtIdx]) : undefined;
-
-    parsedLessons.push({
-      id,
-      studentId,
-      studentName,
-      trainerId,
-      trainerName,
-      vehicleId,
-      date,
-      time,
-      duration,
-      price,
-      pickupLocation,
-      status,
-      payStatus,
-      payMethod,
-      performanceRating,
-      performanceEvaluation,
-      lessonNotes,
-      instructorNotes,
-      lessonNumber,
-      completedAt
-    });
+    const row = rows[i] || [];
+    const id = String(row[positions[0]] ?? '').trim();
+    const studentId = String(row[positions[1]] ?? '').trim();
+    const studentName = String(row[positions[2]] ?? '').trim();
+    if (!id || !studentId || !studentName) continue;
+    parsed.push({
+      id, studentId, studentName,
+      trainerName: String(row[positions[3]] ?? '').trim(),
+      date: String(row[positions[4]] ?? '').trim(),
+      time: String(row[positions[5]] ?? '').trim(),
+      duration: Number(row[positions[6]] ?? 1) || 1,
+      price: Number(row[positions[7]] ?? 0) || 0,
+      pickupLocation: String(row[positions[8]] ?? '').trim(),
+      status: (String(row[positions[9]] ?? '').trim().toLowerCase() || 'upcoming') as any,
+      calendarEventId: String(row[positions[10]] ?? '').trim() || undefined,
+      instructorNotes: String(row[positions[11]] ?? '').trim() || undefined,
+      performanceRating: row[positions[12]] !== undefined && row[positions[12]] !== '' ? Number(row[positions[12]]) : undefined
+    } as Lesson);
   }
-
-  return parsedLessons;
+  return parsed;
 }
 
 /**
  * Converts Lesson array into sheet rows format.
  */
 export function convertLessonsToSheetRows(lessons: Lesson[]): any[][] {
-  const headers = [
-    'Lesson ID', 'Student ID', 'Student Name', 'Trainer ID', 'Trainer Name', 'Vehicle ID',
-    'Lesson Number', 'Scheduled Date', 'Scheduled Time', 'Duration (Hrs)', 'Price (€)',
-    'Pickup Location', 'Status', 'Payment Status', 'Payment Method', 'Performance Rating',
-    'Performance Evaluation', 'Topics Covered', 'Instructor Notes', 'Completion Timestamp'
-  ];
-
+  const headers = ['Lesson ID','Student ID','Student Name','Trainer Name','Date','Time','Duration (h)','Price (€)','Pickup Location','Status','Calendar Event ID','Instructor Notes','Rating'];
   const rows: any[][] = [headers];
-
   for (const l of lessons) {
-    if (isDemoLesson(l)) continue; // STRICT SAFETY: Never upload demo lessons to Google Sheets
+    if (isDemoLesson(l)) continue;
+    if (!/^ST-\d{6}$/.test(String(l.studentId || ''))) continue;
     rows.push([
-      l.id,
-      l.studentId || (l.studentName ? getStudentId(l.studentName) : 'ST-000001'),
-      l.studentName || '',
-      l.trainerId || 'TR-000001',
-      l.trainerName || '',
-      l.vehicleId || 'VEH-000001',
-      l.lessonNumber || '',
-      l.date || '',
-      l.time || '',
-      l.duration || 1,
-      l.price || 50,
-      l.pickupLocation || '',
-      l.status || 'upcoming',
-      l.payStatus || 'unpaid',
-      l.payMethod || '',
-      l.performanceRating !== undefined ? l.performanceRating : '',
-      l.performanceEvaluation || '',
-      l.lessonNotes || '',
-      l.instructorNotes || l.trainerNotes || '',
-      l.completedAt || ''
+      sanitizeSpreadsheetCell(l.id), sanitizeSpreadsheetCell(l.studentId), sanitizeSpreadsheetCell(l.studentName || ''),
+      sanitizeSpreadsheetCell(l.trainerName || ''), sanitizeSpreadsheetCell(l.date || ''), sanitizeSpreadsheetCell(l.time || ''),
+      Number(l.duration || 1), Number(l.price || 0), sanitizeSpreadsheetCell(l.pickupLocation || ''),
+      sanitizeSpreadsheetCell(l.status || 'upcoming'), sanitizeSpreadsheetCell((l as any).calendarEventId || ''),
+      sanitizeSpreadsheetCell(l.instructorNotes || (l as any).trainerNotes || ''),
+      l.performanceRating !== undefined && l.performanceRating !== null ? Number(l.performanceRating) : ''
     ]);
   }
-
   return rows;
 }
 
@@ -599,7 +523,7 @@ export async function loadLessonsFromGoogleSheet(config: GoogleSheetsConfig): Pr
     throw new Error("Spreadsheet ID is required to fetch from Google Sheets.");
   }
 
-  const range = `Lessons!A1:Q500`;
+  const range = `Lessons!A1:M500`;
   let url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
 
   const headers: HeadersInit = {};
@@ -638,7 +562,7 @@ export async function writeLessonsToGoogleSheet(config: GoogleSheetsConfig, less
     throw new Error("Google OAuth Write Scopes require a valid Google OAuth Access Token.");
   }
 
-  const range = `Lessons!A1:Q500`;
+  const range = `Lessons!A1:M500`;
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
 
   const rows = convertLessonsToSheetRows(lessons);
@@ -1403,7 +1327,7 @@ export async function patchStudentInGoogleSheet(
     }
 
     // 2. Fetch full target row to preserve untouched fields
-    const rowRange = `Students!A${targetRowIndex}:Q${targetRowIndex}`;
+    const rowRange = `Students!A${targetRowIndex}:L${targetRowIndex}`;
     const rowRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(rowRange)}`, {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     });
@@ -1415,16 +1339,14 @@ export async function patchStudentInGoogleSheet(
     if (changes.name !== undefined) currentRow[1] = changes.name;
     if (changes.email !== undefined) currentRow[2] = changes.email;
     if (changes.phone !== undefined) currentRow[3] = changes.phone;
-    if (changes.city !== undefined) currentRow[4] = changes.city;
-    if (changes.currentPackage !== undefined) currentRow[5] = changes.currentPackage;
-    if (changes.balance !== undefined) currentRow[6] = changes.balance;
-    if (changes.readiness !== undefined) currentRow[7] = changes.readiness;
-    if (changes.theoryExamStatus !== undefined) currentRow[8] = changes.theoryExamStatus;
-    if (changes.status !== undefined) currentRow[11] = changes.status;
-    if (changes.notificationsEnabled !== undefined) currentRow[13] = changes.notificationsEnabled ? 'TRUE' : 'FALSE';
-    if (changes.aiWarningCount !== undefined) currentRow[14] = changes.aiWarningCount;
-    if (changes.aiSuspendedUntil !== undefined) currentRow[15] = changes.aiSuspendedUntil || '';
-    if (changes.aiSuspensionTier !== undefined) currentRow[16] = changes.aiSuspensionTier || 0;
+    if (changes.dob !== undefined) currentRow[4] = changes.dob;
+    if (changes.city !== undefined) currentRow[5] = changes.city;
+    if (changes.currentPackage !== undefined) currentRow[6] = changes.currentPackage;
+    if (changes.balance !== undefined) currentRow[7] = changes.balance;
+    if (changes.readiness !== undefined) currentRow[8] = changes.readiness;
+    if (changes.status !== undefined) currentRow[9] = changes.status;
+    if (changes.theoryExamStatus !== undefined) currentRow[10] = changes.theoryExamStatus;
+    if (changes.driveFolderId !== undefined) currentRow[11] = changes.driveFolderId || '';
 
     // 3. Write ONLY the target row
     const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(rowRange)}?valueInputOption=USER_ENTERED`;
