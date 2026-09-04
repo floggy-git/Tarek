@@ -1,0 +1,64 @@
+name: Repair Now
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply deterministic source repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          function replaceAll(path, replacements) {
+            let s = fs.readFileSync(path, 'utf8');
+            const before = s;
+            for (const [a,b] of replacements) s = s.split(a).join(b);
+            if (s !== before) fs.writeFileSync(path, s);
+          }
+          // Normalize the PDF data URL expression to valid TypeScript regex syntax.
+          replaceAll('server.ts', [
+            [".replace(/^data:application\\\\/pdf;base64,/, '')", ".replace(/^data:application\\/pdf;base64,/, '')"],
+            [".replace(/^data:application\\\\\\/pdf;base64,/, '')", ".replace(/^data:application\\/pdf;base64,/, '')"]
+          ]);
+          // Remove obsolete demo package label from operational data.
+          replaceAll('src/data.ts', [['Express Course (15h)', 'Starter Core Pack']]);
+          // Never emit the old Calendar-disabled sentinel.
+          replaceAll('src/utils/googleSheetsControlCenter.ts', [['CAL-DISABLED', '']]);
+          NODE
+      - name: TypeScript check
+        run: npm install --no-audit --no-fund && npm run lint
+      - name: Commit repaired source
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'No source changes required.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add server.ts src/data.ts src/utils/googleSheetsControlCenter.ts
+          git commit -m 'fix: normalize production source invariants'
+          git pull --rebase origin main
+          git push origin HEAD:main
+      - name: Remove one-time repair workflow
+        if: success()
+        shell: bash
+        run: |
+          git rm .github/workflows/repair-now.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore: remove one-time repair workflow'
+          git pull --rebase origin main
+          git push origin HEAD:main
