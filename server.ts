@@ -2296,7 +2296,7 @@ ${studentSummary}`;
     res.json({ 
       success: true, 
       message: 'Password updated and reset token invalidated successfully.',
-      hashedPassword // Return secure hash to updating client
+
     });
   });
 
