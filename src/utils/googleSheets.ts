@@ -46,12 +46,13 @@ export function sanitizeSpreadsheetCell(val: any, allowFormula: boolean = false)
   return val;
 }
 
+
 export function getSheetsConfig(): GoogleSheetsConfig {
-  let spreadsheetId = (import.meta as any).env.VITE_GOOGLE_SPREADSHEET_ID || '1nKF40i125QY7MQMghOoOnyqjpHLFWKM12ZYIIGxW9Ck';
-  let sheetName = (import.meta as any).env.VITE_GOOGLE_SHEETS_TAB_NAME || 'Packages';
-  let accessToken = memoryAccessToken || (import.meta as any).env.VITE_GOOGLE_SHEETS_ACCESS_TOKEN || (import.meta as any).env.VITE_GOOGLE_OAUTH_TOKEN || '';
-  let apiKey = (import.meta as any).env.VITE_GOOGLE_API_KEY || '';
-  let autoSync = true;
+  const env = (import.meta as any).env || {};
+  let spreadsheetId = env.VITE_GOOGLE_SPREADSHEET_ID || '1nKF40i125QY7MQMghOoOnyqjpHLFWKM12ZYIIGxW9Ck';
+  let sheetName = env.VITE_GOOGLE_SHEETS_TAB_NAME || 'Packages';
+  const accessToken = memoryAccessToken || '';
+  let apiKey = env.VITE_GOOGLE_API_KEY || '';
 
   try {
     const saved = localStorage.getItem(CONFIG_KEY) || localStorage.getItem(LEGACY_CONFIG_KEY);
@@ -59,23 +60,15 @@ export function getSheetsConfig(): GoogleSheetsConfig {
       const parsed = JSON.parse(saved);
       if (parsed.spreadsheetId) spreadsheetId = parsed.spreadsheetId;
       if (parsed.sheetName) sheetName = parsed.sheetName;
-      if (!accessToken && parsed.accessToken) accessToken = parsed.accessToken;
       if (!apiKey) apiKey = parsed.apiKey || '';
+      // Deliberately ignore parsed.accessToken / legacy persisted OAuth tokens.
     }
   } catch (e) {
-    console.error("Error reading sheets config", e);
+    console.error('Error reading sheets config', e);
   }
 
-  return {
-    spreadsheetId,
-    sheetName,
-    accessToken,
-    apiKey,
-    autoSync
-  };
+  return { spreadsheetId, sheetName, accessToken, apiKey, autoSync: true };
 }
-
-import { safeSetItem } from './safeStorage';
 
 export function saveSheetsConfig(config: GoogleSheetsConfig): void {
   if (config.accessToken) {
@@ -275,130 +268,61 @@ export async function writePackagesToGoogleSheet(config: GoogleSheetsConfig, pac
 /**
  * Helper to generate a fully styled sample of Google Sheets packages for the admin to copy.
  */
+
 export function getSampleSpreadsheetStructure() {
   return [
     {
-      id: "PKG-000001",
-      name: "Starter Core Pack",
-      description: "Basic theory app & standard lessons. Best for beginners wanting to start quick.",
-      hours: 10,
-      price: 650,
-      badge: "Essential",
-      colorTheme: "blue",
-      displayOrder: 1,
-      isActive: "TRUE"
+      id: 'PKG-000001', name: 'Starter Core Pack', description: 'Basic theory app & standard lessons.',
+      hours: 10, price: 650, discountPrice: '', badge: 'Essential', popular: 'FALSE', recommended: 'FALSE',
+      colorTheme: 'blue', displayOrder: 1, isActive: 'TRUE', features: ''
     },
     {
-      id: "PKG-000002",
-      name: "Optimal Progress",
-      description: "Mock practical tests included, perfect for systematic learners looking to pass first try.",
-      hours: 20,
-      price: 1250,
-      badge: "Most Popular",
-      colorTheme: "indigo",
-      displayOrder: 2,
-      isActive: "TRUE"
+      id: 'PKG-000002', name: 'Optimal Progress Pack', description: 'Structured lessons and practical exam preparation.',
+      hours: 20, price: 1250, discountPrice: '', badge: 'Most Popular', popular: 'TRUE', recommended: 'TRUE',
+      colorTheme: 'indigo', displayOrder: 2, isActive: 'TRUE', features: ''
     },
     {
-      id: "PKG-000003",
-      name: "Royal Driving Intensive",
-      description: "Rapid booking, priority schedule, comprehensive prep and unlimited exam support.",
-      hours: 40,
-      price: 2400,
-      badge: "Recommended VIP",
-      colorTheme: "amber",
-      displayOrder: 3,
-      isActive: "TRUE"
+      id: 'PKG-000003', name: 'Complete Guarantee Pack', description: 'Comprehensive driving training and exam preparation.',
+      hours: 40, price: 2400, discountPrice: '', badge: 'Recommended', popular: 'FALSE', recommended: 'TRUE',
+      colorTheme: 'amber', displayOrder: 3, isActive: 'TRUE', features: ''
     }
   ];
 }
 
-/**
- * Parses Google Sheets Rows from the 'Students' sheet tab into StudentRecord array.
- */
+
 export function parseSheetRowsToStudents(rows: any[][]): StudentRecord[] {
-  if (rows.length <= 1) return [];
-
+  if (!rows || rows.length <= 1) return [];
   const headers = rows[0].map(h => String(h).trim().toLowerCase());
-  
-  const idIdx = headers.findIndex(h => h.includes('id') || h.includes('student id'));
-  const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('full name'));
-  const emailIdx = headers.findIndex(h => h.includes('email'));
-  const phoneIdx = headers.findIndex(h => h.includes('phone'));
-  const dobIdx = headers.findIndex(h => h.includes('birth') || h.includes('dob') || h.includes('date of birth'));
-  const cityIdx = headers.findIndex(h => h.includes('city'));
-  const pkgIdx = headers.findIndex(h => h.includes('package') || h.includes('pakket') || h.includes('current package'));
-  const balIdx = headers.findIndex(h => h.includes('balance'));
-  const readIdx = headers.findIndex(h => h.includes('readiness') || h.includes('exam readiness score'));
-  const dateIdx = headers.findIndex(h => h.includes('joined') || h.includes('date'));
-  const passIdx = headers.findIndex(h => h.includes('password'));
-  const statusIdx = headers.findIndex(h => h.includes('status') && !h.includes('theory'));
-  const theoryIdx = headers.findIndex(h => h.includes('theory') || h.includes('theory exam status'));
-  const notificationsIdx = headers.findIndex(h => h.includes('notifications enabled') || h.includes('notifications_enabled') || h.includes('notifications'));
-
-  const parsedStudents: StudentRecord[] = [];
-
-  for (let i = 1; i < rows.length; i++) {
-    const row = rows[i];
-    if (!row[nameIdx]) continue; // Skip empty rows
-
-    let id = idIdx !== -1 ? String(row[idIdx] || '') : '';
-    const name = nameIdx !== -1 ? String(row[nameIdx] || '') : '';
-
-    if (!id || id.includes('AND-AMIR')) id = 'ST-000001';
-    else if (id.includes('AND-SANNE')) id = 'ST-000002';
-    else if (id.includes('AND-MICHAEL')) id = 'ST-000003';
-    else if (!id.startsWith('ST-')) id = `ST-${String(100000 + i).slice(-6)}`;
-
-    const email = emailIdx !== -1 ? String(row[emailIdx] || '') : '';
-    const phone = phoneIdx !== -1 ? String(row[phoneIdx] || '') : '';
-    const dob = dobIdx !== -1 ? String(row[dobIdx] || '') : '';
-    const city = cityIdx !== -1 ? String(row[cityIdx] || '') : '';
-    const currentPackage = pkgIdx !== -1 ? String(row[pkgIdx] || '') : '';
-    const balance = balIdx !== -1 ? Number(row[balIdx] || 0) : 0;
-    const readiness = readIdx !== -1 ? Number(row[readIdx] || 0) : 0;
-    const joinedDate = dateIdx !== -1 ? String(row[dateIdx] || '') : '';
-    const password = passIdx !== -1 ? String(row[passIdx] || '') : '';
-    const status = statusIdx !== -1 ? String(row[statusIdx] || 'active') : 'active';
-    
-    // Default to '⏳ Has not passed the theory exam yet' if not found or empty
-    const rawTheory = theoryIdx !== -1 ? String(row[theoryIdx] || '').trim() : '';
-    const theoryExamStatus = rawTheory || '⏳ Has not passed the theory exam yet';
-    
-    const notificationsEnabled = notificationsIdx !== -1 && row[notificationsIdx] !== undefined && String(row[notificationsIdx]).trim() !== ''
-      ? String(row[notificationsIdx]).trim().toUpperCase() !== 'FALSE'
-      : true;
-
-    const aiWarningIdx = headers.findIndex(h => h.includes('ai warning') || h.includes('ai_warning') || h.includes('warning count'));
-    const aiSuspendedIdx = headers.findIndex(h => h.includes('ai suspended') || h.includes('ai_suspended') || h.includes('suspended until'));
-    const aiTierIdx = headers.findIndex(h => h.includes('ai tier') || h.includes('ai_tier') || h.includes('suspension tier'));
-
-    const aiWarningCount = aiWarningIdx !== -1 && row[aiWarningIdx] ? Number(row[aiWarningIdx]) : 0;
-    const aiSuspendedUntil = aiSuspendedIdx !== -1 && row[aiSuspendedIdx] ? String(row[aiSuspendedIdx]).trim() : undefined;
-    const aiSuspensionTier = aiTierIdx !== -1 && row[aiTierIdx] ? Number(row[aiTierIdx]) : 0;
-
-    parsedStudents.push({
-      id,
-      studentId: id,
-      name,
-      email,
-      phone,
-      dob,
-      city,
-      currentPackage,
-      balance,
-      readiness,
-      joinedDate,
-      password,
-      status,
-      theoryExamStatus,
-      notificationsEnabled,
-      aiWarningCount: isNaN(aiWarningCount) ? 0 : aiWarningCount,
-      aiSuspendedUntil: aiSuspendedUntil || null,
-      aiSuspensionTier: isNaN(aiSuspensionTier) ? 0 : aiSuspensionTier
-    });
+  const requiredHeaders = [
+    'student id', 'name', 'email', 'phone', 'date of birth', 'city',
+    'current package', 'balance (€)', 'exam readiness (%)', 'status',
+    'theory exam status', 'drive folder id'
+  ];
+  const idx = requiredHeaders.map(header => headers.indexOf(header));
+  if (idx.some(i => i === -1)) {
+    throw new Error('Students sheet schema mismatch. Expected canonical 12-column schema.');
   }
 
+  const parsedStudents: StudentRecord[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i] || [];
+    const name = String(row[idx[1]] ?? '').trim();
+    if (!name) continue;
+    const rawId = String(row[idx[0]] ?? '').trim();
+    if (!/^ST-\d{6}$/.test(rawId)) {
+      throw new Error('Invalid Student ID at Students row ' + (i + 1) + ': ' + (rawId || '(empty)'));
+    }
+    const readinessRaw = Number(row[idx[8]] ?? 0);
+    parsedStudents.push({
+      id: rawId, studentId: rawId, name,
+      email: String(row[idx[2]] ?? '').trim(), phone: String(row[idx[3]] ?? '').trim(),
+      dob: String(row[idx[4]] ?? '').trim(), city: String(row[idx[5]] ?? '').trim(),
+      currentPackage: String(row[idx[6]] ?? '').trim(), balance: Number(row[idx[7]] ?? 0) || 0,
+      readiness: Number.isFinite(readinessRaw) ? readinessRaw : 0,
+      status: String(row[idx[9]] ?? '').trim(), theoryExamStatus: String(row[idx[10]] ?? '').trim(),
+      driveFolderId: String(row[idx[11]] ?? '').trim() || undefined
+    });
+  }
   return parsedStudents;
 }
 
@@ -423,50 +347,30 @@ export function isDemoLesson(lesson: Partial<Lesson>): boolean {
 /**
  * Converts StudentRecord array into sheet rows format.
  */
+
 export function convertStudentsToSheetRows(students: StudentRecord[]): any[][] {
   const headers = [
-    'Student ID', 'Full Name', 'Email', 'Phone', 'Date of Birth', 
-    'City', 'Current Package', 'Balance', 'Exam Readiness Score', 
-    'Joined Date', 'Password', 'Status', 'Theory Exam Status', 'Notifications Enabled'
+    'Student ID', 'Name', 'Email', 'Phone', 'Date of Birth', 'City',
+    'Current Package', 'Balance (€)', 'Exam Readiness (%)', 'Status',
+    'Theory Exam Status', 'Drive Folder ID'
   ];
   const rows: any[][] = [headers];
-
-  for (const s of students) {
-    if (isDemoStudent(s)) continue; // STRICT SAFETY: Never upload demo students to Google Sheets
-    let pwd = s.password || 'student123';
-    // If password is not a bcrypt hash, securely hash it now!
-    if (pwd && !pwd.startsWith('$2a$') && !pwd.startsWith('$2b$')) {
-      try {
-        pwd = bcrypt.hashSync(pwd, 10);
-      } catch (e) {
-        console.error("Error hashing student password:", e);
-      }
+  for (const student of students) {
+    const studentId = student.studentId || student.id;
+    if (!/^ST-\d{6}$/.test(studentId)) {
+      throw new Error('Invalid Student ID for Sheets write: ' + (studentId || '(empty)'));
     }
-
     rows.push([
-      s.id,
-      s.name,
-      s.email,
-      s.phone,
-      s.dob,
-      s.city,
-      s.currentPackage,
-      s.balance ?? 0,
-      s.readiness ?? 85,
-      s.joinedDate || new Date().toISOString().split('T')[0],
-      pwd,
-      s.status || 'active',
-      s.theoryExamStatus,
-      s.notificationsEnabled !== false ? 'TRUE' : 'FALSE'
+      sanitizeSpreadsheetCell(studentId), sanitizeSpreadsheetCell(student.name), sanitizeSpreadsheetCell(student.email),
+      sanitizeSpreadsheetCell(student.phone), sanitizeSpreadsheetCell(student.dob), sanitizeSpreadsheetCell(student.city),
+      sanitizeSpreadsheetCell(student.currentPackage), Number(student.balance ?? 0), Number(student.readiness ?? 0),
+      sanitizeSpreadsheetCell(student.status || ''), sanitizeSpreadsheetCell(student.theoryExamStatus || ''),
+      sanitizeSpreadsheetCell(student.driveFolderId || '')
     ]);
   }
-
   return rows;
 }
 
-/**
- * Loads student records from the 'Students' sheet tab.
- */
 export async function loadStudentsFromGoogleSheet(config: GoogleSheetsConfig): Promise<StudentRecord[]> {
   const { spreadsheetId, accessToken, apiKey } = config;
   
