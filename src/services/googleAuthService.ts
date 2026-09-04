@@ -9,6 +9,9 @@ export const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 provider.addScope('https://www.googleapis.com/auth/spreadsheets');
 provider.addScope('https://www.googleapis.com/auth/drive.file');
+// Google Calendar is enabled with the least-privileged scope needed to create,
+// update and delete lesson events on the signed-in user's primary calendar.
+provider.addScope('https://www.googleapis.com/auth/calendar.events');
 provider.setCustomParameters({
   prompt: 'consent',
   access_type: 'offline'
@@ -17,7 +20,6 @@ provider.setCustomParameters({
 let isSigningIn = false;
 let cachedAccessToken: string | null = null;
 
-// Initialize auth state listener
 export const initAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
   onAuthFailure?: () => void
@@ -27,7 +29,6 @@ export const initAuth = (
       if (cachedAccessToken) {
         if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
       } else if (!isSigningIn) {
-        // Token might need re-acquisition or was stored in memory
         if (onAuthFailure) onAuthFailure();
       }
     } else {
