@@ -123,5 +123,9 @@ export function convertStudentsToSheetRows(students: StudentRecord[]): any[][] {
 }
 `);
 
+if (!out.includes("import { safeSetItem } from './safeStorage';")) {
+  out = out.replace("import bcrypt from 'bcryptjs';", "import bcrypt from 'bcryptjs';\nimport { safeSetItem } from './safeStorage';");
+}
+
 fs.writeFileSync(file, out);
 console.log('Updated googleSheets.ts source-of-truth functions.');
