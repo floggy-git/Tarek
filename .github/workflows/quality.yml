@@ -31,5 +31,8 @@ jobs:
       - name: Static security/data gate
         run: node scripts/static_security_gate.cjs
 
+      - name: Source-of-truth regression gate
+        run: node scripts/source_of_truth_gate.cjs
+
       - name: Production build
         run: npm run build
