@@ -13,7 +13,7 @@ if (responsePattern.test(server)) {
 }
 
 // Never return the password hash to the browser after a reset.
-server = server.replace(/^\s*hashedPassword\s*\/\/ Return secure hash to updating client\s*$/m, "      message: 'Password updated successfully.'");
+server = server.replace(/^\s*hashedPassword\s*\/\/ Return secure hash to updating client\s*$/m, '');
 
 fs.writeFileSync(file, server);
 console.log('Password-reset security migration applied.');
