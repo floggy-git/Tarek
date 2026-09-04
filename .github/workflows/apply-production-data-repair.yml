@@ -1,0 +1,29 @@
+name: Apply Production Data Repair
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/repair-production-data.cjs'
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/repair-production-data.cjs
+      - name: Validate and commit
+        run: |
+          npm install --no-audit --no-fund
+          npm run lint
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git restore package-lock.json
+          rm -f scripts/repair-production-data.cjs .github/workflows/apply-production-data-repair.yml
+          git add src/App.tsx
+          git add -u scripts/repair-production-data.cjs .github/workflows/apply-production-data-repair.yml
+          git diff --cached --quiet && exit 0 || (git commit -m 'fix: remove production demo seeds' && git push)
