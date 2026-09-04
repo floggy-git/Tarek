@@ -2300,48 +2300,7 @@ ${studentSummary}`;
     });
   });
 
-  app.post('/api/send-email', async (req, res) => {
-    const { to, subject, html, type, studentName, metadata, pdfBase64 } = req.body;
-    if (!to || !subject || !html) {
-      return res.status(400).json({ error: 'Missing required email fields (to, subject, html)' });
-    }
-
-    const emailRecord = {
-      id: `email-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      timestamp: new Date().toISOString(),
-      to,
-      subject,
-      html,
-      type,
-      studentName,
-      metadata,
-      pdfAttachmentName: pdfBase64 ? `Al_Andalos_Dossier_${(studentName || 'Student').replace(/[\s]+/g, '_')}.pdf` : undefined,
-      pdfBase64: pdfBase64 || undefined
-    };
-
-    sentEmailsLog.unshift(emailRecord);
-
-    // Limit log size to 100 items
-    if (sentEmailsLog.length > 100) {
-      sentEmailsLog.pop();
-    }
-
-    // Log simulated email receipt
-    if (pdfBase64) {
-      console.log(`[Simulated In-App Email Notification] To: ${to}, Subject: ${subject} with attachment: Al_Andalos_Dossier_${(studentName || 'Student').replace(/[\s]+/g, '_')}.pdf`);
-    } else {
-      console.log(`[Simulated In-App Email Notification] To: ${to}, Subject: ${subject}`);
-    }
-
-    res.json({ 
-      success: true, 
-      simulated: true, 
-      sentReal: false, 
-      email: emailRecord 
-    });
-  });
-
-  // Return current server-authoritative time in Europe/Amsterdam timezone
+  app.post('/api/send-email', async (req, res) => {\n    const { to, subject, html, type, studentName, metadata, pdfBase64 } = req.body;\n    if (!to || !subject || !html) return res.status(400).json({ error: 'Missing required email fields (to, subject, html)' });\n    const transporter = getMailTransporter();\n    if (!transporter) return res.status(503).json({ success: false, error: 'Email service is not configured.' });\n    try {\n      const mail: any = { from: process.env.SMTP_FROM || ('Al-Andalos Rijschool <' + process.env.SMTP_USER + '>'), to: String(to).trim(), subject: String(subject), html: String(html) };\n      if (pdfBase64) mail.attachments = [{ filename: 'Al_Andalos_Dossier_' + String(studentName || 'Student').replace(/[\\s]+/g, '_') + '.pdf', content: Buffer.from(String(pdfBase64).replace(/^data:application\\/pdf;base64,/, ''), 'base64'), contentType: 'application/pdf' }];\n      await transporter.sendMail(mail);\n      const emailRecord = { id: 'email-' + Date.now() + '-' + Math.floor(Math.random() * 1000), timestamp: new Date().toISOString(), to: String(to).trim(), subject: String(subject), type, studentName, metadata };\n      sentEmailsLog.unshift(emailRecord);\n      if (sentEmailsLog.length > 100) sentEmailsLog.pop();\n      return res.json({ success: true, sentReal: true, simulated: false, email: emailRecord });\n    } catch (err: any) {\n      console.error('[SMTP Error] Failed sending email:', err?.message || err);\n      return res.status(502).json({ success: false, error: 'Email delivery failed.' });\n    }\n  });\n\n  // Return current server-authoritative time in Europe/Amsterdam timezone
   app.get('/api/time', (req, res) => {
     try {
       const now = new Date();
