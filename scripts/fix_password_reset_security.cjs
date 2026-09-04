@@ -13,5 +13,8 @@ if (responsePattern.test(server)) {
   server = server.replace(responsePattern, "    if (!sentReal) {\n      return res.status(503).json({ success: false, error: 'Password reset email is unavailable.' });\n    }\n\n    res.json({\n      success: true,\n      sentReal: true,\n      simulated: false,\n      message: 'Password reset email sent successfully.',\n      expiresAt\n    });");
 }
 
+// The migration replacement above must leave a real runtime template literal, not escaped interpolation.
+server = server.replace(/email-\\\\\$\{Date\.now\(\)\}-\\\\\$\{Math\.floor\(Math\.random\(\) \* 1000\)\}/g, 'email-${Date.now()}-${Math.floor(Math.random() * 1000)}');
+
 fs.writeFileSync(file, server);
 console.log('Password-reset security migration applied.');
