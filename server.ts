@@ -2307,7 +2307,7 @@ ${studentSummary}`;
     if (!transporter) return res.status(503).json({ success: false, error: 'Email service is not configured.' });
     try {
       const mail: any = { from: process.env.SMTP_FROM || ('Al-Andalos Rijschool <' + process.env.SMTP_USER + '>'), to: String(to).trim(), subject: String(subject), html: String(html) };
-      if (pdfBase64) mail.attachments = [{ filename: 'Al_Andalos_Dossier_' + String(studentName || 'Student').replace(/[\\s]+/g, '_') + '.pdf', content: Buffer.from(String(pdfBase64).replace(/^data:application\\/pdf;base64,/, ''), 'base64'), contentType: 'application/pdf' }];
+      if (pdfBase64) mail.attachments = [{ filename: 'Al_Andalos_Dossier_' + String(studentName || 'Student').replace(/[\\s]+/g, '_') + '.pdf', content: Buffer.from(String(pdfBase64).replace(/^data:application\/pdf;base64,/, ''), 'base64'), contentType: 'application/pdf' }];
       await transporter.sendMail(mail);
       const emailRecord = { id: 'email-' + Date.now() + '-' + Math.floor(Math.random() * 1000), timestamp: new Date().toISOString(), to: String(to).trim(), subject: String(subject), type, studentName, metadata };
       sentEmailsLog.unshift(emailRecord);

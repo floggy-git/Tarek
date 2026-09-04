@@ -531,7 +531,7 @@ function apiSaveLesson(lessonData) {
     Number(lessonData.price || 65),
     lessonData.pickupLocation || 'School HQ',
     lessonData.status || 'scheduled',
-    lessonData.calendarEventId || 'CAL-DISABLED',
+    lessonData.calendarEventId || '',
     lessonData.instructorNotes || '',
     lessonData.rating || ''
   ];
