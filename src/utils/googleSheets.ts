@@ -61,6 +61,7 @@ export function sanitizeSpreadsheetCell(val: any, allowFormula: boolean = false)
 
 
 
+
 export function getSheetsConfig(): GoogleSheetsConfig {
   const env = (import.meta as any).env || {};
   let spreadsheetId = env.VITE_GOOGLE_SPREADSHEET_ID || '1nKF40i125QY7MQMghOoOnyqjpHLFWKM12ZYIIGxW9Ck';
@@ -291,6 +292,7 @@ export async function writePackagesToGoogleSheet(config: GoogleSheetsConfig, pac
 
 
 
+
 export function getSampleSpreadsheetStructure() {
   return [
     { id: 'PKG-000001', name: 'Starter Core Pack', description: 'Basic theory app & standard lessons.', hours: 10, price: 650, discountPrice: '', badge: 'Essential', popular: 'FALSE', recommended: 'FALSE', colorTheme: 'blue', displayOrder: 1, isActive: 'TRUE', features: '' },
@@ -340,6 +342,7 @@ export function isDemoLesson(lesson: Partial<Lesson>): boolean {
 /**
  * Converts StudentRecord array into sheet rows format.
  */
+
 
 
 
