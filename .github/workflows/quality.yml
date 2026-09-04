@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   quality:
@@ -24,62 +24,6 @@ jobs:
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-
-      - name: Repair legacy student authentication
-        if: github.event_name == 'push' && github.actor != 'github-actions[bot]'
-        run: |
-          python3 <<'PY'
-          from pathlib import Path
-          import re
-          p = Path('src/App.tsx')
-          s = p.read_text()
-          if "from 'firebase/auth'" not in s:
-              s = s.replace("import bcrypt from 'bcryptjs';", "import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';\nimport { auth as firebaseAuth } from './services/googleAuthService';")
-          s = s.replace("const handleManualLogin = (e: React.FormEvent) => {", "const handleManualLogin = async (e: React.FormEvent) => {")
-          s = s.replace("const handleRegisterSubmit = (e: React.FormEvent) => {", "const handleRegisterSubmit = async (e: React.FormEvent) => {")
-          marker = "      // Enforce password verification for registered students"
-          start = s.find(marker)
-          if start != -1:
-              end = s.find("\n\n      if (!loginPassword || !isPasswordCorrect)", start)
-              if end == -1:
-                  raise SystemExit('student auth block boundary not found')
-              replacement = """      // Firebase Auth is the only password authority.
-      let isPasswordCorrect = false;
-      try {
-        await signInWithEmailAndPassword(firebaseAuth, cleanEmail, loginPassword);
-        isPasswordCorrect = true;
-      } catch {
-        isPasswordCorrect = false;
-      }"""
-              s = s[:start] + replacement + s[end:]
-          old = """    const studentId = `ST-${String(students.length + 1).padStart(6, '0')}`;
-    const hashedPassword = bcrypt.hashSync(regPassword.trim(), 10);"""
-          if old in s:
-              new = """    try {
-      await createUserWithEmailAndPassword(firebaseAuth, regEmail.trim().toLowerCase(), regPassword.trim());
-    } catch (authError: any) {
-      const code = String(authError?.code || '');
-      const message = code === 'auth/email-already-in-use'
-        ? (lang === 'ar' ? 'هذا البريد مستخدم مسبقاً.' : lang === 'nl' ? 'Dit e-mailadres is al in gebruik.' : 'This email is already in use.')
-        : (lang === 'ar' ? 'تعذر إنشاء الحساب. حاول مرة أخرى.' : lang === 'nl' ? 'Account aanmaken mislukt. Probeer opnieuw.' : 'Could not create the account. Please try again.');
-      alert(message);
-      return;
-    }
-
-    const studentId = `ST-${String(students.length + 1).padStart(6, '0')}`;
-    const hashedPassword = '';"""
-              s = s.replace(old, new, 1)
-          s = re.sub(r"bcrypt\.compareSync\([^\n]+\)", "false", s)
-          s = re.sub(r"bcrypt\.hashSync\([^\n]+\)", "''", s)
-          s = s.replace("'student123'", "''").replace('"student123"', '""')
-          s = s.replace("import bcrypt from 'bcryptjs';\n", "")
-          p.write_text(s)
-          PY
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/App.tsx
-          git diff --cached --quiet || git commit -m "fix: move student password authentication to Firebase"
-          git push
 
       - name: TypeScript check
         run: npm run lint
