@@ -9,10 +9,10 @@ const files = [
   'src/services/googleSheetsService.ts'
 ];
 
-// Empty-string defaults are intentionally allowed: missing secrets must fail closed at runtime.
+// Empty-string defaults are allowed and fail closed. Non-empty literal fallbacks are forbidden.
 const forbiddenPatterns = [
-  { pattern: /SHEETS_WEBHOOK_SECRET\s*\|\|\s*(['"])(?!\1)(?:.)/g, message: 'Webhook secret must not have a hardcoded fallback.' },
-  { pattern: /ADMIN_SECRET_KEY\s*\|\|\s*(['"])(?!\1)(?:.)/g, message: 'Admin secret must not have a hardcoded fallback.' },
+  { pattern: /SHEETS_WEBHOOK_SECRET\s*\|\|\s*['"][^'"]+['"]/g, message: 'Webhook secret must not have a hardcoded fallback.' },
+  { pattern: /ADMIN_SECRET_KEY\s*\|\|\s*['"][^'"]+['"]/g, message: 'Admin secret must not have a hardcoded fallback.' },
   { pattern: /CalendarApp\./g, message: 'Legacy Apps Script CalendarApp must not be used by the web application runtime.' }
 ];
 
