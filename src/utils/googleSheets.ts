@@ -1,6 +1,7 @@
 import { DrivePackage, StudentRecord, AuditLogEntry, Lesson, HelpFaqItem } from '../types';
 import { getStudentId } from './studentPhoto';
 import bcrypt from 'bcryptjs';
+import { safeSetItem } from './safeStorage';
 
 /**
  * Utility functions for syncing package data directly with Google Sheets.
@@ -45,6 +46,7 @@ export function sanitizeSpreadsheetCell(val: any, allowFormula: boolean = false)
   }
   return val;
 }
+
 
 
 export function getSheetsConfig(): GoogleSheetsConfig {
@@ -269,6 +271,7 @@ export async function writePackagesToGoogleSheet(config: GoogleSheetsConfig, pac
  * Helper to generate a fully styled sample of Google Sheets packages for the admin to copy.
  */
 
+
 export function getSampleSpreadsheetStructure() {
   return [
     {
@@ -347,6 +350,7 @@ export function isDemoLesson(lesson: Partial<Lesson>): boolean {
 /**
  * Converts StudentRecord array into sheet rows format.
  */
+
 
 export function convertStudentsToSheetRows(students: StudentRecord[]): any[][] {
   const headers = [
