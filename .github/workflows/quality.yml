@@ -28,5 +28,8 @@ jobs:
       - name: TypeScript check
         run: npm run lint
 
+      - name: Static security/data gate
+        run: node scripts/static_security_gate.cjs
+
       - name: Production build
         run: npm run build
