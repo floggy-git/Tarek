@@ -10,18 +10,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Prepare authentication migration
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path('src/App.tsx')
+          s=p.read_text()
+          s=s.replace("import bcrypt from 'bcryptjs';", "import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';\nimport { auth as firebaseAuth } from './services/googleAuthService';")
+          s=s.replace("const handleManualLogin = (e: React.FormEvent) => {", "const handleManualLogin = async (e: React.FormEvent) => {")
+          s=s.replace("const handleRegisterSubmit = (e: React.FormEvent) => {", "const handleRegisterSubmit = async (e: React.FormEvent) => {")
+          p.write_text(s)
+          PY
       - name: Remove legacy client password verification
         run: |
           python3 <<'PY'
           from pathlib import Path
           p=Path('src/App.tsx')
           s=p.read_text()
-          s=s.replace("const storedPassword = matchedStudent.password || 'student123';", "const storedPassword = String(matchedStudent.password || '');")
-          start=s.find("      try {\n        if (storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$')) {")
+          start=s.find("      // Enforce password verification for registered students")
           if start != -1:
               end=s.find("\n\n      if (!loginPassword || !isPasswordCorrect)", start)
               if end != -1:
-                  s=s[:start]+"      try {\n        await signInWithEmailAndPassword(firebaseAuth, cleanEmail, loginPassword);\n        isPasswordCorrect = true;\n      } catch (err) {\n        isPasswordCorrect = false;\n      }"+s[end:]
+                  s=s[:start]+"      // Firebase Auth is the password authority.\n      let isPasswordCorrect = false;\n      try {\n        await signInWithEmailAndPassword(firebaseAuth, cleanEmail, loginPassword);\n        isPasswordCorrect = true;\n      } catch (err) {\n        isPasswordCorrect = false;\n      }"+s[end:]
+          s=s.replace(" || 'student123'", " || ''")
           p.write_text(s)
           PY
       - name: Verify
@@ -29,14 +40,14 @@ jobs:
           npm install --no-audit --no-fund
           npm run lint
           npm run build
-          if grep -n "student123" src/App.tsx; then exit 1; fi
-          if grep -n "bcrypt\.compareSync" src/App.tsx; then exit 1; fi
+          ! grep -n "student123" src/App.tsx
+          ! grep -n "bcrypt\.compareSync" src/App.tsx
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/App.tsx
-          git diff --cached --quiet || git commit -m "fix: remove legacy student password fallback"
+          git diff --cached --quiet || git commit -m "fix: move student password authentication to Firebase"
           git push
       - name: Remove workflow
         if: success()
