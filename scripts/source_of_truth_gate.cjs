@@ -27,6 +27,7 @@ if (fs.existsSync(serverPath)) {
   if (/metadata:\s*\{\s*resetLink\s*,\s*token/.test(server)) failures.push('server.ts: password-reset links/tokens must not be persisted in email logs.');
   if (/message:\s*['"]Password reset token generated successfully/.test(server)) failures.push('server.ts: password-reset token must not be returned as API response data.');
   if (/sentReal:\s*false/.test(server)) failures.push('server.ts: production email route must not claim simulated delivery as success.');
+  if (/hashedPassword\s*\/\/ Return secure hash to updating client/.test(server)) failures.push('server.ts: password hashes must never be returned to the browser.');
 }
 
 if (failures.length) {
