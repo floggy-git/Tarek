@@ -23,8 +23,11 @@ const replacement = [
   "  });",
   "",
   "  // Return current server-authoritative time"
-].join('\\n');
-if (!pattern.test(server)) throw new Error('Could not locate /api/send-email endpoint.');
+].join('\n');
+if (!pattern.test(server)) {
+  console.log('Send-email endpoint already migrated; no replacement needed.');
+  process.exit(0);
+}
 server = server.replace(pattern, replacement);
 fs.writeFileSync(file, server);
 console.log('Replaced simulated email endpoint with real SMTP delivery.');
