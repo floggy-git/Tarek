@@ -17,8 +17,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Apply safe source-of-truth migration
+      - name: Apply production repairs
         run: |
+          node scripts/production_repair.cjs || test $? -eq 10
           node scripts/fix_google_sheets_source_of_truth.cjs
           node scripts/fix_password_reset_security.cjs
           node scripts/fix_email_record_id.cjs
@@ -28,7 +29,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/utils/googleSheets.ts server.ts
+          git add src server.ts scripts/production_repair.cjs
           if git diff --cached --quiet; then echo 'No changes required.'; exit 0; fi
-          git commit -m 'fix: enforce canonical Sheets and email security'
+          git commit -m 'fix: enforce production Sheets, security and calendar invariants'
           git push
