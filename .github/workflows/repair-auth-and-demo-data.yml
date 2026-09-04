@@ -1,0 +1,55 @@
+name: One-time auth repair
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repair security fallbacks
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path('server.ts')
+          s=p.read_text()
+          old="""      const isValidAdminSecret = token === ADMIN_SECRET_KEY;
+      const isAdminRoleWithToken = (userRole === 'admin' || userRole === 'administrator' || userRole === 'superadmin') && token.length >= 10;
+      
+      if (!isValidAdminSecret && !isAdminRoleWithToken) {"""
+          new="""      const isValidAdminSecret = Boolean(ADMIN_SECRET_KEY && token === ADMIN_SECRET_KEY);
+      if (!isValidAdminSecret) {"""
+          if old in s:
+              s=s.replace(old,new,1)
+          p.write_text(s)
+
+          p=Path('src/App.tsx')
+          s=p.read_text()
+          s=s.replace("password: \"student123\",", "password: \"\",")
+          s=s.replace("password: s.password || 'student123'", "password: s.password || ''")
+          s=s.replace("const storedPassword = matchedStudent.password || 'student123';", "const storedPassword = String(matchedStudent.password || '');")
+          p.write_text(s)
+          
+          p=Path('src/data.ts')
+          s=p.read_text().replace('Express Course (15h)', 'Starter Core Pack')
+          p.write_text(s)
+          PY
+      - name: Verify
+        run: |
+          npm install --no-audit --no-fund
+          npm run lint
+          npm run build
+      - name: Commit repairs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server.ts src/App.tsx src/data.ts
+          git diff --cached --quiet || git commit -m "fix: remove forgeable admin auth and demo password fallbacks"
+          git push
+      - name: Remove one-time workflow
+        if: success()
+        run: |
+          git rm .github/workflows/repair-auth-and-demo-data.yml
+          git commit -m "chore: remove one-time auth repair workflow"
+          git push
