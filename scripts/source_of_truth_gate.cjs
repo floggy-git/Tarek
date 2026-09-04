@@ -34,6 +34,14 @@ if (/student123/.test(source)) {
   failures.push('googleSheets.ts: fallback student password must not exist.');
 }
 
+if (/VITE_GOOGLE_(SHEETS_ACCESS_TOKEN|OAUTH_TOKEN)/.test(source)) {
+  failures.push('googleSheets.ts: OAuth token environment variables must not be exposed to browser code.');
+}
+
+if (/Full Name|Joined Date|Notifications Enabled|Password/.test(source)) {
+  failures.push('googleSheets.ts: legacy/non-canonical Students columns remain in the operational Sheets adapter.');
+}
+
 if (failures.length) {
   console.error('Source-of-truth gate FAILED:');
   failures.forEach(f => console.error(`- ${f}`));
