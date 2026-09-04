@@ -19,6 +19,17 @@ if (/student123/.test(source)) failures.push('googleSheets.ts: fallback student 
 if (/VITE_GOOGLE_(SHEETS_ACCESS_TOKEN|OAUTH_TOKEN)/.test(source)) failures.push('googleSheets.ts: OAuth token environment variables must not be exposed to browser code.');
 if (/Full Name|Joined Date|Notifications Enabled|Password/.test(source)) failures.push('googleSheets.ts: legacy/non-canonical Students columns remain in the operational Sheets adapter.');
 
+// Authentication must not regress to client-side password storage/verification.
+const appPath = path.join(root, 'src/App.tsx');
+if (fs.existsSync(appPath)) {
+  const app = fs.readFileSync(appPath, 'utf8');
+  if (/student123/.test(app)) failures.push('App.tsx: insecure student password fallback remains.');
+  if (/bcrypt\.compareSync|loginPassword\s*===\s*storedPassword/.test(app)) failures.push('App.tsx: client-side student password verification remains.');
+  if (/const handleManualLogin = \(e: React\.FormEvent\)/.test(app)) failures.push('App.tsx: manual login handler must be async for Firebase Auth.');
+  if (!/signInWithEmailAndPassword/.test(app)) failures.push('App.tsx: Firebase student sign-in is missing.');
+  if (!/createUserWithEmailAndPassword/.test(app)) failures.push('App.tsx: Firebase student registration is missing.');
+}
+
 const serverPath = path.join(root, 'server.ts');
 if (fs.existsSync(serverPath)) {
   const server = fs.readFileSync(serverPath, 'utf8');
