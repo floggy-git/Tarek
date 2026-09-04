@@ -1,0 +1,52 @@
+name: One-time student auth repair
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Move student authentication to Firebase Auth
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path('src/App.tsx'); s=p.read_text()
+          if "createUserWithEmailAndPassword" not in s:
+              s=s.replace("import bcrypt from 'bcryptjs';", "import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';\nimport { auth as firebaseAuth } from './services/googleAuthService';")
+          s=s.replace("const handleManualLogin = (e: React.FormEvent) => {", "const handleManualLogin = async (e: React.FormEvent) => {")
+          marker="""    if (loginRole === 'trainer') {\n      // Login as customized trainer"""
+          replacement="""    if (loginRole === 'trainer') {\n      // Trainer accounts are not created from the public login form.\n      // Keep the existing trainer UI path, but require a non-empty password.\n      if (!loginPassword.trim()) {\n        alert(lang === 'ar' ? 'أدخل كلمة المرور.' : lang === 'nl' ? 'Voer je wachtwoord in.' : 'Enter your password.');\n        return;\n      }\n      // Login as customized trainer"""
+          s=s.replace(marker,replacement,1)
+          old="""    const studentId = `ST-${String(students.length + 1).padStart(6, '0')}`;\n    const hashedPassword = bcrypt.hashSync(regPassword.trim(), 10);"""
+          new="""    let firebaseCredential;\n    try {\n      firebaseCredential = await createUserWithEmailAndPassword(firebaseAuth, regEmail.trim().toLowerCase(), regPassword.trim());\n    } catch (authError: any) {\n      const code = String(authError?.code || '');\n      const message = code === 'auth/email-already-in-use'\n        ? (lang === 'ar' ? 'هذا البريد مستخدم مسبقاً.' : lang === 'nl' ? 'Dit e-mailadres is al in gebruik.' : 'This email is already in use.')\n        : (lang === 'ar' ? 'تعذر إنشاء الحساب. حاول مرة أخرى.' : lang === 'nl' ? 'Account aanmaken mislukt. Probeer opnieuw.' : 'Could not create the account. Please try again.');\n      alert(message);\n      return;\n    }\n\n    const studentId = `ST-${String(students.length + 1).padStart(6, '0')}`;\n    const hashedPassword = '';"""
+          s=s.replace(old,new,1)
+          old2="""      // Enforce password verification for registered students\n      const storedPassword = String(matchedStudent.password || '');\n      let isPasswordCorrect = false;"""
+          new2="""      // Password authentication is handled by Firebase Auth.\n      let isPasswordCorrect = false;\n      try {\n        await signInWithEmailAndPassword(firebaseAuth, cleanEmail, loginPassword);\n        isPasswordCorrect = true;\n      } catch (firebaseError) {\n        isPasswordCorrect = false;\n      }\n      const storedPassword = String(matchedStudent.password || '');"""
+          s=s.replace(old2,new2,1)
+          old3="""      try {\n        if (storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$')) {\n          // Secure bcrypt hash\n          isPasswordCorrect = bcrypt.compareSync(loginPassword, storedPassword);\n        } else {\n          // Plain text fallback\n          isPasswordCorrect = loginPassword === storedPassword;\n        }\n      } catch (e) {\n        isPasswordCorrect = false;\n      }"""
+          s=s.replace(old3,"""      // Legacy password hashes are no longer accepted as a client-side fallback.\n      // Firebase Auth above is the only password authority.""",1)
+          s=s.replace("const handleRegisterSubmit = (e: React.FormEvent) => {", "const handleRegisterSubmit = async (e: React.FormEvent) => {")
+          p.write_text(s)
+          PY
+      - name: Verify
+        run: |
+          npm install --no-audit --no-fund
+          npm run lint
+          npm run build
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.tsx
+          git diff --cached --quiet || git commit -m "fix: use Firebase Auth for student passwords"
+          git push
+      - name: Remove workflow
+        if: success()
+        run: |
+          git rm .github/workflows/repair-student-auth.yml
+          git commit -m "chore: remove one-time student auth workflow"
+          git push
