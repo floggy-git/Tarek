@@ -2155,28 +2155,27 @@ ${studentSummary}`;
 
     // Always log to simulated in-app emails list so users can view/test easily in the admin log
     const emailRecord = {
-      id: `email-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      id: `email-\${Date.now()}-\${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toISOString(),
       to: cleanEmail,
       subject,
-      html: emailHtml,
-      type: 'booking',
-      studentName: 'Password Reset User',
-      metadata: { resetLink, token, expiresAt }
+      type: 'password_reset'
     };
     sentEmailsLog.unshift(emailRecord);
     if (sentEmailsLog.length > 100) {
       sentEmailsLog.pop();
     }
 
+    if (!sentReal) {
+      return res.status(503).json({ success: false, error: 'Password reset email is unavailable.' });
+    }
+
     res.json({
       success: true,
-      sentReal,
-      simulated: !sentReal,
-      smtpError,
-      message: 'Password reset token generated successfully.',
-      expiresAt,
-      token
+      sentReal: true,
+      simulated: false,
+      message: 'Password reset email sent successfully.',
+      expiresAt
     });
   });
 
