@@ -23,6 +23,7 @@ jobs:
         run: |
           node scripts/fix_google_sheets_source_of_truth.cjs
           node scripts/fix_password_reset_security.cjs
+          node scripts/fix_email_record_id.cjs
 
       - name: Commit migration
         run: |
