@@ -40,6 +40,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git restore -- package-lock.json 2>/dev/null || true
           if git diff --quiet; then exit 0; fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -51,6 +52,7 @@ jobs:
         if: success()
         shell: bash
         run: |
+          set -euo pipefail
           git rm .github/workflows/repair-now.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
