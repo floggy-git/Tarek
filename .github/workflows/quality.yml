@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   quality:
@@ -24,21 +24,6 @@ jobs:
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-
-      - name: Safe production repair pass
-        run: |
-          set +e
-          node scripts/production_repair.cjs
-          code=$?
-          set -e
-          if [ "$code" -ne 0 ] && [ "$code" -ne 10 ]; then exit "$code"; fi
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add server.ts src/utils/googleSheets.ts src/data.ts src/utils/googleSheetsControlCenter.ts scripts/production_repair.cjs .github/workflows/quality.yml
-            git commit -m "fix: apply safe production source repairs"
-            git push
-          fi
 
       - name: TypeScript check
         run: npm run lint
