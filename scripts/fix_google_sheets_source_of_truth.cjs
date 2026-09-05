@@ -14,8 +14,8 @@ let out = source;
 out = replaceExport(out, 'getSheetsConfig', `
 export function getSheetsConfig(): GoogleSheetsConfig {
   const env = (import.meta as any).env || {};
-  let spreadsheetId = env.VITE_GOOGLE_SPREADSHEET_ID || '1nKF40i125QY7MQMghOoOnyqjpHLFWKM12ZYIIGxW9Ck';
-  let sheetName = env.VITE_GOOGLE_SHEETS_TAB_NAME || 'Packages';
+  const spreadsheetId = env.VITE_GOOGLE_SPREADSHEET_ID || '';
+  const sheetName = env.VITE_GOOGLE_SHEETS_TAB_NAME || 'Packages';
   const accessToken = memoryAccessToken || '';
   let apiKey = env.VITE_GOOGLE_API_KEY || '';
   try {
@@ -27,6 +27,7 @@ export function getSheetsConfig(): GoogleSheetsConfig {
       if (!apiKey) apiKey = parsed.apiKey || '';
     }
   } catch (e) { console.error('Error reading sheets config', e); }
+  if (!spreadsheetId) throw new Error('Google Sheets spreadsheet ID is not configured.');
   return { spreadsheetId, sheetName, accessToken, apiKey, autoSync: true };
 }
 `);
