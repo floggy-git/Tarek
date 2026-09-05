@@ -10,6 +10,8 @@
  * - Authoritative Student ID first integrity
  */
 
+import { auth } from '../services/googleAuthService';
+
 export type SyncEntityType =
   | 'STUDENT' | 'LESSON' | 'SETTING' | 'PACKAGE' | 'MEDIA'
   | 'TRANSACTION' | 'WALLET' | 'INVOICE' | 'NOTIFICATION' | 'HELP' | 'AUDIT';
@@ -89,12 +91,31 @@ class RealtimeSyncEngine {
     }
   }
 
+  private async getFirebaseIdToken(): Promise<string | null> {
+    try {
+      return auth.currentUser ? await auth.currentUser.getIdToken() : null;
+    } catch (error) {
+      console.warn('[SyncEngine] Unable to obtain Firebase ID token:', error);
+      return null;
+    }
+  }
+
   private connect() {
     if (typeof window === 'undefined' || typeof EventSource === 'undefined') return;
     if (this.eventSource && (this.eventSource.readyState === EventSource.OPEN || this.eventSource.readyState === EventSource.CONNECTING)) return;
 
+    void this.openAuthenticatedStream();
+  }
+
+  private async openAuthenticatedStream() {
+    const token = await this.getFirebaseIdToken();
+    if (!token) {
+      this.scheduleReconnect();
+      return;
+    }
+
     try {
-      const url = `/api/sync/stream?clientId=${encodeURIComponent(CLIENT_ID)}&role=${encodeURIComponent(this.currentUserRole)}&studentId=${encodeURIComponent(this.currentStudentId || '')}`;
+      const url = `/api/sync/stream?clientId=${encodeURIComponent(CLIENT_ID)}&role=${encodeURIComponent(this.currentUserRole)}&studentId=${encodeURIComponent(this.currentStudentId || '')}&access_token=${encodeURIComponent(token)}`;
       this.eventSource = new EventSource(url);
       this.eventSource.onopen = () => {
         this.isConnected = true;
@@ -194,9 +215,11 @@ class RealtimeSyncEngine {
     }
 
     try {
+      const token = await this.getFirebaseIdToken();
+      if (!token) throw new Error('Authenticated Firebase session is required for synchronization.');
       const res = await fetch('/api/sync/patch', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(delta)
       });
       if (!res.ok) throw new Error(`Server responded with ${res.status}`);
@@ -227,12 +250,14 @@ class RealtimeSyncEngine {
       const queue: SyncDelta[] = JSON.parse(raw);
       if (!Array.isArray(queue) || queue.length === 0) return;
 
+      const token = await this.getFirebaseIdToken();
+      if (!token) return;
       const remaining: SyncDelta[] = [];
       for (const delta of queue) {
         try {
           const res = await fetch('/api/sync/patch', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify(delta)
           });
           if (!res.ok) remaining.push(delta);
@@ -253,7 +278,11 @@ class RealtimeSyncEngine {
 
   private async fetchMissedDeltas() {
     try {
-      const res = await fetch(`/api/sync/deltas?since=${this.lastSyncTimestamp}`);
+      const token = await this.getFirebaseIdToken();
+      if (!token) return;
+      const res = await fetch(`/api/sync/deltas?since=${this.lastSyncTimestamp}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (!res.ok) return;
       const data = await res.json();
       if (data && Array.isArray(data.deltas)) data.deltas.forEach((delta: SyncDelta) => this.handleIncomingDelta(delta));
