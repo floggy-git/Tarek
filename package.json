@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node --require ./serverSecurityPatch.cjs $(npm bin)/tsx server.ts",
+    "dev": "node --require ./serverSecurityPatch.cjs ./node_modules/tsx/dist/cli.mjs server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node --require ./serverSecurityPatch.cjs dist/server.cjs",
     "clean": "rm -rf dist server.js",
@@ -32,8 +32,7 @@
     "puppeteer": "^25.2.1",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
-    "vite": "^6.2.3",
-    "tsx": "^4.21.0"
+    "vite": "^6.2.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -41,7 +40,10 @@
     "@types/node": "^22.14.0",
     "@types/nodemailer": "^8.0.1",
     "autoprefixer": "^10.4.21",
-    "autoprefixer": "^10.4.21",
-    "tailwindcss": "^4.1.21"
+    "esbuild": "^0.25.0",
+    "tailwindcss": "^4.1.21",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.3"
   }
 }
