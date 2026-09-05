@@ -1,0 +1,140 @@
+name: One-time calendar lifecycle repair
+on:
+  push:
+    branches: [production-repair]
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch production repair script
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('scripts/production_repair.cjs')
+          s = p.read_text()
+          old_import = "import { createLessonCalendarEvent, cancelLessonCalendarEvent, generateIcsContent } from './googleCalendarService';"
+          new_import = "import { createLessonCalendarEvent, updateLessonCalendarEvent, cancelLessonCalendarEvent, generateIcsContent } from './googleCalendarService';"
+          if old_import in s:
+              s = s.replace(old_import, new_import, 1)
+          elif 'updateLessonCalendarEvent' not in s:
+              raise SystemExit('calendar import target not found')
+          marker = "export interface CancellationWorkflowParams {"
+          if 'executeLessonUpdateWorkflow' not in s:
+              idx = s.find(marker)
+              if idx == -1:
+                  raise SystemExit('calendar cancellation marker not found')
+              block = r'''export interface LessonUpdateWorkflowParams {
+  booking: Lesson;
+  allLessons: Lesson[];
+  student?: StudentRecord;
+  schoolSettings?: Partial<SchoolSettings>;
+  accessToken?: string;
+  spreadsheetId?: string;
+}
+
+/** Update an existing lesson and keep its Google Calendar Event ID durable. */
+export async function executeLessonUpdateWorkflow(
+  params: LessonUpdateWorkflowParams
+): Promise<WorkflowResult<Lesson>> {
+  const { booking, allLessons, student, schoolSettings, accessToken, spreadsheetId } = params;
+  const warnings: string[] = [];
+  let calendarSynced = false;
+  let sheetsSynced = false;
+  const token = accessToken || getSheetsConfig().accessToken;
+  const sheetId = spreadsheetId || getSheetsConfig().spreadsheetId;
+  const studentId = student?.studentId || student?.id || booking.studentId;
+
+  if (student && booking.studentId && studentId && booking.studentId !== studentId) {
+    return { success: false, sheetsSynced: false, calendarSynced: false, notificationSent: false,
+      error: 'Security Error: lesson does not belong to the authenticated student.' };
+  }
+
+  const updatedBooking: Lesson = {
+    ...booking,
+    studentId: booking.studentId || studentId,
+    studentName: student?.name || booking.studentName
+  };
+
+  if (token) {
+    try {
+      const calRes = updatedBooking.calendarEventId
+        ? await updateLessonCalendarEvent(updatedBooking.calendarEventId, {
+            booking: updatedBooking,
+            student,
+            trainerName: updatedBooking.trainerName,
+            schoolSettings,
+            accessToken: token,
+            allLessons
+          })
+        : await createLessonCalendarEvent({
+            booking: updatedBooking,
+            student,
+            trainerName: updatedBooking.trainerName,
+            schoolSettings,
+            accessToken: token,
+            allLessons
+          });
+      if (calRes.success && calRes.calendarEventId) {
+        updatedBooking.calendarEventId = calRes.calendarEventId;
+        updatedBooking.calendarStatus = 'synced';
+        calendarSynced = true;
+      } else {
+        updatedBooking.calendarStatus = 'failed';
+        if (calRes.error) warnings.push(`Calendar update warning: ${calRes.error}`);
+      }
+    } catch (err) {
+      updatedBooking.calendarStatus = 'failed';
+      warnings.push(`Calendar update error: ${err.message}`);
+    }
+  }
+
+  const updatedLessons = allLessons.map(l => l.id === updatedBooking.id ? updatedBooking : l);
+  if (!allLessons.some(l => l.id === updatedBooking.id)) updatedLessons.unshift(updatedBooking);
+
+  if (sheetId && token) {
+    try {
+      const sheetRes = await writeLessonsToSheet(sheetId, updatedLessons, token);
+      sheetsSynced = !!sheetRes.success;
+      if (!sheetRes.success && sheetRes.error) warnings.push(`Sheets update warning: ${sheetRes.error}`);
+    } catch (err) {
+      warnings.push(`Sheets update error: ${err.message}`);
+    }
+  }
+
+  return {
+    success: true,
+    data: updatedBooking,
+    sheetsSynced,
+    calendarSynced,
+    notificationSent: false,
+    warnings: warnings.length ? warnings : undefined
+  };
+}
+
+'''
+              s = s[:idx] + block + s[idx:]
+          p.write_text(s)
+          PY
+      - name: Validate
+        run: |
+          grep -n "updateLessonCalendarEvent" scripts/production_repair.cjs
+          npm install --no-audit --no-fund
+          npm run lint
+          npm run build
+      - name: Commit repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/production_repair.cjs
+          git diff --cached --quiet || git commit -m "fix: complete lesson calendar update lifecycle"
+          git push
+      - name: Remove one-time workflow
+        if: success()
+        run: |
+          git rm .github/workflows/repair-calendar-lifecycle.yml
+          git commit -m "chore: remove one-time calendar repair workflow"
+          git push
