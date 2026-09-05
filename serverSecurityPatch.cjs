@@ -21,8 +21,9 @@ async function getCerts() {
 
 async function authenticate(req) {
   const authorization = String(req.headers.authorization || '');
-  if (!authorization.startsWith('Bearer ')) return null;
-  const token = authorization.slice(7).trim();
+  const queryToken = req.query && typeof req.query.access_token === 'string' ? req.query.access_token : '';
+  const token = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : queryToken.trim();
+  if (!token) return null;
   const parts = token.split('.');
   if (parts.length !== 3) return null;
 
@@ -109,9 +110,7 @@ function wrapRoute(original, method) {
         if (!delta || !delta.entityType || !delta.entityId || !canMutate(principal, delta)) {
           return res.status(403).json({ success: false, error: 'Forbidden: entity is outside the authenticated scope' });
         }
-        if (principal.role === 'student') {
-          delta.studentId = principal.studentId;
-        }
+        if (principal.role === 'student') delta.studentId = principal.studentId;
       }
 
       if (routeName === 'deltas') {
