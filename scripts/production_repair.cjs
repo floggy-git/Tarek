@@ -37,7 +37,7 @@ function replaceRequired(text, pattern, replacement, label) {
 {
   let s = read('src/services/googleSheetsService.ts');
   s = replaceRequired(s,
-    /      let studentId = idIdx !== -1 && row\[idIdx\] \? String\(row\[idIdx\]\)\.trim\(\) : '';\n      if \(!studentId\) \{\n        studentId = `STD-\$\{String\(i\)\.padStart\(6, '0'\)\}`;\n      \}\n\n      const name = nameIdx !== -1 && row\[nameIdx\] \? String\(row\[nameIdx\]\)\.trim\(\) : `Student \$\{studentId\}`;\n      const email = emailIdx !== -1 && row\[emailIdx\] \? String\(row\[emailIdx\]\)\.trim\(\) : '';\n      const phone = phoneIdx !== -1 && row\[phoneIdx\] \? String\(row\[phoneIdx\]\)\.trim\(\) : '';\n      const dob = dobIdx !== -1 && row\[dobIdx\] \? String\(row\[dobIdx\]\)\.trim\(\) : '2000-01-01';\n      const city = cityIdx !== -1 && row\[cityIdx\] \? String\(row\[cityIdx\]\)\.trim\(\) : 'Amsterdam';\n      const currentPackage = pkgIdx !== -1 && row\[pkgIdx\] \? String\(row\[pkgIdx\]\)\.trim\(\) : 'Optimal Progress';/,
+    /      let studentId = idIdx !== -1 && row\[idIdx\] \? String\(row\[idIdx\]\)\.trim\(\) : '';\n      if \(!studentId\) \{\n        studentId = `STD-\$\{String\(i\)\.padStart\(6, '0'\)\}`;\n      \}\n\n      const name = nameIdx !== -1 && row\[nameIdx\] \? String\(row\[nameIdx\]\)\.trim\(\) : `Student \$\{studentId\}`;\n      const email = emailIdx !== -1 && row\[emailIdx\] \? String\(row\[emailIdx\]\)\.trim\(\) : '';\n      const phone = phoneIdx !== -1 && row\[phoneIdx\] \? String\(row\[phoneIdx\]\)\.trim\(\) : '';\n      const dob = dobIdx !== -1 && row\[dobIdx\] \? String\(row\[dobIdx\]\)\.trim\(\) : '2000-01-01';\n      const city = cityIdx !== -1 && row\[cityIdx\] \? String\(row\[cityIdx\]\)\.trim\(\) : 'Amsterdam';\n      const currentPackage = pkgIdx !== -1 && row\[pkgIdx\] \? String\(row\[pkgIdx\]\.trim\(\) : 'Optimal Progress';/,
     `      const studentId = idIdx !== -1 && row[idIdx] ? String(row[idIdx]).trim() : '';\n      if (!/^ST-\\d{6}$/.test(studentId)) continue;\n\n      const name = nameIdx !== -1 && row[nameIdx] ? String(row[nameIdx]).trim() : '';\n      const email = emailIdx !== -1 && row[emailIdx] ? String(row[emailIdx]).trim() : '';\n      const phone = phoneIdx !== -1 && row[phoneIdx] ? String(row[phoneIdx]).trim() : '';\n      const dob = dobIdx !== -1 && row[dobIdx] ? String(row[dobIdx]).trim() : '';\n      const city = cityIdx !== -1 && row[cityIdx] ? String(row[cityIdx]).trim() : '';\n      const currentPackage = pkgIdx !== -1 && row[pkgIdx] ? String(row[pkgIdx]).trim() : '';\n      if (!name || !email) continue;`,
     'student source defaults');
   s = s.replace(/const status = statusIdx !== -1 && row\[statusIdx\] \? String\(row\[statusIdx\]\)\.trim\(\) : 'active';/g, "const status = statusIdx !== -1 && row[statusIdx] ? String(row[statusIdx]).trim() : '';");
@@ -53,6 +53,8 @@ function replaceRequired(text, pattern, replacement, label) {
   g = g.replace(/VITE_GOOGLE_SPREADSHEET_ID \|\| '1nKF40i125QY7MQMghOoOnyqjpHLFWKM12ZYIIGxW9Ck'/g, "VITE_GOOGLE_SPREADSHEET_ID || ''");
   write('src/utils/googleSheets.ts', g);
 }
+
+require('./calendar_lifecycle_repair.cjs');
 
 const legacyWorkflow = path.join(root, '.github/workflows/repair-auth-and-demo-data.yml');
 if (fs.existsSync(legacyWorkflow)) fs.rmSync(legacyWorkflow);
