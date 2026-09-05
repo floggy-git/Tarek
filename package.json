@@ -25,7 +25,7 @@
     "express": "^4.21.2",
     "firebase": "^12.18.0",
     "html-to-image": "^1.11.13",
-    "html2canvas": "^1.4.0",
+    "html2canvas": "^1.4.1",
     "html2canvas-pro": "^2.2.0",
     "jspdf": "^4.2.1",
     "leaflet": "^1.9.4",
