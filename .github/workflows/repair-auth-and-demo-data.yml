@@ -1,4 +1,4 @@
-name: One-time auth repair
+name: One-time production repair
 on:
   push:
     branches: [production-repair]
@@ -6,12 +6,13 @@ permissions:
   contents: write
 jobs:
   repair:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Repair security and package rules
+      - name: Apply safe production repairs
+        shell: bash
         run: |
+          set -euo pipefail
           python3 <<'PY'
           from pathlib import Path
           p=Path('server.ts'); s=p.read_text()
@@ -21,7 +22,8 @@ jobs:
       if (!isValidAdminSecret && !isAdminRoleWithToken) {"""
           new="""      const isValidAdminSecret = Boolean(ADMIN_SECRET_KEY && token === ADMIN_SECRET_KEY);
       if (!isValidAdminSecret) {"""
-          p.write_text(s.replace(old,new,1))
+          if old in s: s=s.replace(old,new,1)
+          p.write_text(s)
 
           p=Path('src/App.tsx'); s=p.read_text()
           s=s.replace('password: "student123",','password: "",')
@@ -29,7 +31,7 @@ jobs:
           s=s.replace("const storedPassword = matchedStudent.password || 'student123';", "const storedPassword = String(matchedStudent.password || '');")
           p.write_text(s)
 
-          p=Path('src/data.ts'); p.write_text(p.read_text().replace('Express Course (15h)', 'Starter Core Pack'))
+          p=Path('src/data.ts'); s=p.read_text().replace('Express Course (15h)', 'Starter Core Pack'); p.write_text(s)
 
           p=Path('src/components/adminControlCenter/AdminPackagesView.tsx'); s=p.read_text()
           s=s.replace("import {\n  Package,\n  Search,\n  Plus,", "import {\n  Package,\n  Search,")
@@ -58,5 +60,5 @@ jobs:
         if: success()
         run: |
           git rm .github/workflows/repair-auth-and-demo-data.yml
-          git commit -m "chore: remove one-time repair workflow"
+          git commit -m "chore: remove one-time production repair workflow"
           git push
