@@ -23,12 +23,18 @@ for (const [broken, fixed] of fixes) {
   if (s.includes(broken)) s = s.split(broken).join(fixed);
 }
 
-// Replace the student parser repair with a structural, idempotent transformation.
-// The source has changed shape across repair passes, so an exact old block is too brittle.
-const studentRepairCall = /  s = replaceRequired\(s,\n    \/      let studentId = idIdx[\\s\\S]*?    'student source defaults'\);/;
-const studentRepairReplacement = `  const studentParserBlock = /      let studentId = idIdx[\\s\\S]*?      const currentPackage = [^\\n]+;\\n/;
-  if (studentParserBlock.test(s)) {
-    s = s.replace(studentParserBlock, \`      const studentId = idIdx !== -1 && row[idIdx] ? String(row[idIdx]).trim() : '';
+// The student-source repair used an overly brittle exact regex. Replace that
+// repair call structurally so it works against the current source shape and is idempotent.
+const startMarker = "  s = replaceRequired(s,\n    /      let studentId = idIdx";
+const endMarker = "    'student source defaults');";
+const start = s.indexOf(startMarker);
+if (start !== -1) {
+  const end = s.indexOf(endMarker, start);
+  if (end === -1) throw new Error('Production repair target not found: student source repair end');
+  const endExclusive = end + endMarker.length;
+  const replacement = `  const studentSourceRepair = /      let studentId = idIdx[\\s\\S]*?      const currentPackage = [^\\n]+;/;
+  if (studentSourceRepair.test(s)) {
+    s = s.replace(studentSourceRepair, \`      const studentId = idIdx !== -1 && row[idIdx] ? String(row[idIdx]).trim() : '';
       if (!/^ST-\\\\d{6}$/.test(studentId)) continue;
 
       const name = nameIdx !== -1 && row[nameIdx] ? String(row[nameIdx]).trim() : '';
@@ -38,12 +44,10 @@ const studentRepairReplacement = `  const studentParserBlock = /      let studen
       const city = cityIdx !== -1 && row[cityIdx] ? String(row[cityIdx]).trim() : '';
       const currentPackage = pkgIdx !== -1 && row[pkgIdx] ? String(row[pkgIdx]).trim() : '';
       if (!name || !email) continue;\`);
-  } else if (!/if \(!\\/\\^ST-\\\\d\\{6\\}\\$\\/.test\(studentId\)\) continue;/.test(s)) {
+  } else if (!/const studentId = idIdx !== -1 && row\\[idIdx\\]/.test(s)) {
     throw new Error('Production repair target not found: student parser');
   }`;
-
-if (studentRepairCall.test(s)) {
-  s = s.replace(studentRepairCall, studentRepairReplacement);
+  s = s.slice(0, start) + replacement + s.slice(endExclusive);
 }
 
 fs.writeFileSync(file, s);
