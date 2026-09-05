@@ -1,7 +1,7 @@
 name: One-time auth repair
 on:
   push:
-    branches: [main]
+    branches: [production-repair]
 permissions:
   contents: write
 jobs:
@@ -37,7 +37,7 @@ jobs:
           end=s.find("\n  const handleSavePackage", start)
           if start >= 0 and end > start: s=s[:start]+s[end:]
           s=s.replace("          <button\n            onClick={handleOpenNew}\n            className=\"px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 flex items-center gap-1.5 cursor-pointer\"\n          >\n            <Plus size={14} />\n            <span>{lang === 'ar' ? 'إضافة باقة جديدة' : 'Add Package'}</span>\n          </button>\n", "")
-          s=s.replace("    if (isNewPkg) {\n      updatedPackages = [...packages, finalPkg].sort((a, b) => a.displayOrder - b.displayOrder);\n    } else {", "    if (isNewPkg) return;\n    {" )
+          s=s.replace("    if (isNewPkg) {\n      updatedPackages = [...packages, finalPkg].sort((a, b) => a.displayOrder - b.displayOrder);\n    } else {", "    if (isNewPkg) return;\n    {")
           s=s.replace("    await recordAdminAuditLog({\n      action: isNewPkg ? 'Package Created' : 'Package Updated',", "    await recordAdminAuditLog({\n      action: 'Package Updated',")
           s=s.replace("                  {isNewPkg ? (lang === 'ar' ? 'إضافة باقة جديدة' : 'Add New Package') : `Edit: ${selectedPkg.name}`} ", "                  {`Edit: ${selectedPkg.name}`}")
           p.write_text(s)
