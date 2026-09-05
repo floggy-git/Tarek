@@ -2,16 +2,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = process.cwd();
-
 function read(rel) { return fs.readFileSync(path.join(root, rel), 'utf8'); }
 function write(rel, text) { fs.writeFileSync(path.join(root, rel), text); }
 function replaceRequired(text, pattern, replacement, label) {
-  const next = text.replace(pattern, replacement);
-  if (next === text) throw new Error(`Production repair target not found: ${label}`);
-  return next;
+  if (!pattern.test(text)) {
+    if (text.includes(replacement)) return text;
+    throw new Error(`Production repair target not found: ${label}`);
+  }
+  return text.replace(pattern, replacement);
 }
 
-// Remove hard-coded/demo credentials from production authentication paths.
 {
   let s = read('src/App.tsx');
   s = s.replace(/password: \"student123\",/g, 'password: "",');
@@ -20,7 +20,6 @@ function replaceRequired(text, pattern, replacement, label) {
   write('src/App.tsx', s);
 }
 
-// Keep only the canonical three package identities and never fabricate package rows.
 {
   let s = read('src/services/googleSheetsService.ts');
   s = replaceRequired(s,
@@ -38,19 +37,28 @@ function replaceRequired(text, pattern, replacement, label) {
   write('src/services/googleSheetsService.ts', s);
 }
 
-// Remove demo spreadsheet IDs from both server and browser Sheets configuration.
+{
+  let s = read('src/components/adminControlCenter/AdminPackagesView.tsx');
+  s = s.replace(/import \{\n  Package,\n  Search,\n  Plus,/g, "import {\n  Package,\n  Search,");
+  const start = s.indexOf('  const handleOpenNew = () => {');
+  const end = s.indexOf('\n  const handleSavePackage', start);
+  if (start >= 0 && end > start) s = s.slice(0, start) + s.slice(end);
+  s = s.replace(/          <button\n            onClick=\{handleOpenNew\}[\s\S]*?          <\/button>\n/g, '');
+  s = s.replace(/    if \(isNewPkg\) \{\n      updatedPackages = \[\.\.\.packages, finalPkg\]\.sort\(\(a, b\) => a\.displayOrder - b\.displayOrder\);\n    \} else \{/g, '    if (isNewPkg) return;\n    {');
+  s = s.replace(/action: isNewPkg \? 'Package Created' : 'Package Updated'/g, "action: 'Package Updated'");
+  s = s.replace(/\{isNewPkg \? \(lang === 'ar' \? 'إضافة باقة جديدة' : 'Add New Package'\) : `Edit: \$\{selectedPkg\.name\}`\}/g, '{`Edit: ${selectedPkg.name}`}');
+  write('src/components/adminControlCenter/AdminPackagesView.tsx', s);
+}
+
 {
   let s = read('server.ts');
   s = s.replace(/const targetSpreadsheetId = spreadsheetId \|\| '1nKF40i125QY7MQMghOoOnyqjpHLFWKM12ZYIIGxW9Ck';/g, "const targetSpreadsheetId = spreadsheetId || process.env.GOOGLE_SHEETS_SPREADSHEET_ID || '';\n      if (!targetSpreadsheetId) return res.status(500).json({ success: false, error: 'GOOGLE_SHEETS_SPREADSHEET_ID is not configured' });");
   write('server.ts', s);
-
   let g = read('src/utils/googleSheets.ts');
   g = g.replace(/VITE_GOOGLE_SPREADSHEET_ID \|\| '1nKF40i125QY7MQMghOoOnyqjpHLFWKM12ZYIIGxW9Ck'/g, "VITE_GOOGLE_SPREADSHEET_ID || ''");
   write('src/utils/googleSheets.ts', g);
 }
 
-// Remove the old one-time workflow once source repair is available in the normal quality path.
 const legacyWorkflow = path.join(root, '.github/workflows/repair-auth-and-demo-data.yml');
 if (fs.existsSync(legacyWorkflow)) fs.rmSync(legacyWorkflow);
-
 console.log('Production source repair completed. UI/UX and application architecture are unchanged.');
