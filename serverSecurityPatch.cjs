@@ -60,10 +60,41 @@ async function authenticate(req) {
   return { uid: payload.sub, role, studentId, email };
 }
 
+const READ_WRITE_ENTITIES = new Set([
+  'STUDENT', 'LESSON', 'SETTING', 'PACKAGE', 'MEDIA',
+  'TRANSACTION', 'WALLET', 'INVOICE', 'NOTIFICATION', 'HELP'
+]);
+const STUDENT_MUTABLE_ENTITIES = new Set([
+  'STUDENT', 'LESSON', 'NOTIFICATION'
+]);
+const TRAINER_MUTABLE_ENTITIES = new Set([
+  'STUDENT', 'LESSON', 'NOTIFICATION', 'TRANSACTION', 'WALLET', 'INVOICE'
+]);
+const DANGEROUS_ACTIONS = new Set(['DELETE']);
+const DANGEROUS_ENTITIES = new Set(['STUDENT', 'PACKAGE', 'SETTING', 'MEDIA', 'TRANSACTION', 'WALLET', 'INVOICE']);
+
 function canMutate(principal, delta) {
-  if (principal.role === 'admin' || principal.role === 'trainer') return true;
+  const entityType = String(delta.entityType || '').toUpperCase();
+  const action = String(delta.action || 'UPDATE').toUpperCase();
+  if (!READ_WRITE_ENTITIES.has(entityType)) return false;
+  if (!['CREATE', 'UPDATE', 'DELETE'].includes(action)) return false;
+
+  // Destructive operations are never accepted through the generic sync endpoint.
+  // They must go through dedicated server-side workflows with explicit authorization.
+  if (DANGEROUS_ACTIONS.has(action) || (DANGEROUS_ENTITIES.has(entityType) && action === 'CREATE')) {
+    return principal.role === 'admin' && Boolean(delta.confirmationToken) && typeof delta.confirmationToken === 'string';
+  }
+
+  if (principal.role === 'admin') return true;
+
+  if (principal.role === 'trainer') {
+    return TRAINER_MUTABLE_ENTITIES.has(entityType) && action !== 'CREATE';
+  }
+
   if (principal.role !== 'student' || !principal.studentId) return false;
-  if (delta.entityType === 'STUDENT') return principal.studentId === String(delta.entityId);
+  if (!STUDENT_MUTABLE_ENTITIES.has(entityType)) return false;
+  if (action === 'CREATE') return false;
+  if (entityType === 'STUDENT') return principal.studentId === String(delta.entityId);
   return principal.studentId === String(delta.studentId || '');
 }
 
@@ -108,7 +139,7 @@ function wrapRoute(original, method) {
       if (routeName === 'patch') {
         const delta = req.body;
         if (!delta || !delta.entityType || !delta.entityId || !canMutate(principal, delta)) {
-          return res.status(403).json({ success: false, error: 'Forbidden: entity is outside the authenticated scope' });
+          return res.status(403).json({ success: false, error: 'Forbidden: operation is outside the authenticated permission boundary' });
         }
         if (principal.role === 'student') delta.studentId = principal.studentId;
       }
