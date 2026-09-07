@@ -63,19 +63,16 @@ function replaceRequired(text, pattern, replacement, label) {
 require('./calendar_lifecycle_repair.cjs');
 
 // Targeted visual repair: only the two trainer schedule time inputs are changed.
-// Use the existing JSX bindings to make the fix deterministic. No fallback scan.
-// This avoids broad regex work and avoids extra filesystem events in the dev watcher.
+// The two fields intentionally share the same class. Replace that exact class
+// once per occurrence; no broad scan, no JSX parsing, no watcher churn.
 {
   let s = read('src/components/TrainerDashboard.tsx');
   const before = s;
   const timeInputClass = 'w-full h-11 px-3.5 text-xs font-extrabold text-center bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono';
   const repairedClass = `box-border min-w-0 max-w-full ${timeInputClass}`;
-  const escapedClass = timeInputClass.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  for (const binding of ['schedule\\.startTime', 'schedule\\.endTime']) {
-    const pattern = new RegExp(`(value=\\{${binding}\\}[\\s\\S]{0,500}?className=")${escapedClass}("[\\s\\S]{0,200}?>)`, 'm');
-    s = s.replace(pattern, `$1${repairedClass}$2`);
-  }
+  s = s.replace(timeInputClass, repairedClass);
+  s = s.replace(timeInputClass, repairedClass);
 
   if (s !== before) write('src/components/TrainerDashboard.tsx', s);
 }
