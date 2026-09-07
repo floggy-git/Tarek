@@ -62,6 +62,22 @@ function replaceRequired(text, pattern, replacement, label) {
 
 require('./calendar_lifecycle_repair.cjs');
 
+// Targeted visual repair: keep the trainer schedule logic untouched and only
+// force the two time inputs to include padding/borders inside their width.
+{
+  let s = read('src/components/TrainerDashboard.tsx');
+  const inputClass = 'w-full h-11 px-3.5 text-xs font-extrabold text-center bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono';
+  const repairedClass = `box-border ${inputClass}`;
+
+  const startPattern = /(value=\{schedule\.startTime\}[\s\S]*?className=")${inputClass.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}("\s+dir="ltr")/;
+  const endPattern = /(value=\{schedule\.endTime\}[\s\S]*?className=")${inputClass.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}("\s+dir="ltr")/;
+
+  s = s.replace(startPattern, `$1${repairedClass}$2`);
+  s = s.replace(endPattern, `$1${repairedClass}$2`);
+
+  write('src/components/TrainerDashboard.tsx', s);
+}
+
 const legacyWorkflow = path.join(root, '.github/workflows/repair-auth-and-demo-data.yml');
 if (fs.existsSync(legacyWorkflow)) fs.rmSync(legacyWorkflow);
 console.log('Production source repair completed. UI/UX and application architecture are unchanged.');
