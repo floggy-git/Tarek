@@ -9,12 +9,9 @@ export const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 provider.addScope('https://www.googleapis.com/auth/spreadsheets');
 provider.addScope('https://www.googleapis.com/auth/drive.file');
-// Google Calendar is enabled with the least-privileged scope needed to create,
-// update and delete lesson events on the signed-in user's primary calendar.
 provider.addScope('https://www.googleapis.com/auth/calendar.events');
 provider.setCustomParameters({
-  prompt: 'consent',
-  access_type: 'offline'
+  prompt: 'consent'
 });
 
 let isSigningIn = false;
@@ -25,17 +22,34 @@ export const initAuth = (
   onAuthFailure?: () => void
 ) => {
   return onAuthStateChanged(auth, async (user: User | null) => {
-    if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        if (onAuthFailure) onAuthFailure();
-      }
-    } else {
+    if (!user) {
       cachedAccessToken = null;
       setCachedOAuthToken('');
-      if (onAuthFailure) onAuthFailure();
+      onAuthFailure?.();
+      return;
     }
+
+    // Firebase Auth is the identity authority. A Google OAuth access token is
+    // only needed for Google APIs and is intentionally kept in memory.
+    // Do not reject an otherwise valid Firebase session merely because the
+    // short-lived Google API token is not currently cached.
+    if (cachedAccessToken) {
+      onAuthSuccess?.(user, cachedAccessToken);
+      return;
+    }
+
+    try {
+      // Refresh the Firebase ID token so callers can still establish an
+      // authenticated session after a page reload. This does not create a
+      // persistent Google OAuth access token.
+      await user.getIdToken(true);
+    } catch (error) {
+      console.warn('Firebase session refresh failed:', error);
+    }
+
+    // Google API access requires an explicit Google sign-in flow. Keep the
+    // Firebase user session valid while reporting that no API token is cached.
+    onAuthSuccess?.(user, '');
   });
 };
 
@@ -59,21 +73,15 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
   }
 };
 
-export const getAccessToken = async (): Promise<string | null> => {
-  return cachedAccessToken;
-};
+export const getAccessToken = async (): Promise<string | null> => cachedAccessToken;
 
-export const isGoogleAuthorized = (): boolean => {
-  return Boolean(cachedAccessToken || auth.currentUser);
-};
+export const isGoogleAuthorized = (): boolean => Boolean(cachedAccessToken || auth.currentUser);
 
-export const getAuthStatus = (): { isAuthorized: boolean; user: User | null; email?: string } => {
-  return {
-    isAuthorized: Boolean(cachedAccessToken || auth.currentUser),
-    user: auth.currentUser,
-    email: auth.currentUser?.email || undefined
-  };
-};
+export const getAuthStatus = (): { isAuthorized: boolean; user: User | null; email?: string } => ({
+  isAuthorized: Boolean(cachedAccessToken || auth.currentUser),
+  user: auth.currentUser,
+  email: auth.currentUser?.email || undefined
+});
 
 export const googleLogout = async () => {
   await signOut(auth);
