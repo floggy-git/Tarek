@@ -31,19 +31,23 @@ function replaceRequired(text, pattern, replacement, label) {
     'replace registration with Firebase');
 
   s = s.replace(/const studentId = currentUser\?\.role === 'student' \? \(currentUser\.id \|\| ''\) : '';/g, "const studentId = currentUser?.role === 'student' ? (currentUser.studentId || currentUser.id || '') : '';");
-  // Remove any legacy/demo student credential literal left elsewhere in the source.
   s = s.replace(/student123/gi, '');
   write('src/App.tsx', s);
 }
 
 {
   let s = read('src/services/googleSheetsService.ts');
-  s = replaceRequired(s,
-    /      let studentId = idIdx !== -1 && row\[idIdx\] \? String\(row\[idIdx\]\.trim\(\) : '';\n      if \(!studentId\) \{\n        studentId = `STD-\$\{String\(i\)\.padStart\(6, '0'\)\}`;\n      \}\n\n      const name = nameIdx !== -1 && row\[nameIdx\] \? String\(row\[nameIdx\]\.trim\(\) : `Student \$\{studentId\}`;\n      const email = emailIdx !== -1 && row\[emailIdx\] \? String\(row\[emailIdx\]\.trim\(\) : '';\n      const phone = phoneIdx !== -1 && row\[phoneIdx\] \? String\(row\[phoneIdx\]\.trim\(\) : '';\n      const dob = dobIdx !== -1 && row\[dobIdx\] \? String\(row\[dobIdx\]\.trim\(\) : '2000-01-01';\n      const city = cityIdx !== -1 && row\[cityIdx\] \? String\(row\[cityIdx\]\.trim\(\) : 'Amsterdam';\n      const currentPackage = pkgIdx !== -1 && row\[pkgIdx\] \? String\(row\[pkgIdx\]\.trim\(\) : 'Optimal Progress';/,
-    `      const studentId = idIdx !== -1 && row[idIdx] ? String(row[idIdx]).trim() : '';\n      if (!/^ST-\\d{6}$/.test(studentId)) continue;\n\n      const name = nameIdx !== -1 && row[nameIdx] ? String(row[nameIdx]).trim() : '';\n      const email = emailIdx !== -1 && row[emailIdx] ? String(row[emailIdx]).trim() : '';\n      const phone = phoneIdx !== -1 && row[phoneIdx] ? String(row[phoneIdx]).trim() : '';\n      const dob = dobIdx !== -1 && row[dobIdx] ? String(row[dobIdx]).trim() : '';\n      const city = cityIdx !== -1 && row[cityIdx] ? String(row[cityIdx]).trim() : '';\n      const currentPackage = pkgIdx !== -1 && row[pkgIdx] ? String(row[pkgIdx]).trim() : '';\n      if (!name || !email) continue;`,
-    'student source defaults');
+  const studentSourcePattern = /      let studentId = idIdx[\s\S]*?      const currentPackage = [^\n]+\n/;
+  const studentSourceReplacement = `      const studentId = idIdx !== -1 && row[idIdx] ? String(row[idIdx]).trim() : '';\n      if (!/^ST-\\d{6}$/.test(studentId)) continue;\n\n      const name = nameIdx !== -1 && row[nameIdx] ? String(row[nameIdx]).trim() : '';\n      const email = emailIdx !== -1 && row[emailIdx] ? String(row[emailIdx]).trim() : '';\n      const phone = phoneIdx !== -1 && row[phoneIdx] ? String(row[phoneIdx]).trim() : '';\n      const dob = dobIdx !== -1 && row[dobIdx] ? String(row[dobIdx]).trim() : '';\n      const city = cityIdx !== -1 && row[cityIdx] ? String(row[cityIdx]).trim() : '';\n      const currentPackage = pkgIdx !== -1 && row[pkgIdx] ? String(row[pkgIdx]).trim() : '';\n      if (!name || !email) continue;\n`;
+  if (studentSourcePattern.test(s)) {
+    s = s.replace(studentSourcePattern, studentSourceReplacement);
+  } else if (!s.includes("if (!/^ST-\\d{6}$/.test(studentId)) continue;")) {
+    throw new Error('Production repair target not found: student source defaults');
+  }
   s = s.replace(/const status = statusIdx !== -1 && row\[statusIdx\] \? String\(row\[statusIdx\]\)\.trim\(\) : 'active';/g, "const status = statusIdx !== -1 && row[statusIdx] ? String(row[statusIdx]).trim() : '';");
   s = s.replace(/const theoryExamStatus = theoryIdx !== -1 && row\[theoryIdx\] \? String\(row\[theoryIdx\]\)\.trim\(\) : 'Passed';/g, "const theoryExamStatus = theoryIdx !== -1 && row[theoryIdx] ? String(row[theoryIdx]).trim() : '';");
+  s = s.replace(/st\.status \|\| 'active'/g, "st.status ?? ''");
+  s = s.replace(/st\.theoryExamStatus \|\| 'Passed'/g, "st.theoryExamStatus ?? ''");
   write('src/services/googleSheetsService.ts', s);
 }
 
