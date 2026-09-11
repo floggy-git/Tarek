@@ -7,12 +7,14 @@
  */
 function doGet(e) {
   try {
-    const action = e.parameter.action;
-    let payload = null;
+    const action = e && e.parameter ? e.parameter.action : null;
 
+    // Empty action opens the Master Control Center while preserving every API route below.
     if (!action) {
-      throw new Error("Missing query string action parameter.");
+      return controlCenterHtml();
     }
+
+    let payload = null;
 
     if (action === "getStudentDashboard") {
       payload = apiGetStudentDashboard(e.parameter.studentEmail || e.parameter.studentId);
