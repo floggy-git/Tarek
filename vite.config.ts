@@ -21,6 +21,7 @@ const trainerScheduleVisualFix = {
 
 export default defineConfig(() => {
   return {
+    base: process.env.GITHUB_ACTIONS === 'true' ? '/Al-Andalos-Rijschool-V2/' : '/',
     plugins: [trainerScheduleVisualFix, react(), tailwindcss()],
     define: {
       'process.env.GOOGLE_MAPS_PLATFORM_KEY': JSON.stringify(process.env.GOOGLE_MAPS_PLATFORM_KEY || '')
