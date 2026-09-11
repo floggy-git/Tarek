@@ -2,9 +2,6 @@
  * Al-Andalos Driving Academy — HTML Email Template Engine & Background Workers
  */
 
-/**
- * Gmail sender utilizing beautifully customized premium templates for student dispatches.
- */
 function sendResponsiveEmail(recipientEmail, studentName, type, details) {
   const subjects = {
     "booking": "🚙 تم تأكيد حجز درس القيادة الخاص بك - مدرسة الأندلس للقيادة",
@@ -17,29 +14,31 @@ function sendResponsiveEmail(recipientEmail, studentName, type, details) {
   const htmlBody = getEmailHtmlTemplate(studentName, type, details);
 
   try {
-    GmailApp.sendEmail(recipientEmail, subject, "", {
+    const mailOptions = {
       htmlBody: htmlBody,
       name: "Al-Andalos Rijschool"
-    });
-    // Log to Notification queue sheet for transparency
+    };
+    if (details && details.attachments && details.attachments.length) {
+      mailOptions.attachments = details.attachments;
+    }
+
+    GmailApp.sendEmail(recipientEmail, subject, "", mailOptions);
     SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Notifications").appendRow([
       "NOT-" + Date.now(),
       recipientEmail,
       studentName,
       recipientEmail,
-      "Sent standard " + type + " HTML dispatch.",
+      "Sent standard " + type + " HTML dispatch" + (mailOptions.attachments ? " with PDF attachment." : "."),
       "Email",
       "Sent",
       new Date()
     ]);
   } catch (err) {
     Logger.log("Email dispatch failure: " + err.toString());
+    throw err;
   }
 }
 
-/**
- * Compiles beautiful, premium, branded responsive HTML templates based on event types.
- */
 function getEmailHtmlTemplate(studentName, type, details) {
   const dateStr = details.date || "";
   const timeStr = details.time || "10:00";
@@ -106,26 +105,11 @@ function getEmailHtmlTemplate(studentName, type, details) {
         <p style="font-size: 12px; color: #64748b;">رقم الفاتورة: ${details.invoiceId}</p>
         <div style="margin: 20px 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
           <table style="width: 100%; border-collapse: collapse;">
-            <tr style="background-color: #f1f5f9;">
-              <th style="padding: 10px; text-align: right;">الخدمة</th>
-              <th style="padding: 10px; text-align: left;">المجموع</th>
-            </tr>
-            <tr>
-              <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${details.description}</td>
-              <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: left;">€${subtotal}</td>
-            </tr>
-            <tr>
-              <td style="padding: 10px; text-align: left; color: #64748b;">المجموع الفرعي:</td>
-              <td style="padding: 10px; text-align: left;">€${subtotal}</td>
-            </tr>
-            <tr>
-              <td style="padding: 10px; text-align: left; color: #64748b;">الضريبة 21% BTW:</td>
-              <td style="padding: 10px; text-align: left; color: #d97706;">+€${vatAmount}</td>
-            </tr>
-            <tr style="background-color: #f8fafc; font-weight: bold;">
-              <td style="padding: 10px; text-align: left;">المجموع الكلي:</td>
-              <td style="padding: 10px; text-align: left; color: #1e40af;">€${grandTotal}</td>
-            </tr>
+            <tr style="background-color: #f1f5f9;"><th style="padding: 10px; text-align: right;">الخدمة</th><th style="padding: 10px; text-align: left;">المجموع</th></tr>
+            <tr><td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${details.description}</td><td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: left;">€${subtotal}</td></tr>
+            <tr><td style="padding: 10px; text-align: left; color: #64748b;">المجموع الفرعي:</td><td style="padding: 10px; text-align: left;">€${subtotal}</td></tr>
+            <tr><td style="padding: 10px; text-align: left; color: #64748b;">الضريبة 21% BTW:</td><td style="padding: 10px; text-align: left; color: #d97706;">+€${vatAmount}</td></tr>
+            <tr style="background-color: #f8fafc; font-weight: bold;"><td style="padding: 10px; text-align: left;">المجموع الكلي:</td><td style="padding: 10px; text-align: left; color: #1e40af;">€${grandTotal}</td></tr>
           </table>
         </div>
       </div>
@@ -135,30 +119,14 @@ function getEmailHtmlTemplate(studentName, type, details) {
   return `
     <div style="background-color: #f1f5f9; padding: 20px 10px;">
       <table style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); width: 100%;">
-        <tr>
-          <td style="${styleHeader}">
-            <span style="${textTitle}">AL-ANDALOS RIJSCHOOL</span>
-            <span style="color: #94a3b8; font-size: 10px; display: block; margin-top: 5px;">PREMIUM DRIVING ACADEMY</span>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding: 30px;">
-            ${bodyContent}
-          </td>
-        </tr>
-        <tr>
-          <td style="background-color: #f8fafc; padding: 20px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0;">
-            Al-Andalos Rijschool B.V. | Amsterdam | support@al-andalos.nl
-          </td>
-        </tr>
+        <tr><td style="${styleHeader}"><span style="${textTitle}">AL-ANDALOS RIJSCHOOL</span><span style="color: #94a3b8; font-size: 10px; display: block; margin-top: 5px;">PREMIUM DRIVING ACADEMY</span></td></tr>
+        <tr><td style="padding: 30px;">${bodyContent}</td></tr>
+        <tr><td style="background-color: #f8fafc; padding: 20px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0;">Al-Andalos Rijschool B.V. | Amsterdam | support@al-andalos.nl</td></tr>
       </table>
     </div>
   `;
 }
 
-/**
- * Background worker that automatically scans the EmailQueue sheet and dispatches pending mail.
- */
 function processEmailQueue() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const queueSheet = ss.getSheetByName("EmailQueue");
@@ -180,10 +148,8 @@ function processEmailQueue() {
           htmlBody: body,
           name: "Al-Andalos Rijschool (Automated System)"
         });
-        
-        queueSheet.getRange(i + 1, 6).setValue(nowStr); // Send Date
-        queueSheet.getRange(i + 1, 7).setValue("sent"); // Status
-        
+        queueSheet.getRange(i + 1, 6).setValue(nowStr);
+        queueSheet.getRange(i + 1, 7).setValue("sent");
         writeAdminLog("Email Queue Trigger", "System Worker", "Dispatched queued email ID " + emailId + " to " + recipient);
       } catch (err) {
         Logger.log("Failed to process queued email " + emailId + ": " + err.toString());
