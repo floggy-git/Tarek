@@ -79,8 +79,6 @@ function canMutate(principal, delta) {
   if (!READ_WRITE_ENTITIES.has(entityType)) return false;
   if (!['CREATE', 'UPDATE', 'DELETE'].includes(action)) return false;
 
-  // Destructive operations are never accepted through the generic sync endpoint.
-  // They must go through dedicated server-side workflows with explicit authorization.
   if (DANGEROUS_ACTIONS.has(action) || (DANGEROUS_ENTITIES.has(entityType) && action === 'CREATE')) {
     return principal.role === 'admin' && Boolean(delta.confirmationToken) && typeof delta.confirmationToken === 'string';
   }
@@ -107,17 +105,47 @@ function filterDeltas(principal, deltas) {
   });
 }
 
+function sanitizeResetResponse(body) {
+  if (!body || typeof body !== 'object') return body;
+  const sanitized = { ...body };
+  if (sanitized.data && typeof sanitized.data === 'object') {
+    sanitized.data = { ...sanitized.data };
+    delete sanitized.data.hashedPassword;
+    delete sanitized.data.passwordHash;
+    delete sanitized.data.hash;
+  }
+  delete sanitized.hashedPassword;
+  delete sanitized.passwordHash;
+  delete sanitized.hash;
+  return sanitized;
+}
+
 const originalGet = express.application.get;
 const originalPost = express.application.post;
 
 function wrapRoute(original, method) {
   return function patchedRoute(path, ...handlers) {
-    if (typeof path !== 'string' || !path.startsWith('/api/sync/')) return original.call(this, path, ...handlers);
-    const routeName = path.slice('/api/sync/'.length).split('/')[0];
+    if (typeof path !== 'string') return original.call(this, path, ...handlers);
+
+    const routeName = path.startsWith('/api/sync/') ? path.slice('/api/sync/'.length).split('/')[0] : '';
+    const isSyncRoute = Boolean(routeName);
+    const isResetRoute = method === 'POST' && path === '/api/reset-password';
+
+    if (!isSyncRoute && !isResetRoute) return original.call(this, path, ...handlers);
     if (routeName === 'webhooks') return original.call(this, path, ...handlers);
+
     const index = handlers.length - 1;
     const handler = handlers[index];
     if (typeof handler !== 'function') return original.call(this, path, ...handlers);
+
+    if (isResetRoute) {
+      handlers[index] = async function sanitizedResetRoute(req, res, next) {
+        const originalJson = res.json.bind(res);
+        res.json = (body) => originalJson(sanitizeResetResponse(body));
+        return handler(req, res, next);
+      };
+      return original.call(this, path, ...handlers);
+    }
 
     handlers[index] = async function securedSyncRoute(req, res, next) {
       let principal;
