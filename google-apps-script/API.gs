@@ -45,6 +45,8 @@ function doGet(e) {
 
 /**
  * REST Web API - doPost handles all Write endpoints.
+ * Authentication is handled by the application's Firebase authentication boundary;
+ * the legacy Google Sheets password-login endpoint is intentionally not exposed here.
  */
 function doPost(e) {
   try {
@@ -56,9 +58,7 @@ function doPost(e) {
       throw new Error("Missing action parameter in request payload.");
     }
 
-    if (action === "login") {
-      payload = apiLogin(postBody.email, postBody.password);
-    } else if (action === "createBooking") {
+    if (action === "createBooking") {
       payload = apiCreateBooking(postBody);
     } else if (action === "completeLesson") {
       payload = apiCompleteLesson(postBody);
