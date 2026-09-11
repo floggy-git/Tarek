@@ -17,6 +17,7 @@ function write(rel, text) { fs.writeFileSync(path.join(root, rel), text); }
 
   // The demo login handler is no longer part of the production UI.
   s = s.replace(/\n\s*const handleDemoLogin = \(_pRole: 'student' \| 'trainer'\) => \{[\s\S]*?\n\s*\};\n\n\s*const handleManualLogin/, '\n\n  const handleManualLogin');
+  s = s.replace(/\n\s*handleDemoLogin=\{handleDemoLogin\}\n?/, '\n');
 
   if (s !== before) write('src/App.tsx', s);
 }
