@@ -1,0 +1,1 @@
+const CONTROL_CENTER_VERSION = '1.0.0';
