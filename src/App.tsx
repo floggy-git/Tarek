@@ -11,7 +11,7 @@ import { Language, UserRole, TRANSLATIONS, Lesson, WalletTransaction, Achievemen
 import { safeSetItem } from './utils/safeStorage';
 import { pruneExpiredAiConversations } from './utils/aiCoachStorage';
 import { INITIAL_LESSONS, INITIAL_TRANSACTIONS, INITIAL_ACHIEVEMENTS, MOCK_TRAINER_SCHEDULE, INITIAL_PACKAGES, DEFAULT_SCHOOL_SETTINGS } from './data';
-import { getSheetsConfig, loadPackagesFromGoogleSheet, writePackagesToGoogleSheet, loadStudentsFromGoogleSheet, writeStudentsToGoogleSheet, loadMediaVideosFromGoogleSheet, writeMediaVideosToGoogleSheet, checkGoogleDriveFileExists, loadSchoolSettingsFromGoogleSheet, writeSchoolSettingsToGoogleSheet, writeAuditLogToGoogleSheet, fetchClientIpAddress, patchStudentInGoogleSheet, patchSettingInGoogleSheet } from './utils/googleSheets';
+import { getSheetsConfig, loadPackagesFromGoogleSheet, writePackagesToGoogleSheet, loadStudentsFromGoogleSheet, writeStudentsToGoogleSheet, loadMediaVideosFromGoogleSheet, writeMediaVideosToGoogleSheet, loadLessonsFromGoogleSheet, writeLessonsToGoogleSheet, checkGoogleDriveFileExists, loadSchoolSettingsFromGoogleSheet, writeSchoolSettingsToGoogleSheet, writeAuditLogToGoogleSheet, fetchClientIpAddress, patchStudentInGoogleSheet, patchSettingInGoogleSheet } from './utils/googleSheets';
 import { syncEngine, SyncDelta } from './utils/syncEngine';
 import { isRecordForStudent, studentNamesMatch } from './utils/identity';
 import { getUnreadNotificationCount, markAllNotificationsAsRead } from './utils/notificationStore';
@@ -453,6 +453,7 @@ export default function App() {
   // References to keep track of the last successfully saved/loaded values from Google Sheets
   // to avoid infinite sync loops and allow precise reversion on write errors.
   const lastSavedStudentsRef = useRef<StudentRecord[]>([]);
+  const lastSavedLessonsRef = useRef<Lesson[]>([]);
   const lastSavedSchoolSettingsRef = useRef<any>(null);
 
   // School Settings state with local fallback and Google Sheets synchronization
@@ -597,6 +598,16 @@ export default function App() {
           isStudentsLoadedFromSheets.current = true;
         });
 
+      loadLessonsFromGoogleSheet(config)
+        .then(lessonList => {
+          setLessons(lessonList || []);
+          lastSavedLessonsRef.current = lessonList || [];
+        })
+        .catch(err => {
+          console.error("Failed to auto-load lessons from Google Sheets on startup:", err);
+          lastSavedLessonsRef.current = lessons;
+        });
+
       loadMediaVideosFromGoogleSheet(config)
         .then(async (vids) => {
           if (vids && vids.length > 0) {
@@ -647,6 +658,7 @@ export default function App() {
       isVideosLoadedFromSheets.current = true;
       isSchoolSettingsLoadedFromSheets.current = true;
       lastSavedStudentsRef.current = students;
+      lastSavedLessonsRef.current = lessons;
       lastSavedSchoolSettingsRef.current = schoolSettings;
     }
   }, []);
@@ -868,6 +880,33 @@ export default function App() {
 
     return () => clearTimeout(timer);
   }, [students]);
+
+  // Auto-write lessons to Google Sheets on modification (debounced)
+  useEffect(() => {
+    if (!isSchoolSettingsLoadedFromSheets.current && !isStudentsLoadedFromSheets.current && !isVideosLoadedFromSheets.current) return;
+    if (lastSavedLessonsRef.current === lessons) return;
+
+    const timer = setTimeout(() => {
+      if (lastSavedLessonsRef.current && JSON.stringify(lastSavedLessonsRef.current) === JSON.stringify(lessons)) {
+        lastSavedLessonsRef.current = lessons;
+        return;
+      }
+
+      const config = getSheetsConfig();
+      if (config.spreadsheetId && config.accessToken) {
+        writeLessonsToGoogleSheet(config, lessons)
+          .then(() => {
+            console.log("Successfully synchronized lessons to Google Sheets in background.");
+            lastSavedLessonsRef.current = lessons;
+          })
+          .catch(err => {
+            console.error("Failed to write lessons to Google Sheets in background:", err);
+          });
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [lessons]);
 
   // Auto-write media videos to Google Sheets on modification (debounced)
   useEffect(() => {
