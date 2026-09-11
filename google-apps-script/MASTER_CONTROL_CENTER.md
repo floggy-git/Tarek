@@ -1,0 +1,1 @@
+Master Control Center has been added to the Apps Script source. The panel is intentionally connected to existing Sheets and existing API operations rather than introducing a second database.
