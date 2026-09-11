@@ -713,7 +713,7 @@ export async function loadSchoolSettingsFromGoogleSheet(config: GoogleSheetsConf
     throw new Error("Spreadsheet ID is required to fetch from Google Sheets.");
   }
 
-  const range = `SchoolSettings!A1:AM2`;
+  const range = `SchoolSettings!A1:AR2`;
   let url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
   
   const headers: HeadersInit = {};
@@ -749,7 +749,7 @@ export async function writeSchoolSettingsToGoogleSheet(config: GoogleSheetsConfi
     throw new Error("Google OAuth Write Scopes require a valid Google OAuth Access Token.");
   }
 
-  const range = `SchoolSettings!A1:AM2`;
+  const range = `SchoolSettings!A1:AR2`;
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
   
   const rows = convertSchoolSettingsToSheetRows(settings);
