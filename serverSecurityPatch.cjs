@@ -36,8 +36,8 @@ async function authenticate(req) {
   if (typeof payload.iat !== 'number' || payload.iat > now + 60) return null;
   if (typeof payload.sub !== 'string' || !payload.sub) return null;
 
-  const projectId = String(payload.aud || process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || '').trim();
-  if (!projectId || payload.iss !== `https://securetoken.google.com/${projectId}`) return null;
+  const expectedProjectId = String(process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || '').trim();
+  if (!expectedProjectId || payload.aud !== expectedProjectId || payload.iss !== `https://securetoken.google.com/${expectedProjectId}`) return null;
 
   try {
     const certs = await getCerts();
