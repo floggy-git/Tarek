@@ -1,0 +1,100 @@
+name: Repository cleanup
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remove legacy generated references
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          text_files = []
+          for p in Path('.').rglob('*'):
+              if not p.is_file() or '.git' in p.parts or 'node_modules' in p.parts:
+                  continue
+              try:
+                  p.read_text(encoding='utf-8')
+              except Exception:
+                  continue
+              text_files.append(p)
+
+          for p in text_files:
+              s = p.read_text(encoding='utf-8')
+              old = s
+              s = s.replace('AL-ANDALOS RIJSCHOOL', 'TAREK RIJSCHOOL')
+              s = s.replace('AL-ANDALOS', 'TAREK RIJSCHOOL')
+              s = s.replace('Al-Andalos Rijschool', 'TAREK RIJSCHOOL')
+              s = s.replace('Al-Andalos Driving School', 'TAREK RIJSCHOOL')
+              s = s.replace('Al-Andalos Driving Academy', 'TAREK RIJSCHOOL')
+              s = s.replace('Al-Andalos School', 'TAREK RIJSCHOOL')
+              s = s.replace('Al-Andalos ERP', 'TAREK RIJSCHOOL')
+              s = s.replace('Al-Andalos Control Center', 'TAREK RIJSCHOOL Control Center')
+              s = s.replace('al-andalos.nl', '')
+              s = s.replace('aistudio-build', 'tarek-rijschool-server')
+              s = s.replace('AI Studio automatically injects', 'The application runtime provides')
+              s = s.replace('AI Studio UI', 'application configuration')
+              s = s.replace('View your app in AI Studio:', 'Development preview:')
+              s = s.replace('Run and deploy your AI Studio app', 'Run and deploy the application')
+              s = s.replace('HMR is disabled in AI Studio via DISABLE_HMR env var.', 'HMR behavior can be controlled through the DISABLE_HMR environment variable.')
+              if p.name == 'server.ts':
+                  s = re.sub(r'\s*<[^>]*>\s*', lambda m: m.group(0), s)
+                  s = s.replace('support@. ', '')
+                  s = s.replace('support@.', '')
+                  s = s.replace('`TAREK RIJSCHOOL <${process.env.SMTP_USER}>`', '`TAREK RIJSCHOOL <${process.env.SMTP_USER}>`')
+                  s = s.replace('TAREK RIJSCHOOL account', 'TAREK RIJSCHOOL account')
+              if s != old:
+                  p.write_text(s, encoding='utf-8')
+
+          # Remove the IDE-specific metadata directory completely.
+          meta = Path('assets/.aistudio')
+          if meta.exists():
+              import shutil
+              shutil.rmtree(meta)
+
+          # Fix empty email domains introduced by removal of the legacy domain.
+          p = Path('server.ts')
+          if p.exists():
+              s = p.read_text(encoding='utf-8')
+              s = s.replace('support@.', '')
+              p.write_text(s, encoding='utf-8')
+          PY
+
+          # The temporary workflow must not remain in the production repository.
+          rm -f .github/workflows/cleanup-legacy-branding.yml
+
+          if git grep -I -n -e 'Al-Andalos' -e 'AL-ANDALOS' -e 'al-andalos' -e 'aistudio' -e 'AI Studio' -e 'ai.studio' -- . ':!package-lock.json' ':!bun.lock'; then
+            echo 'Legacy references remain.'
+            exit 1
+          fi
+
+      - name: Validate
+        run: |
+          npm install --ignore-scripts
+          npm run build
+
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No cleanup changes required.'
+            exit 0
+          fi
+          git commit -m 'chore: remove legacy project branding and editor metadata'
+          git push
