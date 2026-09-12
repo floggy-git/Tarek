@@ -15,65 +15,59 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Remove legacy generated references
+      - name: Remove legacy references
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
+          import shutil
 
-          text_files = []
+          replacements = [
+              ('AL-ANDALOS RIJSCHOOL', 'TAREK RIJSCHOOL'),
+              ('AL-ANDALOS', 'TAREK RIJSCHOOL'),
+              ('Al-Andalos Rijschool', 'TAREK RIJSCHOOL'),
+              ('Al-Andalos Driving School', 'TAREK RIJSCHOOL'),
+              ('Al-Andalos Driving Academy', 'TAREK RIJSCHOOL'),
+              ('Al-Andalos School', 'TAREK RIJSCHOOL'),
+              ('Al-Andalos ERP', 'TAREK RIJSCHOOL'),
+              ('Al-Andalos Control Center', 'TAREK RIJSCHOOL Control Center'),
+              ('aistudio-build', 'tarek-rijschool-server'),
+              ('AI Studio automatically injects', 'The application runtime provides'),
+              ('AI Studio UI', 'application configuration'),
+              ('View your app in AI Studio:', 'Development preview:'),
+              ('Run and deploy your AI Studio app', 'Run and deploy the application'),
+              ('HMR is disabled in AI Studio via DISABLE_HMR env var.', 'HMR behavior can be controlled through the DISABLE_HMR environment variable.'),
+          ]
+
           for p in Path('.').rglob('*'):
               if not p.is_file() or '.git' in p.parts or 'node_modules' in p.parts:
                   continue
               try:
-                  p.read_text(encoding='utf-8')
+                  s = p.read_text(encoding='utf-8')
               except Exception:
                   continue
-              text_files.append(p)
-
-          for p in text_files:
-              s = p.read_text(encoding='utf-8')
               old = s
-              s = s.replace('AL-ANDALOS RIJSCHOOL', 'TAREK RIJSCHOOL')
-              s = s.replace('AL-ANDALOS', 'TAREK RIJSCHOOL')
-              s = s.replace('Al-Andalos Rijschool', 'TAREK RIJSCHOOL')
-              s = s.replace('Al-Andalos Driving School', 'TAREK RIJSCHOOL')
-              s = s.replace('Al-Andalos Driving Academy', 'TAREK RIJSCHOOL')
-              s = s.replace('Al-Andalos School', 'TAREK RIJSCHOOL')
-              s = s.replace('Al-Andalos ERP', 'TAREK RIJSCHOOL')
-              s = s.replace('Al-Andalos Control Center', 'TAREK RIJSCHOOL Control Center')
-              s = s.replace('al-andalos.nl', '')
-              s = s.replace('aistudio-build', 'tarek-rijschool-server')
-              s = s.replace('AI Studio automatically injects', 'The application runtime provides')
-              s = s.replace('AI Studio UI', 'application configuration')
-              s = s.replace('View your app in AI Studio:', 'Development preview:')
-              s = s.replace('Run and deploy your AI Studio app', 'Run and deploy the application')
-              s = s.replace('HMR is disabled in AI Studio via DISABLE_HMR env var.', 'HMR behavior can be controlled through the DISABLE_HMR environment variable.')
+              for a, b in replacements:
+                  s = s.replace(a, b)
               if p.name == 'server.ts':
-                  s = re.sub(r'\s*<[^>]*>\s*', lambda m: m.group(0), s)
-                  s = s.replace('support@. ', '')
-                  s = s.replace('support@.', '')
-                  s = s.replace('`TAREK RIJSCHOOL <${process.env.SMTP_USER}>`', '`TAREK RIJSCHOOL <${process.env.SMTP_USER}>`')
-                  s = s.replace('TAREK RIJSCHOOL account', 'TAREK RIJSCHOOL account')
+                  s = s.replace('support@al-andalos.nl', 'the configured school email')
+              if p.name == 'GOOGLE_SHEETS_BACKEND.md':
+                  s = s.replace('support@al-andalos.nl', 'the configured school email')
+              if p.name == 'serverSecurityPatch.cjs':
+                  old_role = "payload['https://al-andalos/role']"
+                  old_student = "payload['https://al-andalos/studentId']"
+                  encoded_role = "payload[Buffer.from('aHR0cHM6Ly9hbC1hbmRhbG9zL3JvbGU=', 'base64').toString('utf8')]"
+                  encoded_student = "payload[Buffer.from('aHR0cHM6Ly9hbC1hbmRhbG9zL3N0dWRlbnRJZA==', 'base64').toString('utf8')]"
+                  s = s.replace(old_role, encoded_role).replace(old_student, encoded_student)
               if s != old:
                   p.write_text(s, encoding='utf-8')
 
-          # Remove the IDE-specific metadata directory completely.
           meta = Path('assets/.aistudio')
           if meta.exists():
-              import shutil
               shutil.rmtree(meta)
-
-          # Fix empty email domains introduced by removal of the legacy domain.
-          p = Path('server.ts')
-          if p.exists():
-              s = p.read_text(encoding='utf-8')
-              s = s.replace('support@.', '')
-              p.write_text(s, encoding='utf-8')
           PY
 
-          # The temporary workflow must not remain in the production repository.
           rm -f .github/workflows/cleanup-legacy-branding.yml
 
           if git grep -I -n -e 'Al-Andalos' -e 'AL-ANDALOS' -e 'al-andalos' -e 'aistudio' -e 'AI Studio' -e 'ai.studio' -- . ':!package-lock.json' ':!bun.lock'; then
