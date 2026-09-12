@@ -15,7 +15,8 @@ import { getSheetsConfig, loadPackagesFromGoogleSheet, writePackagesToGoogleShee
 import { syncEngine, SyncDelta } from './utils/syncEngine';
 import { isRecordForStudent, studentNamesMatch } from './utils/identity';
 import { getUnreadNotificationCount, markAllNotificationsAsRead } from './utils/notificationStore';
-import bcrypt from 'bcryptjs';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { auth as firebaseAuth } from './services/googleAuthService';
 
 // Import our custom sub-app workspaces
 import Header from './components/Header';
@@ -345,7 +346,7 @@ export default function App() {
       name: "Amir Al-Hassan",
       email: "amir@student.drivingschool.nl",
       phone: "+31 6 1234 5678",
-      password: "student123",
+      password: "",
       dob: "2005-08-15",
       city: "Maastricht",
       packageId: "PKG-000002",
@@ -367,7 +368,7 @@ export default function App() {
       name: "Sanne de Jong",
       email: "sanne.dejong@student.drivingschool.nl",
       phone: "+31 6 2345 6789",
-      password: "student123",
+      password: "",
       dob: "2004-11-22",
       city: "Rotterdam",
       packageId: "PKG-000001",
@@ -389,7 +390,7 @@ export default function App() {
       name: "Michael van Berg",
       email: "michael.vanberg@outlook.com",
       phone: "+31 6 3456 7890",
-      password: "student123",
+      password: "",
       dob: "2003-04-05",
       city: "Utrecht",
       packageId: "PKG-000001",
@@ -424,7 +425,7 @@ export default function App() {
             ...s,
             id: stId,
             studentId: stId,
-            password: s.password || 'student123'
+            password: s.password || ''
           };
         });
       }
@@ -1222,7 +1223,7 @@ export default function App() {
     setActiveTab('home');
   };
 
-  const handleManualLogin = (e: React.FormEvent) => {
+  const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail.trim()) return;
 
@@ -1257,21 +1258,13 @@ export default function App() {
         return;
       }
 
-      // Enforce password verification for registered students
-      const storedPassword = matchedStudent.password || 'student123';
+      // Firebase Auth is the only password authority.
       let isPasswordCorrect = false;
-      
       try {
-        if (storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$')) {
-          // Secure bcrypt hash
-          isPasswordCorrect = bcrypt.compareSync(loginPassword, storedPassword);
-        } else {
-          // Plain text fallback
-          isPasswordCorrect = loginPassword === storedPassword;
-        }
-      } catch (err) {
-        console.error("Password verification error:", err);
-        isPasswordCorrect = loginPassword === storedPassword;
+        await signInWithEmailAndPassword(firebaseAuth, cleanEmail, loginPassword);
+        isPasswordCorrect = true;
+      } catch {
+        isPasswordCorrect = false;
       }
 
       if (!loginPassword || !isPasswordCorrect) {
@@ -1327,7 +1320,7 @@ export default function App() {
     setActiveTab('home');
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regName.trim() || !regEmail.trim() || !regPhone.trim()) {
       alert(lang === 'ar' ? 'الرجاء إدخال الاسم والبريد الإلكتروني ورقم الهاتف.' : lang === 'nl' ? 'Voer je naam, e-mailadres en telefoonnummer in.' : 'Please enter your name, email and phone number.');
@@ -1356,8 +1349,18 @@ export default function App() {
       return;
     }
 
+    try {
+      await createUserWithEmailAndPassword(firebaseAuth, regEmail.trim().toLowerCase(), regPassword.trim());
+    } catch (authError) {
+      const code = String(authError?.code || '');
+      const message = code === 'auth/email-already-in-use'
+        ? (lang === 'ar' ? 'هذا البريد مستخدم مسبقاً.' : lang === 'nl' ? 'Dit e-mailadres is al in gebruik.' : 'This email is already in use.')
+        : (lang === 'ar' ? 'تعذر إنشاء الحساب. حاول مرة أخرى.' : lang === 'nl' ? 'Account aanmaken mislukt. Probeer opnieuw.' : 'Could not create the account. Please try again.');
+      alert(message);
+      return;
+    }
+
     const studentId = `ST-${String(students.length + 1).padStart(6, '0')}`;
-    const hashedPassword = bcrypt.hashSync(regPassword.trim(), 10);
     const selectedPkgObj = packages.find(p => p.id === regPackageId || p.name === regPackage || p.title === regPackage);
     const matchHours = regPackage.match(/(\d+)\s*(?:hours|hour|h|ساعة|uur)/i);
     const parsedPkgHours = selectedPkgObj?.hours !== undefined 
@@ -1399,7 +1402,6 @@ export default function App() {
       name: regName.trim(),
       email: regEmail.trim(),
       phone: regPhone.trim(),
-      password: hashedPassword,
       dob: regDob,
       city: regCity,
       packageName: resolvedPkgName,
