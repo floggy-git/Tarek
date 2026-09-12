@@ -50,17 +50,38 @@ jobs:
                   s = s.replace("payload['https://al-andalos/studentId']", "payload[Buffer.from('aHR0cHM6Ly9hbC1hbmRhbG9zL3N0dWRlbnRJZA==', 'base64').toString('utf8')]")
 
               if p.name == 'production_repair.cjs':
-                  marker = "    if (text.includes(replacement)) return text;\n    throw new Error(`Production repair target not found: ${label}`);"
-                  replacement = "    if (text.includes(replacement)) return text;\n    if (label === 'remove demo login data' && !/const handleDemoLogin/.test(text) && text.includes('signInWithEmailAndPassword')) return text;\n    if (label === 'replace manual login with Firebase' && /const handleManualLogin = async/.test(text) && text.includes('signInWithEmailAndPassword')) return text;\n    if (label === 'replace registration with Firebase' && /const handleRegisterSubmit = async/.test(text) && text.includes('createUserWithEmailAndPassword')) return text;\n    throw new Error(`Production repair target not found: ${label}`);"
-                  s = s.replace(marker, replacement)
+                  old_helper = """function replaceRequired(text, pattern, replacement, label) {
+  if (!pattern.test(text)) {
+    if (text.includes(replacement)) return text;
+    throw new Error(`Production repair target not found: ${label}`);
+  }
+  return text.replace(pattern, replacement);
+}"""
+                  new_helper = """function replaceRequired(text, pattern, replacement, label) {
+  if (!pattern.test(text)) {
+    if (text.includes(replacement)) return text;
+    if (label === 'remove demo login data' && !/const handleDemoLogin/.test(text) && text.includes('signInWithEmailAndPassword')) return text;
+    if (label === 'replace manual login with Firebase' && /const handleManualLogin = async/.test(text) && text.includes('signInWithEmailAndPassword')) return text;
+    if (label === 'replace registration with Firebase' && /const handleRegisterSubmit = async/.test(text) && text.includes('createUserWithEmailAndPassword')) return text;
+    throw new Error(`Production repair target not found: ${label}`);
+  }
+  return text.replace(pattern, replacement);
+}"""
+                  s = s.replace(old_helper, new_helper)
 
-              # Remove legacy email/domain data without inventing a new production domain.
-              s = s.replace('support@al-andalos.nl', 'the configured school email')
-              s = s.replace('info@al-andalos.nl', 'Session.getEffectiveUser().getEmail()')
-              s = s.replace('samir@al-andalos.nl', '')
-              s = s.replace('support@tarek-rijschool.nl', 'the configured school email')
-              s = s.replace('info@tarek-rijschool.nl', 'Session.getEffectiveUser().getEmail()')
-              s = s.replace('samir@tarek-rijschool.nl', '')
+              if p.name in {'server.ts', 'GOOGLE_SHEETS_BACKEND.md', 'google_apps_script_backend.js'}:
+                  s = s.replace('support@al-andalos.nl', 'the configured school email')
+                  s = s.replace('support@tarek-rijschool.nl', 'the configured school email')
+              if p.name == 'Settings.gs':
+                  s = s.replace('info@al-andalos.nl', 'Session.getEffectiveUser().getEmail()')
+                  s = s.replace('samir@al-andalos.nl', '')
+                  s = s.replace('info@tarek-rijschool.nl', 'Session.getEffectiveUser().getEmail()')
+                  s = s.replace('samir@tarek-rijschool.nl', '')
+              if p.name == 'App.tsx':
+                  s = s.replace(" || cleanEmail === 'samir@al-andalos.nl'", '')
+                  s = s.replace(" === 'samir@al-andalos.nl' ||", '')
+                  s = s.replace(" || cleanEmail === 'samir@tarek-rijschool.nl'", '')
+                  s = s.replace(" === 'samir@tarek-rijschool.nl' ||", '')
 
               if s != old:
                   p.write_text(s, encoding='utf-8')
@@ -80,6 +101,7 @@ jobs:
       - name: Validate source
         run: |
           npm install --ignore-scripts
+          node --check scripts/production_repair.cjs
           npx tsc --noEmit
 
       - name: Commit cleanup
