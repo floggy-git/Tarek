@@ -1,0 +1,80 @@
+name: One-time Firebase Auth source repair
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch App authentication source
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('src/App.tsx')
+          s = p.read_text()
+          original = s
+
+          if "signInWithEmailAndPassword" not in s:
+              s = s.replace(
+                  "import bcrypt from 'bcryptjs';",
+                  "import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';\nimport { auth as firebaseAuth } from './services/googleAuthService';"
+              )
+
+          s = s.replace(
+              "const handleManualLogin = (e: React.FormEvent) => {",
+              "const handleManualLogin = async (e: React.FormEvent) => {",
+              1
+          )
+          s = s.replace(
+              "const handleRegisterSubmit = (e: React.FormEvent) => {",
+              "const handleRegisterSubmit = async (e: React.FormEvent) => {",
+              1
+          )
+
+          old_auth = '''      // Enforce password verification for registered students\n      const storedPassword = String(matchedStudent.password || '');\n      let isPasswordCorrect = false;'''
+          if old_auth in s:
+              new_auth = '''      // Password authentication is handled by Firebase Auth.\n      let isPasswordCorrect = false;\n      try {\n        await signInWithEmailAndPassword(firebaseAuth, cleanEmail, loginPassword);\n        isPasswordCorrect = true;\n      } catch (firebaseError) {\n        isPasswordCorrect = false;\n      }\n      const storedPassword = String(matchedStudent.password || '');'''
+              s = s.replace(old_auth, new_auth, 1)
+
+          old_verify = '''      try {\n        if (storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$')) {\n          // Secure bcrypt hash\n          isPasswordCorrect = bcrypt.compareSync(loginPassword, storedPassword);\n        } else {\n          // Plain text fallback\n          isPasswordCorrect = loginPassword === storedPassword;\n        }\n      } catch (e) {\n        isPasswordCorrect = false;\n      }'''
+          if old_verify in s:
+              s = s.replace(old_verify, "      // Firebase Auth above is the only password authority.", 1)
+
+          old_register = "const studentId = `ST-${String(students.length + 1).padStart(6, '0')}`;\n    const hashedPassword = bcrypt.hashSync(regPassword.trim(), 10);"
+          if old_register in s:
+              new_register = '''let firebaseCredential;\n    try {\n      firebaseCredential = await createUserWithEmailAndPassword(firebaseAuth, regEmail.trim().toLowerCase(), regPassword.trim());\n      await updateProfile(firebaseCredential.user, { displayName: regName.trim() });\n    } catch (authError: any) {\n      const code = String(authError?.code || '');\n      const message = code === 'auth/email-already-in-use'\n        ? (lang === 'ar' ? 'هذا البريد مستخدم مسبقاً.' : lang === 'nl' ? 'Dit e-mailadres is al in gebruik.' : 'This email is already in use.')\n        : (lang === 'ar' ? 'تعذر إنشاء الحساب. حاول مرة أخرى.' : lang === 'nl' ? 'Account aanmaken mislukt. Probeer opnieuw.' : 'Could not create the account. Please try again.');\n      alert(message);\n      return;\n    }\n\n    const studentId = `ST-${String(students.length + 1).padStart(6, '0')}`;\n    const hashedPassword = '';'''
+              s = s.replace(old_register, new_register, 1)
+
+          # Remove insecure demo/fallback data while preserving the surrounding UI structure.
+          s = re.sub(r"\n\s*const handleDemoLogin = \(pRole: 'student' \| 'trainer'\) => \{[\s\S]*?\n\s*\};\n\n\s*const handleManualLogin", "\n\n  const handleManualLogin", s, count=1)
+          s = s.replace("password: 'student123'", "password: ''")
+          s = s.replace("password: s.password || 'student123'", "password: s.password || ''")
+          s = s.replace("const storedPassword = matchedStudent.password || 'student123';", "const storedPassword = String(matchedStudent.password || '');")
+          s = s.replace("student123", "")
+
+          if "bcrypt from 'bcryptjs'" in s or 'bcrypt.compareSync' in s or 'loginPassword === storedPassword' in s or "const handleManualLogin = (e: React.FormEvent)" in s:
+              raise SystemExit('Authentication patch incomplete: insecure App.tsx pattern remains')
+          if "signInWithEmailAndPassword" not in s or "createUserWithEmailAndPassword" not in s:
+              raise SystemExit('Authentication patch incomplete: Firebase Auth imports/calls missing')
+          if s == original:
+              raise SystemExit('Authentication patch made no changes')
+          p.write_text(s)
+          PY
+      - name: Validate patched source
+        run: |
+          npm install --no-audit --no-fund
+          npm run lint
+      - name: Commit source repair and remove one-time workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.tsx .github/workflows/repair-firebase-auth-now.yml
+          git commit -m "fix: enforce Firebase Auth in student login source"
+          git rm .github/workflows/repair-firebase-auth-now.yml
+          git commit -m "chore: remove one-time Firebase Auth repair workflow"
+          git push
