@@ -17,52 +17,170 @@ jobs:
           import re
           p = Path('src/App.tsx')
           s = p.read_text()
-          original = s
 
-          if "signInWithEmailAndPassword" not in s:
-              s = s.replace(
-                  "import bcrypt from 'bcryptjs';",
-                  "import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';\nimport { auth as firebaseAuth } from './services/googleAuthService';"
-              )
+          s = re.sub(r"import bcrypt from 'bcryptjs';\n", "import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';\nimport { auth } from './services/googleAuthService';\n", s, count=1)
 
-          s = s.replace(
-              "const handleManualLogin = (e: React.FormEvent) => {",
-              "const handleManualLogin = async (e: React.FormEvent) => {",
-              1
-          )
-          s = s.replace(
-              "const handleRegisterSubmit = (e: React.FormEvent) => {",
-              "const handleRegisterSubmit = async (e: React.FormEvent) => {",
-              1
-          )
-
-          old_auth = '''      // Enforce password verification for registered students\n      const storedPassword = String(matchedStudent.password || '');\n      let isPasswordCorrect = false;'''
-          if old_auth in s:
-              new_auth = '''      // Password authentication is handled by Firebase Auth.\n      let isPasswordCorrect = false;\n      try {\n        await signInWithEmailAndPassword(firebaseAuth, cleanEmail, loginPassword);\n        isPasswordCorrect = true;\n      } catch (firebaseError) {\n        isPasswordCorrect = false;\n      }\n      const storedPassword = String(matchedStudent.password || '');'''
-              s = s.replace(old_auth, new_auth, 1)
-
-          old_verify = '''      try {\n        if (storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$')) {\n          // Secure bcrypt hash\n          isPasswordCorrect = bcrypt.compareSync(loginPassword, storedPassword);\n        } else {\n          // Plain text fallback\n          isPasswordCorrect = loginPassword === storedPassword;\n        }\n      } catch (e) {\n        isPasswordCorrect = false;\n      }'''
-          if old_verify in s:
-              s = s.replace(old_verify, "      // Firebase Auth above is the only password authority.", 1)
-
-          old_register = "const studentId = `ST-${String(students.length + 1).padStart(6, '0')}`;\n    const hashedPassword = bcrypt.hashSync(regPassword.trim(), 10);"
-          if old_register in s:
-              new_register = '''let firebaseCredential;\n    try {\n      firebaseCredential = await createUserWithEmailAndPassword(firebaseAuth, regEmail.trim().toLowerCase(), regPassword.trim());\n      await updateProfile(firebaseCredential.user, { displayName: regName.trim() });\n    } catch (authError: any) {\n      const code = String(authError?.code || '');\n      const message = code === 'auth/email-already-in-use'\n        ? (lang === 'ar' ? 'هذا البريد مستخدم مسبقاً.' : lang === 'nl' ? 'Dit e-mailadres is al in gebruik.' : 'This email is already in use.')\n        : (lang === 'ar' ? 'تعذر إنشاء الحساب. حاول مرة أخرى.' : lang === 'nl' ? 'Account aanmaken mislukt. Probeer opnieuw.' : 'Could not create the account. Please try again.');\n      alert(message);\n      return;\n    }\n\n    const studentId = `ST-${String(students.length + 1).padStart(6, '0')}`;\n    const hashedPassword = '';'''
-              s = s.replace(old_register, new_register, 1)
-
-          # Remove insecure demo/fallback data while preserving the surrounding UI structure.
           s = re.sub(r"\n\s*const handleDemoLogin = \(pRole: 'student' \| 'trainer'\) => \{[\s\S]*?\n\s*\};\n\n\s*const handleManualLogin", "\n\n  const handleManualLogin", s, count=1)
-          s = s.replace("password: 'student123'", "password: ''")
-          s = s.replace("password: s.password || 'student123'", "password: s.password || ''")
-          s = s.replace("const storedPassword = matchedStudent.password || 'student123';", "const storedPassword = String(matchedStudent.password || '');")
-          s = s.replace("student123", "")
 
-          if "bcrypt from 'bcryptjs'" in s or 'bcrypt.compareSync' in s or 'loginPassword === storedPassword' in s or "const handleManualLogin = (e: React.FormEvent)" in s:
-              raise SystemExit('Authentication patch incomplete: insecure App.tsx pattern remains')
-          if "signInWithEmailAndPassword" not in s or "createUserWithEmailAndPassword" not in s:
-              raise SystemExit('Authentication patch incomplete: Firebase Auth imports/calls missing')
-          if s == original:
-              raise SystemExit('Authentication patch made no changes')
+          login = '''  const handleManualLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = loginEmail.trim().toLowerCase();
+    if (!cleanEmail || !loginPassword) return;
+
+    try {
+      const credential = await signInWithEmailAndPassword(auth, cleanEmail, loginPassword);
+      const firebaseUser = credential.user;
+      const matchedStudent = students.find(s => s.email?.toLowerCase() === cleanEmail);
+      const isNotificationsEnabled = schoolSettings ? schoolSettings.notificationsEnabled !== false : true;
+
+      const user = loginRole === 'student'
+        ? {
+            id: matchedStudent?.studentId || matchedStudent?.id,
+            studentId: matchedStudent?.studentId || matchedStudent?.id,
+            name: matchedStudent?.name || firebaseUser.displayName || cleanEmail.split('@')[0],
+            email: firebaseUser.email || cleanEmail,
+            phone: matchedStudent?.phone || '',
+            role: 'student' as const,
+            lang,
+            packageId: matchedStudent?.packageId,
+            packageName: matchedStudent?.packageName || matchedStudent?.currentPackage || matchedStudent?.packageSelection || '',
+            packageSelection: matchedStudent?.packageName || matchedStudent?.currentPackage || matchedStudent?.packageSelection || '',
+            currentPackage: matchedStudent?.currentPackage || matchedStudent?.packageName || matchedStudent?.packageSelection || '',
+            packageHours: matchedStudent?.packageHours ?? matchedStudent?.targetHours ?? 0,
+            targetHours: matchedStudent?.targetHours ?? matchedStudent?.packageHours ?? 0,
+            packagePrice: matchedStudent?.packagePrice ?? 0,
+            dob: matchedStudent?.dob || '',
+            city: matchedStudent?.city || '',
+            transmissionType: matchedStudent?.transmissionType || 'manual',
+            notificationsEnabled: matchedStudent?.notificationsEnabled !== false
+          }
+        : {
+            name: firebaseUser.displayName || cleanEmail.split('@')[0],
+            email: firebaseUser.email || cleanEmail,
+            phone: '',
+            role: 'trainer' as const,
+            lang,
+            notificationsEnabled: isNotificationsEnabled
+          };
+
+      setCurrentUser(user);
+      setLoginEmail('');
+      setLoginPassword('');
+      setActiveTab('home');
+    } catch (err: any) {
+      console.error('Firebase sign-in failed:', err);
+      alert(lang === 'ar' ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة.' : lang === 'nl' ? 'Ongeldig e-mailadres of wachtwoord.' : 'Invalid email or password.');
+    }
+  };
+
+  const handleRegisterSubmit'''
+          s, n = re.subn(r"  const handleManualLogin = \(e: React\.FormEvent\) => \{[\s\S]*?\n  \};\n\n  const handleRegisterSubmit", login, s, count=1)
+          if n != 1:
+              raise SystemExit('Manual login handler target not found')
+
+          register = '''  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regName.trim() || !regEmail.trim() || !regPhone.trim()) {
+      alert(lang === 'ar' ? 'الرجاء إدخال الاسم والبريد الإلكتروني ورقم الهاتف.' : lang === 'nl' ? 'Voer je naam, e-mailadres en telefoonnummer in.' : 'Please enter your name, email and phone number.');
+      return;
+    }
+    if (!regPassword || regPassword.length < 8) {
+      alert(lang === 'ar' ? 'يجب أن تتكون كلمة المرور من 8 أحرف على الأقل.' : lang === 'nl' ? 'Wachtwoord moet minimaal 8 tekens lang zijn.' : 'Password must be at least 8 characters.');
+      return;
+    }
+    if (regPassword !== regConfirmPassword) {
+      alert(lang === 'ar' ? 'كلمتا المرور غير متطابقتين.' : lang === 'nl' ? 'Wachtwoorden komen niet overeen.' : 'Passwords do not match.');
+      return;
+    }
+
+    try {
+      const credential = await createUserWithEmailAndPassword(auth, regEmail.trim().toLowerCase(), regPassword.trim());
+      const firebaseUser = credential.user;
+      await updateProfile(firebaseUser, { displayName: regName.trim() });
+
+      const studentId = `ST-${String(students.length + 1).padStart(6, '0')}`;
+      const selectedPkgObj = packages.find(p => p.id === regPackageId || p.name === regPackage || p.title === regPackage);
+      const matchHours = regPackage.match(/(\\d+)\\s*(?:hours|hour|h|ساعة|uur)/i);
+      const parsedPkgHours = selectedPkgObj?.hours !== undefined ? Number(selectedPkgObj.hours) : (matchHours ? parseInt(matchHours[1], 10) : 0);
+      const parsedPkgPrice = selectedPkgObj?.price !== undefined ? Number(selectedPkgObj.price) : 0;
+      const resolvedPkgName = selectedPkgObj?.name || selectedPkgObj?.title || regPackage;
+
+      const newStudent = {
+        id: studentId,
+        studentId,
+        firebaseUid: firebaseUser.uid,
+        packageId: selectedPkgObj?.id || regPackageId,
+        name: regName.trim(),
+        email: firebaseUser.email || regEmail.trim().toLowerCase(),
+        phone: regPhone.trim(),
+        role: 'student' as const,
+        lang,
+        packageName: resolvedPkgName,
+        packageSelection: resolvedPkgName,
+        currentPackage: resolvedPkgName,
+        packageHours: parsedPkgHours,
+        targetHours: parsedPkgHours,
+        packagePrice: parsedPkgPrice,
+        dob: regDob,
+        city: regCity,
+        priorExperience: regExperience,
+        transmissionType: regTransmission,
+        theoryExamStatus: regTheoryStatus,
+        notificationsEnabled: true
+      };
+
+      const newRecord: StudentRecord = {
+        id: studentId,
+        studentId,
+        name: regName.trim(),
+        email: firebaseUser.email || regEmail.trim().toLowerCase(),
+        phone: regPhone.trim(),
+        dob: regDob,
+        city: regCity,
+        packageId: selectedPkgObj?.id || regPackageId,
+        packageName: resolvedPkgName,
+        currentPackage: resolvedPkgName,
+        packageSelection: resolvedPkgName,
+        packageHours: parsedPkgHours,
+        targetHours: parsedPkgHours,
+        packagePrice: parsedPkgPrice,
+        balance: 0,
+        readiness: 0,
+        status: 'active',
+        theoryExamStatus: regTheoryStatus,
+        notificationsEnabled: true
+      };
+
+      setStudents(prev => [...prev, newRecord]);
+      setRegPassword('');
+      setRegConfirmPassword('');
+      setRegSuccessMessage(lang === 'ar' ? `أهلاً بك ${regName}! تم إنشاء حسابك بنجاح.` : lang === 'nl' ? `Welkom ${regName}! Je account is succesvol aangemaakt.` : `Welcome ${regName}! Your account was created successfully.`);
+
+      setTimeout(() => {
+        setCurrentUser(newStudent);
+        setRegSuccessMessage('');
+        setActiveTab('home');
+      }, 4500);
+    } catch (err: any) {
+      console.error('Firebase registration failed:', err);
+      const message = err?.code === 'auth/email-already-in-use'
+        ? (lang === 'ar' ? 'هذا البريد الإلكتروني مستخدم بالفعل.' : lang === 'nl' ? 'Dit e-mailadres is al in gebruik.' : 'This email address is already in use.')
+        : (lang === 'ar' ? 'تعذر إنشاء الحساب. يرجى المحاولة مرة أخرى.' : lang === 'nl' ? 'Account aanmaken mislukt. Probeer het opnieuw.' : 'Unable to create the account. Please try again.');
+      alert(message);
+    }
+  };
+
+  const handleForgotPasswordSubmit'''
+          s, n = re.subn(r"  const handleRegisterSubmit = \(e: React\.FormEvent\) => \{[\s\S]*?\n  \};\n\n  const handleForgotPasswordSubmit", register, s, count=1)
+          if n != 1:
+              raise SystemExit('Registration handler target not found')
+
+          s = s.replace('student123', '')
+          s = re.sub(r"import bcrypt from 'bcryptjs';\n", '', s)
+          if 'bcrypt.compareSync' in s or 'bcrypt.hashSync' in s or 'loginPassword === storedPassword' in s or "const handleManualLogin = (e: React.FormEvent)" in s:
+              raise SystemExit('Insecure authentication code remains')
+          if 'signInWithEmailAndPassword' not in s or 'createUserWithEmailAndPassword' not in s:
+              raise SystemExit('Firebase Auth code missing')
           p.write_text(s)
           PY
       - name: Validate patched source
