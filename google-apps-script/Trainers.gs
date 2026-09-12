@@ -1,164 +1,119 @@
 /**
- * Al-Andalos Driving Academy — Trainer Operations (CRUD & Work Schedules)
+ * TAREK RIJSCHOOL — Trainer Operations.
  */
 
-/**
- * Returns trainer calendar availability, invoices, and completed lessons.
- */
 function apiGetTrainerDashboard(identifier) {
-  if (!identifier) throw new Error("Trainer email or ID is required.");
-  
+  if (!identifier) throw new Error('Trainer email or ID is required.');
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const trainers = ss.getSheetByName("Trainers").getDataRange().getValues();
-  let trainer = null;
+  const trainerSheet = ss.getSheetByName('Trainers');
+  const bookingsSheet = ss.getSheetByName('Bookings');
+  if (!trainerSheet || !bookingsSheet) throw new Error('Required trainer sheets are missing.');
 
+  const trainers = trainerSheet.getDataRange().getValues();
+  let trainer = null;
   for (let i = 1; i < trainers.length; i++) {
-    if (trainers[i][0].toString() === identifier || trainers[i][2].toString().toLowerCase() === identifier.toLowerCase()) {
+    if (String(trainers[i][0] || '') === String(identifier) || String(trainers[i][2] || '').toLowerCase() === String(identifier).toLowerCase()) {
       trainer = {
-        id: trainers[i][0],
-        name: trainers[i][1],
-        email: trainers[i][2],
-        phone: trainers[i][3],
-        license: trainers[i][4],
-        vehicle: trainers[i][5],
-        rate: Number(trainers[i][6])
+        id: trainers[i][0], name: trainers[i][1], email: trainers[i][2], phone: trainers[i][3],
+        license: trainers[i][4], vehicle: trainers[i][5], rate: Number(trainers[i][6]) || 0
       };
       break;
     }
   }
+  if (!trainer) throw new Error('Trainer profile not found.');
 
-  if (!trainer) throw new Error("Trainer profile not found.");
-
-  // Fetch associated bookings
-  const bookings = ss.getSheetByName("Bookings").getDataRange().getValues();
+  const bookings = bookingsSheet.getDataRange().getValues();
   const trainerBookings = [];
   for (let i = 1; i < bookings.length; i++) {
-    if (bookings[i][3].toString() === trainer.id) {
+    if (String(bookings[i][3] || '') === String(trainer.id)) {
       trainerBookings.push({
-        bookingId: bookings[i][0],
-        studentId: bookings[i][1],
-        studentName: bookings[i][2],
-        date: bookings[i][5],
-        time: bookings[i][6],
-        duration: Number(bookings[i][7]),
-        price: Number(bookings[i][8]),
-        pickup: bookings[i][9],
-        status: bookings[i][10]
+        bookingId: bookings[i][0], studentId: bookings[i][1], studentName: bookings[i][2], date: bookings[i][5],
+        time: bookings[i][6], duration: Number(bookings[i][7]), price: Number(bookings[i][8]), pickup: bookings[i][9], status: bookings[i][10]
       });
     }
   }
-
-  return {
-    trainer,
-    bookings: trainerBookings
-  };
+  return { trainer, bookings: trainerBookings };
 }
 
-/**
- * Programmatic helper to hire and register a new Trainer.
- */
 function createTrainer(params) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const trainersSheet = ss.getSheetByName("Trainers");
-  const id = "TR-" + (trainersSheet.getLastRow() + 200);
-  const name = params.name || "Unnamed Trainer";
-  const email = params.email || "";
-  const phone = params.phone || "+31 6 00000000";
-  const license = params.license || "B Klasse";
-  const vehicle = params.vehicle || "Standard Hatchback";
-  const rate = Number(params.rate || 65);
-  
-  trainersSheet.appendRow([
-    id, name, email, phone, license, vehicle, rate, "active"
-  ]);
-  
-  writeAdminLog("Create Trainer", "System", "Successfully hired trainer " + name + " (" + id + ")");
-  return { success: true, trainerId: id, name: name };
+  const sheet = ss.getSheetByName('Trainers');
+  if (!sheet) throw new Error('Trainers sheet is missing.');
+  const name = String(params && params.name || '').trim();
+  if (!name) throw new Error('Trainer name is required.');
+  const email = String(params && params.email || '').trim();
+  const phone = String(params && params.phone || '').trim();
+  const license = String(params && params.license || '').trim();
+  const vehicle = String(params && params.vehicle || '').trim();
+  const rate = Number(params && params.rate);
+  if (!(rate > 0)) throw new Error('Trainer hourly rate must be greater than zero.');
+  const id = 'TR-' + Date.now();
+  sheet.appendRow([id, name, email, phone, license, vehicle, rate, 'active']);
+  writeAdminLog('Create Trainer', 'System', 'Successfully registered trainer ' + name + ' (' + id + ')');
+  return { success: true, trainerId: id, name };
 }
 
-/**
- * ERP Admin Macro: Hire & register new trainer from Google Sheets UI inputs.
- */
 function menuAddTrainer() {
   const ui = SpreadsheetApp.getUi();
-  const name = ui.prompt("Hire Instructor", "Enter trainer name:", ui.ButtonSet.OK_CANCEL).getResponseText();
+  const name = ui.prompt('Register Trainer', 'Enter trainer name:', ui.ButtonSet.OK_CANCEL).getResponseText();
   if (!name) return;
-  const email = ui.prompt("Hire Instructor", "Enter trainer email:", ui.ButtonSet.OK_CANCEL).getResponseText();
-  const license = ui.prompt("Hire Instructor", "License classification (e.g. B Klasse):", ui.ButtonSet.OK_CANCEL).getResponseText();
-  const vehicle = ui.prompt("Hire Instructor", "Assigned vehicle model:", ui.ButtonSet.OK_CANCEL).getResponseText();
-
-  const id = "TR-" + (SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Trainers").getLastRow() + 200);
-  SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Trainers").appendRow([
-    id, name, email, "+31 6 00000000", license, vehicle, 65, "active"
-  ]);
-
-  ui.alert("Success", "Trainer registered under ID " + id, ui.ButtonSet.OK);
+  const email = ui.prompt('Register Trainer', 'Enter trainer email:', ui.ButtonSet.OK_CANCEL).getResponseText();
+  const license = ui.prompt('Register Trainer', 'License classification:', ui.ButtonSet.OK_CANCEL).getResponseText();
+  const vehicle = ui.prompt('Register Trainer', 'Assigned vehicle model:', ui.ButtonSet.OK_CANCEL).getResponseText();
+  const rate = ui.prompt('Register Trainer', 'Hourly rate in EUR:', ui.ButtonSet.OK_CANCEL).getResponseText();
+  try {
+    const result = createTrainer({ name, email, license, vehicle, rate });
+    ui.alert('Success', 'Trainer registered under ID ' + result.trainerId, ui.ButtonSet.OK);
+  } catch (err) {
+    ui.alert('Registration Failed', String(err), ui.ButtonSet.OK);
+  }
 }
 
-/**
- * Programmatic helper to update or set a trainer's shift schedule.
- */
 function updateTrainerSchedule(params) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const scheduleSheet = ss.getSheetByName("TrainerSchedule");
-  const trainerId = params.trainerId || "TR-201";
-  const trainerName = params.trainerName || "Instructeur Samir";
-  const day = params.dayOfWeek || "Monday";
-  const startTime = params.startTime || "09:00";
-  const endTime = params.endTime || "18:00";
-  const isAvailable = params.isAvailable !== undefined ? params.isAvailable.toString().toUpperCase() : "TRUE";
+  const scheduleSheet = ss.getSheetByName('TrainerSchedule');
+  if (!scheduleSheet) throw new Error('TrainerSchedule sheet is missing.');
+  const trainerId = String(params && params.trainerId || '').trim();
+  const trainerName = String(params && params.trainerName || '').trim();
+  const day = String(params && params.dayOfWeek || '').trim();
+  const startTime = String(params && params.startTime || '').trim();
+  const endTime = String(params && params.endTime || '').trim();
+  const isAvailable = params && params.isAvailable !== undefined ? String(params.isAvailable).toUpperCase() : 'TRUE';
+  if (!trainerId || !trainerName || !day || !startTime || !endTime) throw new Error('Complete trainer schedule details are required.');
 
   const data = scheduleSheet.getDataRange().getValues();
-  let rowUpdated = -1;
-
   for (let i = 1; i < data.length; i++) {
-    if (data[i][0].toString() === trainerId && data[i][2].toString().toLowerCase() === day.toLowerCase()) {
-      rowUpdated = i + 1;
-      break;
+    if (String(data[i][0] || '') === trainerId && String(data[i][2] || '').toLowerCase() === day.toLowerCase()) {
+      scheduleSheet.getRange(i + 1, 4).setValue(startTime);
+      scheduleSheet.getRange(i + 1, 5).setValue(endTime);
+      scheduleSheet.getRange(i + 1, 6).setValue(isAvailable);
+      writeAdminLog('Update Schedule', 'System', 'Schedule updated for trainer ' + trainerName + ' on ' + day);
+      return { success: true };
     }
   }
-
-  if (rowUpdated !== -1) {
-    scheduleSheet.getRange(rowUpdated, 4).setValue(startTime);
-    scheduleSheet.getRange(rowUpdated, 5).setValue(endTime);
-    scheduleSheet.getRange(rowUpdated, 6).setValue(isAvailable);
-  } else {
-    scheduleSheet.appendRow([trainerId, trainerName, day, startTime, endTime, isAvailable]);
-  }
-
-  writeAdminLog("Update Schedule", "System", "Schedule updated for trainer " + trainerName + " on " + day);
+  scheduleSheet.appendRow([trainerId, trainerName, day, startTime, endTime, isAvailable]);
+  writeAdminLog('Update Schedule', 'System', 'Schedule created for trainer ' + trainerName + ' on ' + day);
   return { success: true };
 }
 
-/**
- * ERP Admin Macro: Interactive Trainer Schedule updates.
- */
 function menuUpdateSchedule() {
   const ui = SpreadsheetApp.getUi();
-  const tName = ui.prompt("Update Trainer Schedule", "Trainer Full Name:", ui.ButtonSet.OK_CANCEL).getResponseText();
+  const tName = ui.prompt('Update Trainer Schedule', 'Trainer Full Name:', ui.ButtonSet.OK_CANCEL).getResponseText();
   if (!tName) return;
-
-  const days = ui.prompt("Update Trainer Schedule", "Working Days (comma-separated, e.g. Monday, Tuesday):", ui.ButtonSet.OK_CANCEL).getResponseText();
-  const start = ui.prompt("Update Trainer Schedule", "Start Hour (HH:MM):", ui.ButtonSet.OK_CANCEL).getResponseText();
-  const end = ui.prompt("Update Trainer Schedule", "End Hour (HH:MM):", ui.ButtonSet.OK_CANCEL).getResponseText();
-
+  const days = ui.prompt('Update Trainer Schedule', 'Working Day:', ui.ButtonSet.OK_CANCEL).getResponseText();
+  const start = ui.prompt('Update Trainer Schedule', 'Start Hour (HH:MM):', ui.ButtonSet.OK_CANCEL).getResponseText();
+  const end = ui.prompt('Update Trainer Schedule', 'End Hour (HH:MM):', ui.ButtonSet.OK_CANCEL).getResponseText();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const scheduleSheet = ss.getSheetByName("TrainerSchedule");
-  const data = scheduleSheet.getDataRange().getValues();
-  let updated = false;
-
+  const sheet = ss.getSheetByName('Trainers');
+  if (!sheet) throw new Error('Trainers sheet is missing.');
+  const data = sheet.getDataRange().getValues();
+  let trainerId = '';
   for (let i = 1; i < data.length; i++) {
-    if (data[i][1].toString().toLowerCase() === tName.toLowerCase()) {
-      scheduleSheet.getRange(i + 1, 3).setValue(days);
-      scheduleSheet.getRange(i + 1, 4).setValue(start);
-      scheduleSheet.getRange(i + 1, 5).setValue(end);
-      updated = true;
-    }
+    if (String(data[i][1] || '').toLowerCase() === tName.toLowerCase()) { trainerId = String(data[i][0] || ''); break; }
   }
-
-  if (!updated) {
-    scheduleSheet.appendRow(["TR-" + Date.now(), tName, days, start, end, "TRUE"]);
-  }
-
-  ui.alert("Success", "Trainer schedule settings successfully synchronized!", ui.ButtonSet.OK);
+  if (!trainerId) { ui.alert('Error', 'Trainer not found.', ui.ButtonSet.OK); return; }
+  try {
+    updateTrainerSchedule({ trainerId, trainerName: tName, dayOfWeek: days, startTime: start, endTime: end, isAvailable: true });
+    ui.alert('Success', 'Trainer schedule synchronized.', ui.ButtonSet.OK);
+  } catch (err) { ui.alert('Failed', String(err), ui.ButtonSet.OK); }
 }
