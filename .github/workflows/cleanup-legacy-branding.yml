@@ -25,12 +25,7 @@ jobs:
           replacements = [
               ('AL-ANDALOS RIJSCHOOL', 'TAREK RIJSCHOOL'),
               ('AL-ANDALOS', 'TAREK RIJSCHOOL'),
-              ('Al-Andalos Rijschool', 'TAREK RIJSCHOOL'),
-              ('Al-Andalos Driving School', 'TAREK RIJSCHOOL'),
-              ('Al-Andalos Driving Academy', 'TAREK RIJSCHOOL'),
-              ('Al-Andalos School', 'TAREK RIJSCHOOL'),
-              ('Al-Andalos ERP', 'TAREK RIJSCHOOL'),
-              ('Al-Andalos Control Center', 'TAREK RIJSCHOOL Control Center'),
+              ('Al-Andalos', 'TAREK RIJSCHOOL'),
               ('aistudio-build', 'tarek-rijschool-server'),
               ('AI Studio automatically injects', 'The application runtime provides'),
               ('AI Studio UI', 'application configuration'),
@@ -49,15 +44,24 @@ jobs:
               old = s
               for a, b in replacements:
                   s = s.replace(a, b)
-              if p.name in {'server.ts', 'GOOGLE_SHEETS_BACKEND.md'}:
-                  s = s.replace('support@al-andalos.nl', 'the configured school email')
+
               if p.name == 'serverSecurityPatch.cjs':
                   s = s.replace("payload['https://al-andalos/role']", "payload[Buffer.from('aHR0cHM6Ly9hbC1hbmRhbG9zL3JvbGU=', 'base64').toString('utf8')]")
                   s = s.replace("payload['https://al-andalos/studentId']", "payload[Buffer.from('aHR0cHM6Ly9hbC1hbmRhbG9zL3N0dWRlbnRJZA==', 'base64').toString('utf8')]")
+
               if p.name == 'production_repair.cjs':
                   marker = "    if (text.includes(replacement)) return text;\n    throw new Error(`Production repair target not found: ${label}`);"
                   replacement = "    if (text.includes(replacement)) return text;\n    if (label === 'remove demo login data' && !/const handleDemoLogin/.test(text) && text.includes('signInWithEmailAndPassword')) return text;\n    if (label === 'replace manual login with Firebase' && /const handleManualLogin = async/.test(text) && text.includes('signInWithEmailAndPassword')) return text;\n    if (label === 'replace registration with Firebase' && /const handleRegisterSubmit = async/.test(text) && text.includes('createUserWithEmailAndPassword')) return text;\n    throw new Error(`Production repair target not found: ${label}`);"
                   s = s.replace(marker, replacement)
+
+              # Remove legacy email/domain data without inventing a new production domain.
+              s = s.replace('support@al-andalos.nl', 'the configured school email')
+              s = s.replace('info@al-andalos.nl', 'Session.getEffectiveUser().getEmail()')
+              s = s.replace('samir@al-andalos.nl', '')
+              s = s.replace('support@tarek-rijschool.nl', 'the configured school email')
+              s = s.replace('info@tarek-rijschool.nl', 'Session.getEffectiveUser().getEmail()')
+              s = s.replace('samir@tarek-rijschool.nl', '')
+
               if s != old:
                   p.write_text(s, encoding='utf-8')
 
