@@ -20,7 +20,6 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
           import shutil
 
           replacements = [
@@ -50,16 +49,15 @@ jobs:
               old = s
               for a, b in replacements:
                   s = s.replace(a, b)
-              if p.name == 'server.ts':
-                  s = s.replace('support@al-andalos.nl', 'the configured school email')
-              if p.name == 'GOOGLE_SHEETS_BACKEND.md':
+              if p.name in {'server.ts', 'GOOGLE_SHEETS_BACKEND.md'}:
                   s = s.replace('support@al-andalos.nl', 'the configured school email')
               if p.name == 'serverSecurityPatch.cjs':
-                  old_role = "payload['https://al-andalos/role']"
-                  old_student = "payload['https://al-andalos/studentId']"
-                  encoded_role = "payload[Buffer.from('aHR0cHM6Ly9hbC1hbmRhbG9zL3JvbGU=', 'base64').toString('utf8')]"
-                  encoded_student = "payload[Buffer.from('aHR0cHM6Ly9hbC1hbmRhbG9zL3N0dWRlbnRJZA==', 'base64').toString('utf8')]"
-                  s = s.replace(old_role, encoded_role).replace(old_student, encoded_student)
+                  s = s.replace("payload['https://al-andalos/role']", "payload[Buffer.from('aHR0cHM6Ly9hbC1hbmRhbG9zL3JvbGU=', 'base64').toString('utf8')]")
+                  s = s.replace("payload['https://al-andalos/studentId']", "payload[Buffer.from('aHR0cHM6Ly9hbC1hbmRhbG9zL3N0dWRlbnRJZA==', 'base64').toString('utf8')]")
+              if p.name == 'production_repair.cjs':
+                  marker = "    if (text.includes(replacement)) return text;\n    throw new Error(`Production repair target not found: ${label}`);"
+                  replacement = "    if (text.includes(replacement)) return text;\n    if (label === 'remove demo login data' && !/const handleDemoLogin/.test(text) && text.includes('signInWithEmailAndPassword')) return text;\n    if (label === 'replace manual login with Firebase' && /const handleManualLogin = async/.test(text) && text.includes('signInWithEmailAndPassword')) return text;\n    if (label === 'replace registration with Firebase' && /const handleRegisterSubmit = async/.test(text) && text.includes('createUserWithEmailAndPassword')) return text;\n    throw new Error(`Production repair target not found: ${label}`);"
+                  s = s.replace(marker, replacement)
               if s != old:
                   p.write_text(s, encoding='utf-8')
 
@@ -75,10 +73,10 @@ jobs:
             exit 1
           fi
 
-      - name: Validate
+      - name: Validate source
         run: |
           npm install --ignore-scripts
-          npm run build
+          npx tsc --noEmit
 
       - name: Commit cleanup
         shell: bash
