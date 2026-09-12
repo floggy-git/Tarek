@@ -4,13 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/production_repair_syntax_fix.cjs && node scripts/production_repair.cjs && node scripts/production_login_fix.cjs",
     "dev": "node --require ./serverSecurityPatch.cjs ./node_modules/tsx/dist/cli.mjs server.ts",
-    "prebuild": "node scripts/production_repair_syntax_fix.cjs && node scripts/production_repair.cjs && node scripts/production_login_fix.cjs",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node --require ./serverSecurityPatch.cjs dist/server.cjs",
     "clean": "rm -rf dist server.js",
-    "prelint": "node scripts/production_repair_syntax_fix.cjs && node scripts/production_repair.cjs && node scripts/production_login_fix.cjs",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
