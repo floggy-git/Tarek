@@ -30,9 +30,6 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Prepare production source
-        run: npm run prebuild
-
       - name: Build frontend
         run: npx vite build --base=/Tarek/
 
