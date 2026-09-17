@@ -4,9 +4,8 @@
 
 function apiCompleteLesson(params) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const bookingsSheet = ss.getSheetByName('Bookings');
-  const completedSheet = ss.getSheetByName('CompletedLessons');
-  if (!bookingsSheet || !completedSheet) throw new Error('Required lesson sheets are missing.');
+  const bookingsSheet = ss.getSheetByName('Lessons');
+  if (!bookingsSheet) throw new Error('Lessons sheet is missing.');
 
   const bookingId = String(params && params.bookingId || '').trim();
   const score = Number(params && params.score);
@@ -20,15 +19,16 @@ function apiCompleteLesson(params) {
   for (let i = 1; i < bookings.length; i++) {
     if (String(bookings[i][0] || '') === bookingId) {
       bookingRow = i + 1;
-      booking = { id: bookings[i][0], studentId: bookings[i][1], studentName: bookings[i][2], trainerId: bookings[i][3], trainerName: bookings[i][4], date: bookings[i][5], duration: Number(bookings[i][7]), price: Number(bookings[i][8]) };
+      booking = { id: bookings[i][0], studentId: bookings[i][1], studentName: bookings[i][2], trainerId: '', trainerName: bookings[i][3], date: bookings[i][4], duration: Number(bookings[i][6]), price: Number(bookings[i][7]) };
       break;
     }
   }
   if (!booking) throw new Error('Booking record ' + bookingId + ' not found.');
 
-  bookingsSheet.getRange(bookingRow, 11).setValue('completed');
-  const recordId = 'CL-' + Date.now();
-  completedSheet.appendRow([recordId, bookingId, booking.studentName, booking.trainerName, booking.date, booking.duration, booking.price, score, feedback, 'FALSE', 'pending']);
+  bookingsSheet.getRange(bookingRow, 10).setValue('Completed');
+  bookingsSheet.getRange(bookingRow, 12).setValue(feedback);
+  bookingsSheet.getRange(bookingRow, 13).setValue(score);
+  const recordId = bookingId;
 
   const invDetails = apiCreateInvoice({ studentId: booking.studentId, trainerId: booking.trainerId, bookingsList: bookingId });
   if (examReady) {
@@ -48,12 +48,12 @@ function apiCompleteLesson(params) {
 
 function menuCompleteLesson() {
   const ui = SpreadsheetApp.getUi();
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Bookings');
-  if (!sheet) throw new Error('Bookings sheet is missing.');
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Lessons');
+  if (!sheet) throw new Error('Lessons sheet is missing.');
   const row = sheet.getActiveCell().getRow();
   if (row === 1) { ui.alert('Error', 'Please click on a valid booking row first.', ui.ButtonSet.OK); return; }
   const bookingId = sheet.getRange(row, 1).getValue();
-  if (!bookingId || !String(bookingId).startsWith('B-')) { ui.alert('Error', 'Selected row is not a valid booking.', ui.ButtonSet.OK); return; }
+  if (!bookingId) { ui.alert('Error', 'Selected row is not a valid booking.', ui.ButtonSet.OK); return; }
   const score = ui.prompt('Complete Lesson', 'Trainer score evaluation (1 to 10):', ui.ButtonSet.OK_CANCEL).getResponseText();
   const notes = ui.prompt('Complete Lesson', 'Training feedback notes:', ui.ButtonSet.OK_CANCEL).getResponseText();
   try { apiCompleteLesson({ bookingId, score, feedback: notes, examReady: false }); ui.alert('Lesson Finalized', 'Lesson completion and invoice processing succeeded.', ui.ButtonSet.OK); }
