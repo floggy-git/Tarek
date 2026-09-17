@@ -15,18 +15,18 @@
 <body class="bg-[#0f172a] text-slate-100 min-h-screen flex flex-col p-6">
   <!-- Title Header Banner -->
   <div class="flex items-center gap-3 border-b border-slate-700 pb-4 mb-6">
-    <div class="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/20">
+    <div class="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20">
       <span class="text-xl">💰</span>
     </div>
     <div>
-      <h2 class="text-lg font-extrabold tracking-tight text-white">Al-Andalos Driving Academy</h2>
-      <p class="text-xs text-amber-500 font-medium">ERP Student Wallet Top-Up Control</p>
+      <h2 class="text-lg font-extrabold tracking-tight text-white">TAREK RIJSCHOOL</h2>
+      <p class="text-xs text-blue-500 font-medium">ERP Student Wallet Top-Up Control</p>
     </div>
   </div>
 
   <!-- Loading state -->
   <div id="loader" class="flex flex-col items-center justify-center flex-1 py-12 space-y-3">
-    <div class="animate-spin rounded-full h-8 w-8 border-4 border-amber-500 border-t-transparent"></div>
+    <div class="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
     <p class="text-xs text-slate-400">Loading student registry...</p>
   </div>
 
@@ -35,7 +35,7 @@
     <div class="space-y-4">
       <div>
         <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select Student Profile</label>
-        <select id="studentId" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
+        <select id="studentId" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
           <option value="">-- Choose Student --</option>
         </select>
       </div>
@@ -43,11 +43,11 @@
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Deposit Amount (€)</label>
-          <input type="number" id="amount" required min="5" max="5000" class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500" placeholder="e.g. 200" value="100">
+          <input type="number" id="amount" required min="5" max="5000" class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500" placeholder="e.g. 200" value="100">
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Transaction Method</label>
-          <select id="method" class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
+          <select id="method" class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
             <option value="iDEAL Bank Transfer">iDEAL Bank Transfer</option>
             <option value="Direct Cash Settlement">Direct Cash Settlement</option>
             <option value="Credit Card / Stripe">Credit Card / Stripe</option>
@@ -58,7 +58,7 @@
 
       <div>
         <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Internal Reference / Description</label>
-        <input type="text" id="description" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500" placeholder="e.g. Package topup deposit" value="iDEAL Bank Transfer deposit">
+        <input type="text" id="description" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500" placeholder="e.g. Package topup deposit" value="iDEAL Bank Transfer deposit">
       </div>
     </div>
 
@@ -67,7 +67,7 @@
       <button type="button" onclick="google.script.host.close()" class="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white transition duration-150">
         Cancel
       </button>
-      <button type="submit" id="submitBtn" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs px-5 py-2.5 rounded-lg transition duration-150 flex items-center gap-2">
+      <button type="submit" id="submitBtn" class="bg-blue-500 hover:bg-blue-600 text-slate-950 font-bold text-xs px-5 py-2.5 rounded-lg transition duration-150 flex items-center gap-2">
         <span id="btnText">Deposit Funds</span>
         <div id="spinner" class="hidden animate-spin rounded-full h-3.5 w-3.5 border-2 border-slate-950 border-t-transparent"></div>
       </button>
