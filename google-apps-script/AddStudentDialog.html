@@ -19,8 +19,8 @@
       <span class="text-xl">🚙</span>
     </div>
     <div>
-      <h2 class="text-lg font-extrabold tracking-tight text-white">Al-Andalos Driving Academy</h2>
-      <p class="text-xs text-amber-500 font-medium">ERP Student Registration Control</p>
+      <h2 class="text-lg font-extrabold tracking-tight text-white">TAREK RIJSCHOOL</h2>
+      <p class="text-xs text-amber-500 font-medium">Master Control Center — Student Registration</p>
     </div>
   </div>
 
@@ -64,12 +64,7 @@
             <option value="Flexible Package">Flexible Package (Pay-As-You-Go)</option>
           </select>
         </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Portal Password</label>
-          <input type="password" id="password" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500" placeholder="Minimum 6 chars">
-        </div>
-      </div>
-    </div>
+        </div></div>
 
     <!-- Actions -->
     <div class="pt-4 border-t border-slate-700 mt-auto flex items-center justify-end gap-3">
@@ -107,7 +102,7 @@
         dob: document.getElementById('dob').value,
         city: document.getElementById('city').value,
         package: document.getElementById('package').value,
-        password: document.getElementById('password').value
+        status: 'Active'
       };
 
       // Call Google Apps Script server function
