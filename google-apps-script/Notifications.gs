@@ -1,36 +1,3 @@
-/**
- * Al-Andalos Driving Academy — System Notifications & Alert Dispatches
- */
-
-/**
- * ERP Admin Macro: Sends a balance warning reminder to a student with insufficient funds.
- */
-function menuSendReminder() {
-  const ui = SpreadsheetApp.getUi();
-  const bookingId = ui.prompt("Send Balance Reminder", "Enter Booking ID:", ui.ButtonSet.OK_CANCEL).getResponseText();
-  if (!bookingId) return;
-
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const bookings = ss.getSheetByName("Bookings").getDataRange().getValues();
-  let studentId = "";
-
-  for (let i = 1; i < bookings.length; i++) {
-    if (bookings[i][0].toString() === bookingId.trim()) {
-      studentId = bookings[i][1];
-      break;
-    }
-  }
-
-  if (!studentId) {
-    ui.alert("Error", "Booking not found.", ui.ButtonSet.OK);
-    return;
-  }
-
-  const student = apiGetStudentDashboard(studentId).student;
-
-  const subject = "⚠️ تذكير بالسداد: رصيد غير كافٍ لحصة القيادة - مدرسة الأندلس";
-  const body = "Dear " + student.name + ",\n\nYour scheduled driving lesson is upcoming. Please top up your wallet account balance to keep your reservation active.\n\nMet vriendelijke groet,\nAl-Andalos ERP Control Team";
-  
-  MailApp.sendEmail(student.email, subject, body);
-  ui.alert("Reminder Dispatched", "Gmail notification sent to " + student.email, ui.ButtonSet.OK);
-}
+/** TAREK RIJSCHOOL — Notifications. */
+function menuSendReminder(){const ui=SpreadsheetApp.getUi(),lessonId=ui.prompt('Send Balance Reminder','Enter Lesson ID:',ui.ButtonSet.OK_CANCEL).getResponseText();if(!lessonId)return;const ss=SpreadsheetApp.getActiveSpreadsheet(),sh=ss.getSheetByName('Lessons');if(!sh)throw new Error('Lessons sheet is missing.');const rows=sh.getDataRange().getValues();let sid='';for(let i=1;i<rows.length;i++)if(String(rows[i][0]||'')===lessonId.trim()){sid=String(rows[i][1]||'');break}if(!sid){ui.alert('Error','Lesson not found.',ui.ButtonSet.OK);return}const student=apiGetStudentDashboard(sid).student;if(!student.email)throw new Error('Student email is missing.');const subject='TAREK RIJSCHOOL — Balance reminder',body='Dear '+student.name+',\n\nYour scheduled driving lesson is upcoming. Please top up your wallet balance if needed to keep your lesson administration current.\n\nMet vriendelijke groet,\nTAREK RIJSCHOOL';MailApp.sendEmail(student.email,subject,body);controlCenterCreateNotification_({studentId:student.id,email:student.email,type:'balance_reminder',title:subject,message:body});if(typeof writeAdminLog==='function')writeAdminLog('Send Reminder','Master Control Center','Sent balance reminder to '+student.email);ui.alert('Reminder Dispatched','Notification sent to '+student.email,ui.ButtonSet.OK)}
+function controlCenterCreateNotification_(p){const sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Notifications');if(!sh)throw new Error('Notifications sheet is missing.');const id='NOT-'+Date.now(),now=new Date();sh.appendRow([id,'Student',String(p.studentId||''),String(p.email||''),String(p.type||'general'),String(p.title||''),String(p.message||''),Utilities.formatDate(now,Session.getScriptTimeZone(),'yyyy-MM-dd HH:mm:ss'),'Unread']);return{id:id}}
