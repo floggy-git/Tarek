@@ -15,18 +15,18 @@
 <body class="bg-[#0f172a] text-slate-100 min-h-screen flex flex-col p-6">
   <!-- Title Header Banner -->
   <div class="flex items-center gap-3 border-b border-slate-700 pb-4 mb-6">
-    <div class="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/20">
+    <div class="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20">
       <span class="text-xl">📅</span>
     </div>
     <div>
-      <h2 class="text-lg font-extrabold tracking-tight text-white">Al-Andalos Driving Academy</h2>
-      <p class="text-xs text-amber-500 font-medium">ERP Lesson Scheduler Wizard</p>
+      <h2 class="text-lg font-extrabold tracking-tight text-white">TAREK RIJSCHOOL</h2>
+      <p class="text-xs text-blue-500 font-medium">ERP Lesson Scheduler Wizard</p>
     </div>
   </div>
 
   <!-- Loading state -->
   <div id="loader" class="flex flex-col items-center justify-center flex-1 py-12 space-y-3">
-    <div class="animate-spin rounded-full h-8 w-8 border-4 border-amber-500 border-t-transparent"></div>
+    <div class="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
     <p class="text-xs text-slate-400">Loading students and instructors database...</p>
   </div>
 
@@ -35,14 +35,14 @@
     <div class="space-y-4">
       <div>
         <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select Student</label>
-        <select id="studentId" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
+        <select id="studentId" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
           <option value="">-- Choose Student --</option>
         </select>
       </div>
 
       <div>
         <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select Instructor</label>
-        <select id="trainerId" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
+        <select id="trainerId" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
           <option value="">-- Choose Instructor --</option>
         </select>
       </div>
@@ -50,18 +50,18 @@
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Lesson Date</label>
-          <input type="date" id="date" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
+          <input type="date" id="date" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Start Time</label>
-          <input type="time" id="time" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
+          <input type="time" id="time" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
         </div>
       </div>
 
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Duration (Hours)</label>
-          <select id="duration" class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
+          <select id="duration" class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
             <option value="1">1 Hour</option>
             <option value="1.5">1.5 Hours</option>
             <option value="2">2 Hours</option>
@@ -69,7 +69,7 @@
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Pickup Location</label>
-          <input type="text" id="pickupLocation" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500" placeholder="e.g. Sloterdijk Station">
+          <input type="text" id="pickupLocation" required class="w-full bg-[#1e293b] border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500" placeholder="e.g. Sloterdijk Station">
         </div>
       </div>
     </div>
@@ -79,7 +79,7 @@
       <button type="button" onclick="google.script.host.close()" class="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white transition duration-150">
         Cancel
       </button>
-      <button type="submit" id="submitBtn" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs px-5 py-2.5 rounded-lg transition duration-150 flex items-center gap-2">
+      <button type="submit" id="submitBtn" class="bg-blue-500 hover:bg-blue-600 text-slate-950 font-bold text-xs px-5 py-2.5 rounded-lg transition duration-150 flex items-center gap-2">
         <span id="btnText">Schedule Lesson</span>
         <div id="spinner" class="hidden animate-spin rounded-full h-3.5 w-3.5 border-2 border-slate-950 border-t-transparent"></div>
       </button>
