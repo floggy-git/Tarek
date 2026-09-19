@@ -1,33 +1,657 @@
 /* TAREK RIJSCHOOL — Google Sheets Master Control Center. */
-var CONTROL_CENTER_SHEETS={students:'Students',lessons:'Lessons',trainers:'Trainers',trainerSchedule:'TrainerSchedule',packages:'Packages',invoices:'Invoices',payments:'Wallet',notifications:'Notifications',settings:'SchoolSettings',controlSettings:'ControlSettings',expenseCategories:'ExpenseCategories',expenses:'Expenses',availability:'Availability',documents:'Documents',audit:'AuditLogs'};
-var CONTROL_CENTER_IDS={students:{header:'Student ID',prefix:'ST-',width:6},lessons:{header:'Lesson ID',prefix:'LES-',width:6},trainers:{header:'Trainer ID',prefix:'TR-',width:6},packages:{header:'id',prefix:'PKG-',width:6},invoices:{header:'Invoice ID',prefix:'INV-'+new Date().getFullYear()+'-',width:3},payments:{header:'Transaction ID',prefix:'TX-',width:6},notifications:{header:'Notification ID',prefix:'NOT-',width:6},controlSettings:{header:'Key',prefix:'CFG-',width:6},expenseCategories:{header:'Category ID',prefix:'EXP-CAT-',width:4},expenses:{header:'Expense ID',prefix:'EXP-',width:6},availability:{header:'Availability ID',prefix:'AVL-',width:6},documents:{header:'Document ID',prefix:'DOC-',width:6}};
-function controlCenterHtml(){return HtmlService.createHtmlOutputFromFile('ControlCenter').setTitle('TAREK RIJSCHOOL — Master Control Center').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)}
-function controlCenterOpen(){SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutputFromFile('ControlCenter').setTitle('TAREK RIJSCHOOL Control Center'))}
-function controlCenterGetData(){var ss=SpreadsheetApp.getActiveSpreadsheet();return{generatedAt:new Date().toISOString(),dashboard:controlCenterDashboard_(ss),students:controlCenterRows_(ss,'Students'),lessons:controlCenterRows_(ss,'Lessons'),trainers:controlCenterRows_(ss,'Trainers'),trainerSchedule:controlCenterRows_(ss,'TrainerSchedule'),packages:controlCenterRows_(ss,'Packages'),invoices:controlCenterRows_(ss,'Invoices'),payments:controlCenterRows_(ss,'Wallet'),notifications:controlCenterRows_(ss,'Notifications'),settings:controlCenterRows_(ss,'SchoolSettings'),controlSettings:controlCenterRows_(ss,'ControlSettings'),expenseCategories:controlCenterRows_(ss,'ExpenseCategories'),expenses:controlCenterRows_(ss,'Expenses'),availability:controlCenterRows_(ss,'Availability'),documents:controlCenterRows_(ss,'Documents'),audit:controlCenterRows_(ss,'AuditLogs').slice(-100).reverse(),schemas:controlCenterSchemas_(ss)}}
-function controlCenterSchemas_(ss){var out={};Object.keys(CONTROL_CENTER_SHEETS).forEach(function(k){var sh=ss.getSheetByName(CONTROL_CENTER_SHEETS[k]);out[k]=sh&&sh.getLastColumn()?sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0]:[]});return out}
-function controlCenterDashboard_(ss){var students=controlCenterRows_(ss,'Students'),lessons=controlCenterRows_(ss,'Lessons'),payments=controlCenterRows_(ss,'Wallet'),invoices=controlCenterRows_(ss,'Invoices'),today=controlCenterDateKey_(new Date()),month=Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'yyyy-MM');var active=students.filter(function(r){return String(r.status||'').toLowerCase()==='active'}).length;var td=lessons.filter(function(r){return controlCenterDateKey_(r.date)===today}).length;var upcoming=lessons.filter(function(r){var d=controlCenterDateKey_(r.date);return d&&d>=today&&String(r.status||'').toLowerCase()!=='cancelled'}).length;var revenue=payments.reduce(function(sum,r){var d=controlCenterDateKey_(r.date),a=Number(r.amount||0),t=String(r.type||'').toLowerCase();return d.indexOf(month)===0&&a>0&&t!=='payment'?sum+a:sum},0);var due=students.reduce(function(sum,r){var b=Number(r.balance||0);return b<0?sum+Math.abs(b):sum},0);return{totalStudents:students.length,activeStudents:active,todayLessons:td,upcomingLessons:upcoming,monthlyRevenue:revenue,outstandingBalance:due,totalInvoices:invoices.length,lastSync:new Date().toISOString()}}
-function controlCenterRows_(ss,name){var sh=ss.getSheetByName(name);if(!sh||sh.getLastRow()<1||sh.getLastColumn()<1)return[];var values=sh.getDataRange().getValues(),headers=values[0].map(function(h){return String(h||'').trim()});return values.slice(1).filter(function(row){return row.some(function(v){return v!==''})}).map(function(row,i){var o={_row:i+2,_sheet:name};headers.forEach(function(h,j){if(h)o[h]=controlCenterSerializable_(row[j])});o.id=controlCenterFirst_(o,['ID','Id','id','Student ID','Trainer ID','Lesson ID','Invoice ID','Transaction ID','Notification ID']);o.studentId=controlCenterFirst_(o,['Student ID']);o.name=controlCenterFirst_(o,['Name','Student Name','Trainer Name']);o.email=controlCenterFirst_(o,['Email','Student Email']);o.phone=controlCenterFirst_(o,['Phone']);o.date=controlCenterFirst_(o,['Date']);o.time=controlCenterFirst_(o,['Time']);o.status=controlCenterFirst_(o,['Status','Read Status','isActive']);o.amount=controlCenterFirst_(o,['Amount (€)','Price (€)','price']);o.balance=controlCenterFirst_(o,['Balance (€)']);o.type=controlCenterFirst_(o,['Type']);o.desc=controlCenterFirst_(o,['Description','Message']);return o})}
-function controlCenterSerializable_(v){return v instanceof Date?Utilities.formatDate(v,Session.getScriptTimeZone(),'yyyy-MM-dd HH:mm:ss'):v}function controlCenterFirst_(o,keys){for(var i=0;i<keys.length;i++)if(Object.prototype.hasOwnProperty.call(o,keys[i])&&o[keys[i]]!=='')return o[keys[i]];return''}function controlCenterDateKey_(v){if(!v)return'';var d=v instanceof Date?v:new Date(v);if(isNaN(d.getTime()))return String(v).slice(0,10);return Utilities.formatDate(d,Session.getScriptTimeZone(),'yyyy-MM-dd')}
-function controlCenterSaveRecord(section,data){if(!data||typeof data!=='object')throw new Error('Record data is required.');if(section==='settings')return controlCenterSaveSettings_(data);if(section==='payments')return controlCenterSavePayment_(data);if(section==='students'&&!String(data['Student ID']||data.id||'').trim())return createStudent({name:data.Name,email:data.Email,phone:data.Phone,dob:data['Date of Birth'],city:data.City,package:data['Current Package'],status:data.Status,theoryStatus:data['Theory Exam Status'],driveFolderId:data['Drive Folder ID']});if(section==='trainers'&&!String(data['Trainer ID']||data.id||'').trim())return createTrainer({name:data.Name,email:data.Email,phone:data.Phone,license:data.License||data['License Class'],vehicle:data.Vehicle||data['Vehicle Details'],rate:data['Rate (€)']||data.Rate});if(section==='lessons'&&!String(data['Lesson ID']||data.id||'').trim())return apiCreateBooking({studentId:data['Student ID'],trainerId:data['Trainer ID'],date:data.Date,time:data.Time,duration:data['Duration (h)'],pickupLocation:data['Pickup Location'],instructorNotes:data['Instructor Notes']});if(section==='invoices'&&!String(data['Invoice ID']||data.id||'').trim())return apiCreateInvoice({studentId:data['Student ID'],amount:data['Amount (€)'],description:data.Description});var cfg=controlCenterSectionConfig_(section),ss=SpreadsheetApp.getActiveSpreadsheet(),sh=ss.getSheetByName(cfg.sheet);if(!sh)throw new Error(cfg.sheet+' sheet is missing.');var headers=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0].map(function(h){return String(h||'').trim()}),id=String(data[cfg.idHeader]||data.id||'').trim();if(!id)id=controlCenterNextId_(sh,cfg.idHeader,cfg.prefix,cfg.width);data[cfg.idHeader]=id;controlCenterValidateRecord_(section,data);var found=controlCenterFindRowById_(sh,headers,cfg.idHeader,id),previous=found.row>1?sh.getRange(found.row,1,1,headers.length).getDisplayValues()[0]:null,values=headers.map(function(h){return controlCenterSanitizeCell_(Object.prototype.hasOwnProperty.call(data,h)?data[h]:'')});if(found.row>1)sh.getRange(found.row,1,1,headers.length).setValues([values]);else sh.appendRow(values);controlCenterAudit_((found.row>1?'Update ':'Create ')+section,id,previous?JSON.stringify(previous):'',JSON.stringify(values));return{success:true,id:id,created:found.row<2}}
-function controlCenterSavePayment_(data){var id=String(data['Transaction ID']||data.id||'').trim();if(id){return controlCenterSaveGenericPayment_(data)}var sid=String(data['Student ID']||'').trim(),amount=Number(data['Amount (€)']),type=String(data.Type||'deposit').toLowerCase(),desc=String(data.Description||'Balance Top-Up');if(!sid)throw new Error('Student ID is required.');if(!(amount>0))throw new Error('Amount must be greater than zero.');if(type!=='deposit')throw new Error('New manual wallet entries must be deposits. Lesson payments are created by lesson operations.');var ss=SpreadsheetApp.getActiveSpreadsheet(),student=controlCenterFindStudent_(ss,sid),sh=ss.getSheetByName('Wallet'),tx='TX-'+Date.now(),now=new Date();sh.appendRow([tx,sid,student.name,Utilities.formatDate(now,Session.getScriptTimeZone(),'yyyy-MM-dd'),'deposit',amount,desc,'','']);controlCenterRebuildBalance_(ss,sid);controlCenterAudit_('Add deposit',tx,'',JSON.stringify({studentId:sid,amount:amount,description:desc}));return{success:true,id:tx,created:true}}
-function controlCenterSaveGenericPayment_(data){var cfg=controlCenterSectionConfig_('payments'),sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName(cfg.sheet),headers=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0].map(String),id=String(data['Transaction ID']||data.id),found=controlCenterFindRowById_(sh,headers,cfg.idHeader,id);if(found.row<2)throw new Error('Wallet transaction not found.');var old=sh.getRange(found.row,1,1,headers.length).getDisplayValues()[0],sid=String(data['Student ID']||old[1]),values=headers.map(function(h,i){return controlCenterSanitizeCell_(Object.prototype.hasOwnProperty.call(data,h)?data[h]:old[i])});sh.getRange(found.row,1,1,headers.length).setValues([values]);controlCenterRebuildBalance_(SpreadsheetApp.getActiveSpreadsheet(),sid);controlCenterAudit_('Update payment',id,JSON.stringify(old),JSON.stringify(values));return{success:true,id:id,created:false}}
-function controlCenterFindStudent_(ss,id){var rows=controlCenterRows_(ss,'Students');for(var i=0;i<rows.length;i++)if(String(rows[i]['Student ID'])===String(id))return{name:rows[i].Name||'',row:rows[i]._row};throw new Error('Student was not found.')}
-function controlCenterRebuildBalance_(ss,id){var tx=controlCenterRows_(ss,'Wallet'),bal=0;tx.forEach(function(r){if(String(r['Student ID'])!==String(id))return;var a=Number(r['Amount (€)'])||0,t=String(r.Type||'').toLowerCase();if(t==='deposit')bal+=a;else if(t==='payment')bal-=a});var sh=ss.getSheetByName('Students'),headers=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0],idCol=headers.indexOf('Student ID'),balCol=headers.indexOf('Balance (€)');if(idCol<0||balCol<0)throw new Error('Students wallet columns are missing.');var vals=sh.getRange(2,idCol+1,Math.max(sh.getLastRow()-1,1),1).getDisplayValues();for(var i=0;i<vals.length;i++)if(String(vals[i][0])===String(id)){sh.getRange(i+2,balCol+1).setValue(bal);return bal}throw new Error('Student was not found while rebuilding balance.')}
-function controlCenterDeleteRecord(section,id){if(['settings'].indexOf(section)!==-1)throw new Error('Settings cannot be deleted.');var cfg=controlCenterSectionConfig_(section),ss=SpreadsheetApp.getActiveSpreadsheet(),sh=ss.getSheetByName(cfg.sheet),headers=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0].map(function(h){return String(h||'').trim()}),found=controlCenterFindRowById_(sh,headers,cfg.idHeader,id);if(found.row<2)throw new Error('Record not found.');var old=sh.getRange(found.row,1,1,headers.length).getDisplayValues()[0],sid=section==='payments'?String(old[1]||''):'';sh.deleteRow(found.row);if(sid)controlCenterRebuildBalance_(ss,sid);controlCenterAudit_('Delete '+section,String(id),JSON.stringify(old),'DELETED');return{success:true,id:id}}
-function controlCenterSaveSettings_(data){var sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName('SchoolSettings');if(!sh)throw new Error('SchoolSettings sheet is missing.');var headers=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0].map(function(h){return String(h||'').trim()}),old=sh.getLastRow()>=2?sh.getRange(2,1,1,headers.length).getDisplayValues()[0]:headers.map(function(){return''}),next=headers.map(function(h,i){return Object.prototype.hasOwnProperty.call(data,h)?controlCenterSanitizeCell_(data[h]):old[i]});if(sh.getLastRow()>=2)sh.getRange(2,1,1,headers.length).setValues([next]);else sh.appendRow(next);controlCenterAudit_('Update settings','SchoolSettings',JSON.stringify(old),JSON.stringify(next));return{success:true,id:'SchoolSettings'}}
-function controlCenterSectionConfig_(s){var x=CONTROL_CENTER_IDS[s],sheet=CONTROL_CENTER_SHEETS[s];if(!x||!sheet)throw new Error('Unsupported Control Center section: '+s);return{sheet:sheet,idHeader:x.header,prefix:x.prefix,width:x.width}}
-function controlCenterFindRowById_(sh,headers,h,id){var idx=headers.indexOf(h);if(idx<0)throw new Error('Required ID column "'+h+'" is missing from '+sh.getName()+'.');if(sh.getLastRow()<2)return{row:-1,index:idx};var ids=sh.getRange(2,idx+1,sh.getLastRow()-1,1).getDisplayValues();for(var i=0;i<ids.length;i++)if(String(ids[i][0])===String(id))return{row:i+2,index:idx};return{row:-1,index:idx}}
-function controlCenterNextId_(sh,h,prefix,width){var headers=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0],idx=headers.indexOf(h);if(idx<0)throw new Error('Required ID column "'+h+'" is missing.');var max=0;if(sh.getLastRow()>=2)sh.getRange(2,idx+1,sh.getLastRow()-1,1).getDisplayValues().forEach(function(r){var v=String(r[0]||'');if(v.indexOf(prefix)===0){var n=parseInt(v.slice(prefix.length),10);if(!isNaN(n)&&n>max)max=n}});return prefix+String(max+1).padStart(width,'0')}
-function controlCenterValidateRecord_(s,d){function req(h,l){if(!String(d[h]||'').trim())throw new Error((l||h)+' is required.')}if(s==='students'){req('Name');req('Email')}if(s==='lessons'){req('Student ID');req('Date');req('Time')}if(s==='trainers'){req('Name');if(!(Number(d['Rate (€)'])>0))throw new Error('Trainer hourly rate must be greater than zero.')}if(s==='invoices'){req('Student ID');req('Student Name')}if(s==='packages')req('name','Package name');if(s==='notifications'){req('Title');req('Message')}if(s==='expenseCategories'){req('Name')}if(s==='expenses'){req('Date');req('Category Name');if(!(Number(d['Amount (€)'])>0))throw new Error('Expense amount must be greater than zero.')}if(s==='availability'){req('Trainer ID');req('Date');req('Start Time');req('End Time')}if(s==='documents'){req('Owner Type');req('Owner ID');req('Document Type');req('Drive URL')}}
-function controlCenterSanitizeCell_(v){if(v===null||typeof v==='undefined')return'';if(typeof v==='number'||typeof v==='boolean')return v;var s=String(v);if(/^[=+@]/.test(s)||(/^-/.test(s)&&!/^-?\d+(\.\d+)?$/.test(s)))return"'"+s;return s}
-function controlCenterAudit_(action,target,oldv,newv){var sh=SpreadsheetApp.getActiveSpreadsheet().getSheetByName('AuditLogs');if(!sh)return;var headers=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0],now=new Date(),v={'Audit ID':'AUD-'+Date.now(),'User ID':'ADMIN-01','User Name':'System Administrator','User Role':'Admin','Action':action,'Changed By':'Master Control Center','Date':Utilities.formatDate(now,Session.getScriptTimeZone(),'yyyy-MM-dd'),'Time':Utilities.formatDate(now,Session.getScriptTimeZone(),'HH:mm:ss'),'Time Zone':Session.getScriptTimeZone(),'IP Address':'','Device / Browser':'','Target Record':target,'Previous Value':oldv,'New Value':newv,'Source':'Google Sheets Master Control Center'};sh.appendRow(headers.map(function(h){return Object.prototype.hasOwnProperty.call(v,h)?v[h]:''}))}
-function controlCenterMenu_(){SpreadsheetApp.getUi().createMenu('🚗 TAREK RIJSCHOOL').addItem('Open Master Control Center','controlCenterOpen').addItem('Refresh Control Center Data','controlCenterRefresh_').addToUi()}function controlCenterRefresh_(){SpreadsheetApp.getActiveSpreadsheet().toast('Control Center data refreshed.','TAREK RIJSCHOOL',3)}function onOpen(){controlCenterMenu_()}
 
-/* Dashboard interaction bridge: bound-sheet sidebar forms and language switcher. */
-function onSelectionChange(e){try{var r=e&&e.range;if(!r||r.getSheet().getName()!=='Dashboard')return;var row=r.getRow(),col=r.getColumn();if(row<=4&&col>=27&&col<=28){var lang=String(r.getDisplayValue()||'').trim().toUpperCase();if(['EN','NL','AR'].indexOf(lang)>=0)controlCenterSetDashboardLanguage(lang);return}if(col>4)return;var map=[[6,7,'dashboard'],[8,9,'students'],[10,11,'lessons'],[12,13,'trainers'],[14,15,'payments'],[16,17,'invoices'],[18,19,'packages'],[20,21,'notifications'],[22,23,'audit'],[24,25,'settings']];for(var i=0;i<map.length;i++)if(row>=map[i][0]&&row<=map[i][1]){controlCenterSidebarAction_(map[i][2]);return}}catch(err){}}
-function controlCenterSidebarAction_(section){if(section==='dashboard'){SpreadsheetApp.getActive().setActiveSheet(SpreadsheetApp.getActive().getSheetByName('Dashboard'));return}if(section==='students'){menuAddStudent();return}if(section==='lessons'){menuAddLesson();return}if(section==='trainers'){menuAddTrainer();return}if(section==='payments'){menuAddDeposit();return}if(section==='packages'){controlCenterOpenSection_('packages');return}if(section==='invoices'){controlCenterOpenSection_('invoices');return}if(section==='notifications'){controlCenterOpenSection_('notifications');return}if(section==='audit'){controlCenterOpenSection_('audit');return}if(section==='settings'){controlCenterOpenSection_('settings');return}var ss=SpreadsheetApp.getActive(),sh=ss.getSheetByName(CONTROL_CENTER_SHEETS[section]);if(sh)ss.setActiveSheet(sh);else controlCenterOpen()}
-function controlCenterSetDashboardLanguage(lang){var sh=SpreadsheetApp.getActive().getSheetByName('Dashboard');if(!sh)throw new Error('Dashboard sheet is missing.');var t={EN:['Dashboard','Students','Lessons','Trainers','Finance','Invoices','Packages','Notifications','Reports','Settings','MASTER CONTROL CENTER','Students  •  Lessons  •  Trainers  •  Finance  •  Reports  •  Settings'],NL:['Dashboard','Leerlingen','Lessen','Instructeurs','Financiën','Facturen','Pakketten','Meldingen','Rapporten','Instellingen','MASTER CONTROL CENTER','Leerlingen  •  Lessen  •  Instructeurs  •  Financiën  •  Rapporten  •  Instellingen'],AR:['لوحة التحكم','الطلاب','الدروس','المدربون','المالية','الفواتير','الباقات','الإشعارات','التقارير','الإعدادات','مركز التحكم الرئيسي','الطلاب  •  الدروس  •  المدربون  •  المالية  •  التقارير  •  الإعدادات']}[lang];if(!t)throw new Error('Unsupported language.');var rows=[6,8,10,12,14,16,18,20,22,24],icons=['⌂  ','👤  ','📅  ','👥  ','€  ','📄  ','▦  ','🔔  ','▥  ','⚙  '];for(var i=0;i<rows.length;i++)sh.getRange(rows[i],1).setValue(icons[i]+t[i]);sh.getRange(1,5).setValue(t[10]+'\n'+t[11]);sh.getRange(1,27).setValue(lang);SpreadsheetApp.getActive().toast(lang==='AR'?'تم تغيير لغة لوحة التحكم':lang==='NL'?'Taal van het dashboard gewijzigd':'Dashboard language changed','TAREK RIJSCHOOL',2);return{success:true,language:lang}}
+var CONTROL_CENTER_SHEETS = {
+  students: 'Students',
+  lessons: 'Lessons',
+  trainers: 'Trainers',
+  trainerSchedule: 'TrainerSchedule',
+  payments: 'Wallet',
+  invoices: 'Invoices',
+  packages: 'Packages',
+  notifications: 'Notifications',
+  help: 'Help & Support',
+  settings: 'SchoolSettings',
+  controlSettings: 'ControlSettings',
+  expenseCategories: 'ExpenseCategories',
+  expenses: 'Expenses',
+  availability: 'Availability',
+  documents: 'Documents',
+  media: 'MediaLibrary',
+  audit: 'AuditLogs'
+};
 
-function controlCenterOpenSection_(section){var tpl=HtmlService.createTemplateFromFile('ControlCenter');tpl.initialSection=section||'dashboard';SpreadsheetApp.getUi().showSidebar(tpl.evaluate().setTitle('TAREK RIJSCHOOL — Master Control Center'))}
-function apiGetStudentsAndTrainers(){var ss=SpreadsheetApp.getActive(),s=controlCenterRows_(ss,'Students'),t=controlCenterRows_(ss,'Trainers');return{students:s.map(x=>({id:x['Student ID'],name:x.Name,balance:Number(x['Balance (€)'])||0,status:x.Status})),trainers:t.map(x=>({id:x['Trainer ID'],name:x.Name,rate:Number(x['Rate (€)'])||0,status:x.Status}))}}
-function apiAddWalletDeposit(params){return controlCenterSavePayment_({'Student ID':params.studentId,'Type':'deposit','Amount (€)':Number(params.amount),'Description':String(params.description||'Deposit')})}
+var CONTROL_CENTER_IDS = {
+  students: { header: 'Student ID', prefix: 'ST-', width: 6 },
+  lessons: { header: 'Lesson ID', prefix: 'LES-', width: 6 },
+  trainers: { header: 'Trainer ID', prefix: 'TR-', width: 6 },
+  payments: { header: 'Transaction ID', prefix: 'TX-', width: 6 },
+  invoices: { header: 'Invoice ID', prefix: 'INV-' + new Date().getFullYear() + '-', width: 3 },
+  packages: { header: 'id', prefix: 'PKG-', width: 6 },
+  notifications: { header: 'Notification ID', prefix: 'NOT-', width: 6 },
+  help: { header: 'ID', prefix: 'FAQ-', width: 3 },
+  controlSettings: { header: 'Key', prefix: 'CFG-', width: 6 },
+  expenseCategories: { header: 'Category ID', prefix: 'EXP-CAT-', width: 4 },
+  expenses: { header: 'Expense ID', prefix: 'EXP-', width: 6 },
+  availability: { header: 'Availability ID', prefix: 'AVL-', width: 6 },
+  documents: { header: 'Document ID', prefix: 'DOC-', width: 6 },
+  media: { header: 'id', prefix: 'MED-', width: 6 }
+};
+
+var CONTROL_CENTER_MEDIA_HEADERS = [
+  'id', 'titleEn', 'titleNl', 'titleAr',
+  'descriptionEn', 'descriptionNl', 'descriptionAr',
+  'category', 'isEnabled', 'url', 'thumbnail', 'duration',
+  'language', 'driveFileId', 'driveShareUrl', 'isDeletedByTrainer', 'type'
+];
+
+function controlCenterHtml() {
+  return HtmlService.createHtmlOutputFromFile('ControlCenter')
+    .setTitle('TAREK RIJSCHOOL — Master Control Center')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function controlCenterOpen() {
+  SpreadsheetApp.getUi().showSidebar(
+    HtmlService.createHtmlOutputFromFile('ControlCenter').setTitle('TAREK RIJSCHOOL Control Center')
+  );
+}
+
+function controlCenterGetData() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  controlCenterEnsureRequiredSheets_(ss);
+  var settings = controlCenterSingleRow_(ss, CONTROL_CENTER_SHEETS.settings);
+  return {
+    generatedAt: new Date().toISOString(),
+    dashboard: controlCenterDashboard_(ss),
+    students: controlCenterRows_(ss, CONTROL_CENTER_SHEETS.students),
+    lessons: controlCenterRows_(ss, CONTROL_CENTER_SHEETS.lessons),
+    trainers: controlCenterRows_(ss, CONTROL_CENTER_SHEETS.trainers),
+    trainerSchedule: controlCenterRows_(ss, CONTROL_CENTER_SHEETS.trainerSchedule),
+    instructors: controlCenterRows_(ss, CONTROL_CENTER_SHEETS.trainers),
+    payments: controlCenterRows_(ss, CONTROL_CENTER_SHEETS.payments),
+    invoices: controlCenterRows_(ss, CONTROL_CENTER_SHEETS.invoices),
+    packages: controlCenterRows_(ss, CONTROL_CENTER_SHEETS.packages),
+    notifications: controlCenterRows_(ss, CONTROL_CENTER_SHEETS.notifications),
+    help: controlCenterRows_(ss, CONTROL_CENTER_SHEETS.help),
+    settings: settings,
+    controlSettings: controlCenterRows_(ss, CONTROL_CENTER_SHEETS.controlSettings),
+    expenseCategories: controlCenterRows_(ss, CONTROL_CENTER_SHEETS.expenseCategories),
+    expenses: controlCenterRows_(ss, CONTROL_CENTER_SHEETS.expenses),
+    availability: controlCenterRows_(ss, CONTROL_CENTER_SHEETS.availability),
+    documents: controlCenterRows_(ss, CONTROL_CENTER_SHEETS.documents),
+    media: controlCenterRows_(ss, CONTROL_CENTER_SHEETS.media),
+    audit: controlCenterRows_(ss, CONTROL_CENTER_SHEETS.audit).slice(-100).reverse(),
+    schemas: controlCenterSchemas_(ss),
+    status: controlCenterStatus_(ss)
+  };
+}
+
+function controlCenterEnsureRequiredSheets_(ss) {
+  var media = ss.getSheetByName(CONTROL_CENTER_SHEETS.media);
+  if (!media) {
+    media = ss.insertSheet(CONTROL_CENTER_SHEETS.media);
+    media.getRange(1, 1, 1, CONTROL_CENTER_MEDIA_HEADERS.length).setValues([CONTROL_CENTER_MEDIA_HEADERS]);
+    media.setFrozenRows(1);
+    controlCenterAudit_('Create schema', 'MediaLibrary', '', JSON.stringify(CONTROL_CENTER_MEDIA_HEADERS));
+  }
+}
+
+function controlCenterStatus_(ss) {
+  var expected = {
+    Students: ['Student ID','Name','Email','Phone','Date of Birth','City','Current Package','Balance (€)','Exam Readiness (%)','Status','Theory Exam Status','Drive Folder ID'],
+    Lessons: ['Lesson ID','Student ID','Student Name','Trainer Name','Date','Time','Duration (h)','Price (€)','Pickup Location','Status','Calendar Event ID','Instructor Notes','Rating'],
+    Wallet: ['Transaction ID','Student ID','Student Name','Date','Type','Amount (€)','Description','Invoice ID','Drive Invoice URL'],
+    Invoices: ['Invoice ID','Student ID','Student Name','Student Email','Amount (€)','Date','Description','Status','Drive File ID','Drive PDF URL'],
+    Notifications: ['Notification ID','Recipient Role','Target Student ID','Recipient Email','Type','Title','Message','Timestamp','Read Status'],
+    Packages: ['id','name','description','hours','price','discountPrice','badge','popular','recommended','colorTheme','displayOrder','isActive','features'],
+    'Help & Support': ['ID','Category','Question_AR','Answer_AR','Question_NL','Answer_NL','Question_EN','Answer_EN','Active','Order'],
+    SchoolSettings: ['name','shortName','logoUrl','faviconUrl','slogan','address','city','postalCode','country','phone','email','website','kvk','btw','iban','invoiceFooter','certificateFooter','licenseAuthority','primaryVehicle','transmissionType','schoolStamp','instructorSignature','instructorName','facebookUrl','instagramUrl','tiktokUrl','whatsappNumber','googleBusinessUrl','youtubeUrl','primaryColor','secondaryColor','accentColor','dashboardTheme','loginBackgroundUrl','defaultPackageTheme','aiAssistantName','aiCoachEnabled','aiSystemInstructions','aiApprovedSources','notificationsEnabled','lessonPricePerHour','flexiblePackageDescription','privacyPolicyUrl','termsConditionsUrl'],
+    Trainers: ['Trainer ID','Name','Email','Phone','License','Vehicle','Rate (€)','Status'],
+    TrainerSchedule: ['Trainer ID','Trainer Name','Day of Week','Start Time','End Time','Is Available'],
+    ControlSettings: ['Key','Value','Category','Description','Editable','Updated At'],
+    ExpenseCategories: ['Category ID','Name','Description','Active','Display Order'],
+    Expenses: ['Expense ID','Date','Category ID','Category Name','Amount (€)','Description','Vendor','Payment Method','Receipt URL','Status'],
+    Availability: ['Availability ID','Trainer ID','Trainer Name','Date','Start Time','End Time','Status','Notes'],
+    Documents: ['Document ID','Owner Type','Owner ID','Owner Name','Document Type','File Name','Drive File ID','Drive URL','Created At','Status'],
+    MediaLibrary: CONTROL_CENTER_MEDIA_HEADERS,
+    AuditLogs: ['Audit ID','User ID','User Name','User Role','Action','Changed By','Date','Time','Time Zone','IP Address','Device / Browser','Target Record','Previous Value','New Value','Source']
+  };
+  var checks = [];
+  Object.keys(expected).forEach(function(name) {
+    var sh = ss.getSheetByName(name);
+    if (!sh) {
+      checks.push({ sheet: name, ok: false, message: 'Missing sheet' });
+      return;
+    }
+    var actual = sh.getLastColumn() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0].map(function(h){return String(h||'').trim();}) : [];
+    var exp = expected[name];
+    var ok = actual.length >= exp.length && exp.every(function(h, i){ return actual[i] === h; });
+    checks.push({ sheet: name, ok: ok, message: ok ? 'Schema OK' : 'Header mismatch', expected: exp, actual: actual });
+  });
+  return { ok: checks.every(function(x){ return x.ok; }), checks: checks };
+}
+
+function controlCenterSchemas_(ss) {
+  var out = {};
+  Object.keys(CONTROL_CENTER_SHEETS).forEach(function(key) {
+    var sh = ss.getSheetByName(CONTROL_CENTER_SHEETS[key]);
+    out[key] = sh && sh.getLastColumn() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0] : [];
+  });
+  out.instructors = out.trainers || [];
+  return out;
+}
+
+function controlCenterDashboard_(ss) {
+  var students = controlCenterRows_(ss, 'Students');
+  var lessons = controlCenterRows_(ss, 'Lessons');
+  var payments = controlCenterRows_(ss, 'Wallet');
+  var invoices = controlCenterRows_(ss, 'Invoices');
+  var today = controlCenterDateKey_(new Date());
+  var month = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM');
+  var activeStudents = students.filter(function(r){ return String(r.status || '').toLowerCase() === 'active'; }).length;
+  var todayLessons = lessons.filter(function(r){ return controlCenterDateKey_(r.date) === today; }).length;
+  var upcomingLessons = lessons.filter(function(r){
+    var d = controlCenterDateKey_(r.date);
+    return d && d >= today && String(r.status || '').toLowerCase() !== 'cancelled';
+  }).length;
+  var monthlyRevenue = payments.reduce(function(sum, r){
+    var d = controlCenterDateKey_(r.date);
+    var amount = Number(r.amount || 0);
+    var type = String(r.type || '').toLowerCase();
+    return d.indexOf(month) === 0 && amount > 0 && type === 'deposit' ? sum + amount : sum;
+  }, 0);
+  var outstandingBalance = students.reduce(function(sum, r){
+    var balance = Number(r.balance || 0);
+    return balance < 0 ? sum + Math.abs(balance) : sum;
+  }, 0);
+  return {
+    totalStudents: students.length,
+    activeStudents: activeStudents,
+    todayLessons: todayLessons,
+    upcomingLessons: upcomingLessons,
+    monthlyRevenue: monthlyRevenue,
+    outstandingBalance: outstandingBalance,
+    totalInvoices: invoices.length,
+    lastSync: new Date().toISOString()
+  };
+}
+
+function controlCenterRows_(ss, sheetName) {
+  var sh = ss.getSheetByName(sheetName);
+  if (!sh || sh.getLastRow() < 1 || sh.getLastColumn() < 1) return [];
+  var values = sh.getDataRange().getValues();
+  var headers = values[0].map(function(h){ return String(h || '').trim(); });
+  return values.slice(1).filter(function(row){ return row.some(function(v){ return v !== ''; }); }).map(function(row, index){
+    var obj = { _row: index + 2, _sheet: sheetName };
+    headers.forEach(function(h, i){ if (h) obj[h] = controlCenterSerializable_(row[i]); });
+    obj.id = controlCenterFirst_(obj, ['Student ID','Lesson ID','Trainer ID','Transaction ID','Invoice ID','Notification ID','Category ID','Expense ID','Availability ID','Document ID','Key','id','ID']);
+    if (!obj.id && sheetName === 'TrainerSchedule') obj.id = String(obj['Trainer ID'] || '') + '|' + String(obj['Day of Week'] || '');
+    obj.studentId = controlCenterFirst_(obj, ['Student ID','Target Student ID']);
+    obj.name = controlCenterFirst_(obj, ['Name','Student Name','titleEn','Question_EN']);
+    obj.email = controlCenterFirst_(obj, ['Email','Student Email','Recipient Email']);
+    obj.phone = controlCenterFirst_(obj, ['Phone']);
+    obj.date = controlCenterFirst_(obj, ['Date']);
+    obj.time = controlCenterFirst_(obj, ['Time']);
+    obj.status = controlCenterFirst_(obj, ['Status','Read Status','isActive','Active','isEnabled']);
+    obj.amount = controlCenterFirst_(obj, ['Amount (€)','Price (€)','price']);
+    obj.balance = controlCenterFirst_(obj, ['Balance (€)']);
+    obj.type = controlCenterFirst_(obj, ['Type','type']);
+    obj.desc = controlCenterFirst_(obj, ['Description','Message','description']);
+    return obj;
+  });
+}
+
+function controlCenterSingleRow_(ss, sheetName) {
+  var rows = controlCenterRows_(ss, sheetName);
+  return rows.length ? rows[0] : {};
+}
+
+function controlCenterInstructorRows_(settings) {
+  if (!settings) return [];
+  var name = settings.instructorName || '';
+  if (!name && !settings.phone && !settings.email) return [];
+  return [{
+    id: 'PRIMARY-INSTRUCTOR',
+    'Instructor Name': name,
+    Phone: settings.phone || '',
+    Email: settings.email || '',
+    'Primary Vehicle': settings.primaryVehicle || '',
+    'Transmission Type': settings.transmissionType || '',
+    'License Authority': settings.licenseAuthority || '',
+    'Lesson Price Per Hour': settings.lessonPricePerHour || '',
+    'Instructor Signature': settings.instructorSignature || '',
+    name: name,
+    phone: settings.phone || '',
+    email: settings.email || '',
+    status: name ? 'active' : 'inactive'
+  }];
+}
+
+function controlCenterSaveRecord(section, data) {
+  if (!data || typeof data !== 'object') throw new Error('Record data is required.');
+  if (section === 'settings') return controlCenterSaveSettings_(data);
+  if (section === 'instructors' || section === 'trainers') return controlCenterSaveGeneric_('trainers', data);
+  if (section === 'trainerSchedule') return controlCenterSaveTrainerSchedule_(data);
+  if (section === 'payments') return controlCenterSavePayment_(data);
+  if (section === 'lessons') return controlCenterSaveLesson_(data);
+  if (section === 'students') return controlCenterSaveStudent_(data);
+  if (section === 'invoices') return controlCenterSaveInvoice_(data);
+  if (section === 'notifications') return controlCenterSaveNotification_(data);
+  return controlCenterSaveGeneric_(section, data);
+}
+
+function controlCenterSaveStudent_(data) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('Students');
+  if (!sh) throw new Error('Students sheet is missing.');
+  var headers = controlCenterHeaders_(sh);
+  var id = String(data['Student ID'] || data.id || '').trim();
+  var isNew = !id;
+  if (!id) id = controlCenterNextId_(sh, 'Student ID', 'ST-', 6);
+  data['Student ID'] = id;
+  if (!String(data.Name || '').trim()) throw new Error('Student name is required.');
+  if (!String(data.Email || '').trim()) throw new Error('Student email is required.');
+  if (isNew) {
+    if (data['Balance (€)'] === '' || data['Balance (€)'] == null) data['Balance (€)'] = 0;
+    if (data['Exam Readiness (%)'] === '' || data['Exam Readiness (%)'] == null) data['Exam Readiness (%)'] = 0;
+    if (!data.Status) data.Status = 'active';
+  }
+  return controlCenterUpsertRow_(sh, headers, 'Student ID', id, data, 'student');
+}
+
+function controlCenterSaveLesson_(data) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('Lessons');
+  if (!sh) throw new Error('Lessons sheet is missing.');
+  var headers = controlCenterHeaders_(sh);
+  var id = String(data['Lesson ID'] || data.id || '').trim();
+  var isNew = !id;
+  if (!id) id = controlCenterNextId_(sh, 'Lesson ID', 'LES-', 6);
+  data['Lesson ID'] = id;
+  var studentId = String(data['Student ID'] || '').trim();
+  if (!studentId) throw new Error('Student ID is required.');
+  if (!String(data.Date || '').trim()) throw new Error('Lesson date is required.');
+  if (!String(data.Time || '').trim()) throw new Error('Lesson time is required.');
+  var student = controlCenterFindStudent_(ss, studentId);
+  data['Student Name'] = student.name;
+  var settings = controlCenterSingleRow_(ss, 'SchoolSettings');
+  if (!String(data['Trainer Name'] || '').trim()) data['Trainer Name'] = settings.instructorName || 'Instructor';
+  var duration = Number(data['Duration (h)'] || 1);
+  if (!(duration > 0 && duration <= 8)) throw new Error('Lesson duration must be between 0 and 8 hours.');
+  data['Duration (h)'] = duration;
+  var price = Number(data['Price (€)']);
+  if (!(price >= 0)) price = duration * (Number(settings.lessonPricePerHour) || 65);
+  data['Price (€)'] = price;
+  if (!data.Status) data.Status = 'upcoming';
+  if (isNew && Number(student.balance) < price) throw new Error('Insufficient student wallet balance. Required €' + price + ', current €' + Number(student.balance || 0));
+  var result = controlCenterUpsertRow_(sh, headers, 'Lesson ID', id, data, 'lesson');
+  if (isNew && price > 0) {
+    controlCenterAppendWallet_(ss, studentId, student.name, 'payment', price, 'Reserved driving lesson (' + id + ') on ' + data.Date + ' at ' + data.Time, '');
+    controlCenterRebuildBalance_(ss, studentId);
+  }
+  return result;
+}
+
+function controlCenterSavePayment_(data) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('Wallet');
+  if (!sh) throw new Error('Wallet sheet is missing.');
+  var id = String(data['Transaction ID'] || data.id || '').trim();
+  if (id) {
+    var headers = controlCenterHeaders_(sh);
+    var old = controlCenterFindRowById_(sh, headers, 'Transaction ID', id);
+    if (old.row < 2) throw new Error('Wallet transaction not found.');
+    var previous = sh.getRange(old.row, 1, 1, headers.length).getDisplayValues()[0];
+    var studentId = String(data['Student ID'] || previous[1] || '').trim();
+    var result = controlCenterUpsertRow_(sh, headers, 'Transaction ID', id, data, 'payment');
+    controlCenterRebuildBalance_(ss, studentId);
+    return result;
+  }
+  var sid = String(data['Student ID'] || '').trim();
+  var amount = Number(data['Amount (€)']);
+  if (!sid) throw new Error('Student ID is required.');
+  if (!(amount > 0)) throw new Error('Deposit amount must be greater than zero.');
+  var student = controlCenterFindStudent_(ss, sid);
+  var desc = String(data.Description || 'Balance Top-Up').trim();
+  var txId = controlCenterAppendWallet_(ss, sid, student.name, 'deposit', amount, desc, String(data['Invoice ID'] || ''));
+  controlCenterRebuildBalance_(ss, sid);
+  controlCenterAudit_('Add deposit', txId, '', JSON.stringify({ studentId: sid, amount: amount, description: desc }));
+  return { success: true, id: txId, created: true };
+}
+
+function controlCenterAppendWallet_(ss, studentId, studentName, type, amount, description, invoiceId) {
+  var sh = ss.getSheetByName('Wallet');
+  var headers = controlCenterHeaders_(sh);
+  var id = controlCenterNextId_(sh, 'Transaction ID', 'TX-', 6);
+  var row = {
+    'Transaction ID': id,
+    'Student ID': studentId,
+    'Student Name': studentName,
+    'Date': Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'),
+    'Type': type,
+    'Amount (€)': amount,
+    'Description': description,
+    'Invoice ID': invoiceId || '',
+    'Drive Invoice URL': ''
+  };
+  sh.appendRow(headers.map(function(h){ return controlCenterSanitizeCell_(row[h]); }));
+  return id;
+}
+
+function controlCenterSaveInvoice_(data) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('Invoices');
+  if (!sh) throw new Error('Invoices sheet is missing.');
+  var headers = controlCenterHeaders_(sh);
+  var id = String(data['Invoice ID'] || data.id || '').trim();
+  if (!id) id = controlCenterNextId_(sh, 'Invoice ID', 'INV-' + new Date().getFullYear() + '-', 3);
+  data['Invoice ID'] = id;
+  var sid = String(data['Student ID'] || '').trim();
+  if (!sid) throw new Error('Student ID is required.');
+  var student = controlCenterFindStudent_(ss, sid);
+  data['Student Name'] = student.name;
+  data['Student Email'] = student.email;
+  if (!data.Date) data.Date = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  if (!data.Status) data.Status = 'unpaid';
+  if (!(Number(data['Amount (€)']) >= 0)) throw new Error('Invoice amount must be zero or greater.');
+  return controlCenterUpsertRow_(sh, headers, 'Invoice ID', id, data, 'invoice');
+}
+
+function controlCenterSaveNotification_(data) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('Notifications');
+  if (!sh) throw new Error('Notifications sheet is missing.');
+  var headers = controlCenterHeaders_(sh);
+  var id = String(data['Notification ID'] || data.id || '').trim();
+  if (!id) id = controlCenterNextId_(sh, 'Notification ID', 'NOT-', 6);
+  data['Notification ID'] = id;
+  if (!String(data.Title || '').trim()) throw new Error('Notification title is required.');
+  if (!String(data.Message || '').trim()) throw new Error('Notification message is required.');
+  if (!data.Timestamp) data.Timestamp = new Date().toISOString();
+  if (data['Read Status'] === '' || data['Read Status'] == null) data['Read Status'] = 'FALSE';
+  return controlCenterUpsertRow_(sh, headers, 'Notification ID', id, data, 'notification');
+}
+
+function controlCenterSaveInstructor_(data) {
+  var settingsPatch = {
+    instructorName: data['Instructor Name'] || data.name || '',
+    phone: data.Phone || data.phone || '',
+    email: data.Email || data.email || '',
+    primaryVehicle: data['Primary Vehicle'] || '',
+    transmissionType: data['Transmission Type'] || '',
+    licenseAuthority: data['License Authority'] || '',
+    lessonPricePerHour: data['Lesson Price Per Hour'] || '',
+    instructorSignature: data['Instructor Signature'] || ''
+  };
+  if (!String(settingsPatch.instructorName).trim()) throw new Error('Instructor name is required.');
+  return controlCenterSaveSettings_(settingsPatch, 'Update instructor profile');
+}
+
+function controlCenterSaveSettings_(data, action) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('SchoolSettings');
+  if (!sh) throw new Error('SchoolSettings sheet is missing.');
+  var headers = controlCenterHeaders_(sh);
+  var old = sh.getLastRow() >= 2 ? sh.getRange(2, 1, 1, headers.length).getDisplayValues()[0] : headers.map(function(){ return ''; });
+  var next = headers.map(function(h, i){ return Object.prototype.hasOwnProperty.call(data, h) ? controlCenterSanitizeCell_(data[h]) : old[i]; });
+  if (sh.getLastRow() >= 2) sh.getRange(2, 1, 1, headers.length).setValues([next]); else sh.appendRow(next);
+  controlCenterAudit_(action || 'Update school settings', 'SchoolSettings', JSON.stringify(old), JSON.stringify(next));
+  return { success: true, id: 'SchoolSettings', created: sh.getLastRow() < 2 };
+}
+
+function controlCenterSaveTrainerSchedule_(data) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('TrainerSchedule');
+  if (!sh) throw new Error('TrainerSchedule sheet is missing.');
+  var trainerId = String(data['Trainer ID'] || '').trim();
+  var day = String(data['Day of Week'] || '').trim();
+  if (!trainerId) throw new Error('Trainer ID is required.');
+  if (!day) throw new Error('Day of Week is required.');
+  var trainer = controlCenterFindTrainer_(ss, trainerId);
+  data['Trainer Name'] = trainer.name;
+  var headers = controlCenterHeaders_(sh);
+  var rows = sh.getLastRow() >= 2 ? sh.getRange(2, 1, sh.getLastRow() - 1, headers.length).getDisplayValues() : [];
+  var trIdx = headers.indexOf('Trainer ID'), dayIdx = headers.indexOf('Day of Week'), foundRow = -1;
+  for (var i = 0; i < rows.length; i++) if (String(rows[i][trIdx]) === trainerId && String(rows[i][dayIdx]) === day) { foundRow = i + 2; break; }
+  var previous = foundRow > 1 ? sh.getRange(foundRow, 1, 1, headers.length).getDisplayValues()[0] : null;
+  var values = headers.map(function(h){ return controlCenterSanitizeCell_(Object.prototype.hasOwnProperty.call(data, h) ? data[h] : ''); });
+  if (foundRow > 1) sh.getRange(foundRow, 1, 1, headers.length).setValues([values]); else sh.appendRow(values);
+  var id = trainerId + '|' + day;
+  controlCenterAudit_((foundRow > 1 ? 'Update ' : 'Create ') + 'trainer schedule', id, previous ? JSON.stringify(previous) : '', JSON.stringify(values));
+  return { success: true, id: id, created: foundRow < 2 };
+}
+
+function controlCenterFindTrainer_(ss, id) {
+  var rows = controlCenterRows_(ss, 'Trainers');
+  for (var i = 0; i < rows.length; i++) if (String(rows[i]['Trainer ID']) === String(id)) return { id: id, name: rows[i].Name || '', row: rows[i]._row };
+  throw new Error('Trainer was not found.');
+}
+
+function controlCenterSaveGeneric_(section, data) {
+  var cfg = controlCenterSectionConfig_(section);
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(cfg.sheet);
+  if (!sh) throw new Error(cfg.sheet + ' sheet is missing.');
+  var headers = controlCenterHeaders_(sh);
+  var id = String(data[cfg.idHeader] || data.id || '').trim();
+  if (!id) id = controlCenterNextId_(sh, cfg.idHeader, cfg.prefix, cfg.width);
+  data[cfg.idHeader] = id;
+  if (section === 'packages' && !String(data.name || '').trim()) throw new Error('Package name is required.');
+  if (section === 'trainers') { if (!String(data.Name || '').trim()) throw new Error('Trainer name is required.'); if (!(Number(data['Rate (€)']) > 0)) throw new Error('Trainer hourly rate must be greater than zero.'); }
+  if (section === 'controlSettings') { if (!String(data.Key || data.id || '').trim()) throw new Error('Control setting Key is required.'); if (String(data.Editable || '').toUpperCase() === 'FALSE' && data.id) throw new Error('This control setting is read-only.'); data['Updated At'] = new Date().toISOString(); }
+  if (section === 'expenseCategories' && !String(data.Name || '').trim()) throw new Error('Expense category name is required.');
+  if (section === 'expenses') { if (!String(data.Date || '').trim()) throw new Error('Expense date is required.'); if (!(Number(data['Amount (€)']) > 0)) throw new Error('Expense amount must be greater than zero.'); if (data['Category ID']) { var catRows = controlCenterRows_(ss, 'ExpenseCategories'); for (var ci=0; ci<catRows.length; ci++) if (String(catRows[ci]['Category ID']) === String(data['Category ID'])) { data['Category Name'] = catRows[ci].Name || ''; break; } } }
+  if (section === 'availability') { if (!String(data['Trainer ID'] || '').trim()) throw new Error('Trainer ID is required.'); var tr = controlCenterFindTrainer_(ss, data['Trainer ID']); data['Trainer Name'] = tr.name; if (!String(data.Date || '').trim()) throw new Error('Availability date is required.'); }
+  if (section === 'documents') { if (!String(data['Owner Type'] || '').trim()) throw new Error('Owner Type is required.'); if (!String(data['Owner ID'] || '').trim()) throw new Error('Owner ID is required.'); if (!String(data['Drive URL'] || '').trim()) throw new Error('Drive URL is required.'); var ownerType=String(data['Owner Type']).toLowerCase(); if (ownerType==='student') { var st=controlCenterFindStudent_(ss,data['Owner ID']); data['Owner Name']=st.name; } else if (ownerType==='trainer') { var trn=controlCenterFindTrainer_(ss,data['Owner ID']); data['Owner Name']=trn.name; } if (!data['Created At']) data['Created At'] = new Date().toISOString(); }
+  if (section === 'help' && !String(data.Question_EN || data.Question_AR || data.Question_NL || '').trim()) throw new Error('At least one FAQ question is required.');
+  if (section === 'media' && !String(data.titleEn || data.titleNl || data.titleAr || '').trim()) throw new Error('Media title is required.');
+  return controlCenterUpsertRow_(sh, headers, cfg.idHeader, id, data, section);
+}
+
+function controlCenterUpsertRow_(sh, headers, idHeader, id, data, auditLabel) {
+  var found = controlCenterFindRowById_(sh, headers, idHeader, id);
+  var previous = found.row > 1 ? sh.getRange(found.row, 1, 1, headers.length).getDisplayValues()[0] : null;
+  var values = headers.map(function(h){ return controlCenterSanitizeCell_(Object.prototype.hasOwnProperty.call(data, h) ? data[h] : ''); });
+  if (found.row > 1) sh.getRange(found.row, 1, 1, headers.length).setValues([values]); else sh.appendRow(values);
+  controlCenterAudit_((found.row > 1 ? 'Update ' : 'Create ') + auditLabel, id, previous ? JSON.stringify(previous) : '', JSON.stringify(values));
+  return { success: true, id: id, created: found.row < 2 };
+}
+
+function controlCenterDeleteRecord(section, id) {
+  if (['settings','audit'].indexOf(section) !== -1) throw new Error('This section cannot be deleted from the Control Center.');
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (section === 'trainerSchedule') {
+    var shSchedule = ss.getSheetByName('TrainerSchedule');
+    var headersSchedule = controlCenterHeaders_(shSchedule);
+    var trIdx = headersSchedule.indexOf('Trainer ID'), dayIdx = headersSchedule.indexOf('Day of Week');
+    var parts = String(id).split('|');
+    if (parts.length < 2) throw new Error('Trainer schedule key is invalid.');
+    var dataRows = shSchedule.getLastRow() >= 2 ? shSchedule.getRange(2,1,shSchedule.getLastRow()-1,headersSchedule.length).getDisplayValues() : [];
+    for (var si=dataRows.length-1; si>=0; si--) if (String(dataRows[si][trIdx])===parts[0] && String(dataRows[si][dayIdx])===parts.slice(1).join('|')) { var oldSchedule=dataRows[si]; shSchedule.deleteRow(si+2); controlCenterAudit_('Delete trainer schedule',id,JSON.stringify(oldSchedule),'DELETED'); return {success:true,id:id}; }
+    throw new Error('Trainer schedule record not found.');
+  }
+  var cfg = controlCenterSectionConfig_(section);
+  var sh = ss.getSheetByName(cfg.sheet);
+  if (!sh) throw new Error(cfg.sheet + ' sheet is missing.');
+  var headers = controlCenterHeaders_(sh);
+  var found = controlCenterFindRowById_(sh, headers, cfg.idHeader, id);
+  if (found.row < 2) throw new Error('Record not found.');
+  var old = sh.getRange(found.row, 1, 1, headers.length).getDisplayValues()[0];
+
+  if (section === 'students') {
+    var sid = String(id);
+    var referenced = controlCenterRows_(ss, 'Lessons').some(function(r){ return String(r['Student ID']) === sid; }) || controlCenterRows_(ss, 'Wallet').some(function(r){ return String(r['Student ID']) === sid; }) || controlCenterRows_(ss, 'Invoices').some(function(r){ return String(r['Student ID']) === sid; });
+    if (referenced) throw new Error('Student has related operational records. Set Status to inactive instead of deleting.');
+  }
+  if (section === 'trainers') {
+    var trainerId = String(id), trainerName = headers.indexOf('Name') >= 0 ? String(old[headers.indexOf('Name')] || '') : '';
+    var trainerUsed = controlCenterRows_(ss,'TrainerSchedule').some(function(r){return String(r['Trainer ID'])===trainerId;}) || controlCenterRows_(ss,'Availability').some(function(r){return String(r['Trainer ID'])===trainerId;}) || controlCenterRows_(ss,'Lessons').some(function(r){return trainerName && String(r['Trainer Name'])===trainerName;});
+    if (trainerUsed) throw new Error('Trainer has related records. Set Status to inactive instead of deleting.');
+  }
+  if (section === 'packages') {
+    var nameIdx = headers.indexOf('name'), packageName = nameIdx >= 0 ? String(old[nameIdx] || '') : '';
+    var inUse = controlCenterRows_(ss, 'Students').some(function(r){ return String(r['Current Package'] || '') === packageName; });
+    if (inUse) throw new Error('Package is assigned to students. Disable it with isActive=FALSE instead of deleting.');
+  }
+  if (section === 'invoices') {
+    var usedByWallet = controlCenterRows_(ss, 'Wallet').some(function(r){ return String(r['Invoice ID'] || '') === String(id); });
+    if (usedByWallet) throw new Error('Invoice is referenced by wallet transactions and cannot be deleted.');
+  }
+  if (section === 'expenseCategories') {
+    var usedByExpense = controlCenterRows_(ss,'Expenses').some(function(r){return String(r['Category ID']||'')===String(id);});
+    if (usedByExpense) throw new Error('Expense category is in use and cannot be deleted. Set Active to FALSE instead.');
+  }
+  var studentId = '';
+  if (section === 'payments') { var stIdx = headers.indexOf('Student ID'); studentId = stIdx >= 0 ? String(old[stIdx] || '') : ''; }
+  if (section === 'lessons') {
+    var stIdxLesson = headers.indexOf('Student ID'); studentId = stIdxLesson >= 0 ? String(old[stIdxLesson] || '') : '';
+    var wallet = ss.getSheetByName('Wallet');
+    if (wallet && wallet.getLastRow() >= 2) {
+      var wHeaders = controlCenterHeaders_(wallet), descIdx = wHeaders.indexOf('Description'), typeIdx = wHeaders.indexOf('Type'), walletRows = wallet.getDataRange().getDisplayValues();
+      for (var wi = walletRows.length - 1; wi >= 1; wi--) { var desc = descIdx >= 0 ? String(walletRows[wi][descIdx] || '') : '', type = typeIdx >= 0 ? String(walletRows[wi][typeIdx] || '').toLowerCase() : ''; if (type === 'payment' && desc.indexOf('(' + id + ')') !== -1) wallet.deleteRow(wi + 1); }
+    }
+  }
+  sh.deleteRow(found.row);
+  if (studentId) controlCenterRebuildBalance_(ss, studentId);
+  controlCenterAudit_('Delete ' + section, String(id), JSON.stringify(old), 'DELETED');
+  return { success: true, id: id };
+}
+
+function controlCenterRebuildBalance_(ss, studentId) {
+  var tx = controlCenterRows_(ss, 'Wallet');
+  var balance = 0;
+  tx.forEach(function(r){
+    if (String(r['Student ID']) !== String(studentId)) return;
+    var amount = Number(r['Amount (€)']) || 0;
+    var type = String(r.Type || '').toLowerCase();
+    if (type === 'deposit' || type === 'adjustment') balance += amount;
+    else if (type === 'payment') balance -= amount;
+  });
+  var sh = ss.getSheetByName('Students');
+  var headers = controlCenterHeaders_(sh);
+  var idCol = headers.indexOf('Student ID');
+  var balCol = headers.indexOf('Balance (€)');
+  if (idCol < 0 || balCol < 0) throw new Error('Students wallet columns are missing.');
+  if (sh.getLastRow() < 2) throw new Error('Student was not found while rebuilding balance.');
+  var ids = sh.getRange(2, idCol + 1, sh.getLastRow() - 1, 1).getDisplayValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(studentId)) {
+      sh.getRange(i + 2, balCol + 1).setValue(balance);
+      return balance;
+    }
+  }
+  throw new Error('Student was not found while rebuilding balance.');
+}
+
+function controlCenterFindStudent_(ss, id) {
+  var rows = controlCenterRows_(ss, 'Students');
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i]['Student ID']) === String(id)) {
+      return { id: id, name: rows[i].Name || '', email: rows[i].Email || '', balance: Number(rows[i]['Balance (€)']) || 0, row: rows[i]._row };
+    }
+  }
+  throw new Error('Student was not found.');
+}
+
+function controlCenterHeaders_(sh) {
+  if (!sh || !sh.getLastColumn()) return [];
+  return sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0].map(function(h){ return String(h || '').trim(); });
+}
+
+function controlCenterSectionConfig_(section) {
+  var ids = CONTROL_CENTER_IDS[section];
+  var sheet = CONTROL_CENTER_SHEETS[section];
+  if (!ids || !sheet) throw new Error('Unsupported Control Center section: ' + section);
+  return { sheet: sheet, idHeader: ids.header, prefix: ids.prefix, width: ids.width };
+}
+
+function controlCenterFindRowById_(sh, headers, idHeader, id) {
+  var idx = headers.indexOf(idHeader);
+  if (idx < 0) throw new Error('Required ID column "' + idHeader + '" is missing from ' + sh.getName() + '.');
+  if (sh.getLastRow() < 2) return { row: -1, index: idx };
+  var ids = sh.getRange(2, idx + 1, sh.getLastRow() - 1, 1).getDisplayValues();
+  for (var i = 0; i < ids.length; i++) if (String(ids[i][0]) === String(id)) return { row: i + 2, index: idx };
+  return { row: -1, index: idx };
+}
+
+function controlCenterNextId_(sh, idHeader, prefix, width) {
+  var headers = controlCenterHeaders_(sh);
+  var idx = headers.indexOf(idHeader);
+  if (idx < 0) throw new Error('Required ID column "' + idHeader + '" is missing.');
+  var max = 0;
+  if (sh.getLastRow() >= 2) {
+    sh.getRange(2, idx + 1, sh.getLastRow() - 1, 1).getDisplayValues().forEach(function(r){
+      var value = String(r[0] || '');
+      if (value.indexOf(prefix) === 0) {
+        var n = parseInt(value.slice(prefix.length), 10);
+        if (!isNaN(n) && n > max) max = n;
+      }
+    });
+  }
+  return prefix + String(max + 1).padStart(width, '0');
+}
+
+function controlCenterSanitizeCell_(value) {
+  if (value === null || typeof value === 'undefined') return '';
+  if (typeof value === 'number' || typeof value === 'boolean') return value;
+  var s = String(value);
+  if (/^[=+@]/.test(s) || (/^-/.test(s) && !/^-?\d+(\.\d+)?$/.test(s))) return "'" + s;
+  return s;
+}
+
+function controlCenterSerializable_(value) {
+  return value instanceof Date ? Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss') : value;
+}
+
+function controlCenterFirst_(obj, keys) {
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i];
+    if (Object.prototype.hasOwnProperty.call(obj, key) && obj[key] !== '') return obj[key];
+  }
+  return '';
+}
+
+function controlCenterDateKey_(value) {
+  if (!value) return '';
+  var d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return String(value).slice(0, 10);
+  return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+function controlCenterAudit_(action, target, previousValue, newValue) {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('AuditLogs');
+  if (!sh) return;
+  var headers = controlCenterHeaders_(sh);
+  var now = new Date();
+  var row = {
+    'Audit ID': 'AUD-' + Date.now(),
+    'User ID': 'ADMIN-01',
+    'User Name': 'System Administrator',
+    'User Role': 'Admin',
+    'Action': action,
+    'Changed By': 'Master Control Center',
+    'Date': Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd'),
+    'Time': Utilities.formatDate(now, Session.getScriptTimeZone(), 'HH:mm:ss'),
+    'Time Zone': Session.getScriptTimeZone(),
+    'IP Address': '',
+    'Device / Browser': '',
+    'Target Record': target,
+    'Previous Value': previousValue,
+    'New Value': newValue,
+    'Source': 'Google Sheets Master Control Center'
+  };
+  sh.appendRow(headers.map(function(h){ return Object.prototype.hasOwnProperty.call(row, h) ? row[h] : ''; }));
+}
+
+function controlCenterMenu_() {
+  SpreadsheetApp.getUi().createMenu('🚗 TAREK RIJSCHOOL')
+    .addItem('Open Master Control Center', 'controlCenterOpen')
+    .addItem('Refresh Control Center Data', 'controlCenterRefresh_')
+    .addToUi();
+}
+
+function controlCenterRefresh_() {
+  SpreadsheetApp.getActiveSpreadsheet().toast('Control Center data refreshed.', 'TAREK RIJSCHOOL', 3);
+}
+
+function onOpen() { controlCenterMenu_(); }
