@@ -1,5 +1,5 @@
 /** Student-only bridge to a separately deployed Apps Script web app. */
-type GatewayAction = 'me' | 'register';
+type GatewayAction = 'me' | 'register' | 'chat';
 
 export async function callStudentGateway<T>(action: GatewayAction, token: string, profile?: object): Promise<T> {
   const address = String((import.meta as any).env?.VITE_STUDENT_GATEWAY_URL || '').trim();

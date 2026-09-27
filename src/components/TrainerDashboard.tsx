@@ -4267,6 +4267,7 @@ function TrainerDashboardComponent({
           <ExamTracker 
             lang={lang} 
             lessons={lessons}
+            students={students}
             onRouteSaved={(studentName, points, durationSeconds) => {
               const prev = lessons;
               // Try to find an active lesson for this student first

@@ -1314,3 +1314,16 @@ function tarekFormsSave(section,input){
     return saved;
   }finally{lock.releaseLock();}
 }
+
+/** Give the existing assigned-image sidebar buttons comfortable laptop spacing. */
+function polishDashboardButtons() {
+  var sheet=SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Dashboard');
+  if(!sheet)throw new Error('Dashboard sheet is missing.');
+  var buttons=sheet.getImages().filter(function(image){return String(image.getAltTextTitle()||'').indexOf('TAREK_FORM_BUTTON:')===0;});
+  if(!buttons.length)throw new Error('Install the sidebar buttons first.');
+  sheet.setColumnWidth(1,42);sheet.setColumnWidth(2,255);sheet.setColumnWidth(3,26);
+  sheet.setRowHeights(5,12,44);sheet.setRowHeights(19,4,44);
+  buttons.forEach(function(image){image.setWidth(307).setHeight(39);});
+  SpreadsheetApp.getActiveSpreadsheet().toast('Sidebar spacing updated for laptop.','TAREK RIJSCHOOL',4);
+  return {success:true,buttons:buttons.length};
+}

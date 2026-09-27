@@ -16,7 +16,7 @@ import {
   List,
   CalendarBlank
 } from '@phosphor-icons/react';
-import { Phone as LucidePhone, MessageCircle as LucideMessageCircle, Mail as LucideMail, Database as LucideDatabase, Table as LucideTable } from 'lucide-react';
+import { Phone as LucidePhone, MessageCircle as LucideMessageCircle, Mail as LucideMail } from 'lucide-react';
 import { Language, UserRole, SchoolSettings, getSchoolName } from '../types';
 import SchoolLogo from './SchoolLogo';
 import { getStudentPhoto, getTrainerPhoto } from '../utils/studentPhoto';
@@ -24,7 +24,6 @@ import StudentSidebar from './StudentSidebar';
 import InstructorSidebar from './InstructorSidebar';
 import NotificationCenterModal from './NotificationCenterModal';
 import HelpCenterModal from './HelpCenterModal';
-import GoogleSheetsDiagnosticModal from './GoogleSheetsDiagnosticModal';
 import { getUnreadNotificationCount, markAllNotificationsAsRead } from '../utils/notificationStore';
 
 interface HeaderProps {
@@ -58,7 +57,6 @@ export default function Header({
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
-  const [showGoogleDiagnosticModal, setShowGoogleDiagnosticModal] = useState(false);
   const [localUnreadCount, setLocalUnreadCount] = useState(0);
 
   const unreadCount = unreadNotificationsCount !== undefined ? unreadNotificationsCount : localUnreadCount;
@@ -151,27 +149,8 @@ export default function Header({
               </div>
             </div>
 
-            {/* Right Controls: Admin Control Center, Google Sheets Diagnostic, Notification Bell & User Avatar */}
+            {/* Right Controls: Notification Bell & User Avatar */}
             <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-              {/* Google Sheets Admin Control Center Button */}
-              <button
-                onClick={() => window.dispatchEvent(new CustomEvent('openAdminControlCenter'))}
-                className="h-10 px-3 sm:px-3.5 rounded-full bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 flex items-center gap-1.5 text-xs font-bold transition-all duration-200 cursor-pointer active:scale-95 shadow-2xs"
-                title={isRtl ? 'مركز إدارة وتحكم النظام (Google Sheets)' : 'Admin Control Center (Google Sheets)'}
-              >
-                <LucideDatabase size={15} className="text-blue-600 dark:text-blue-400 shrink-0" />
-                <span className="hidden md:inline">{isRtl ? 'مركز الإدارة' : 'Admin Center'}</span>
-              </button>
-
-              {/* Google Sheets Diagnostic & Connection Button */}
-              <button
-                onClick={() => setShowGoogleDiagnosticModal(true)}
-                className="h-10 px-3 sm:px-3.5 rounded-full bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-2 text-xs font-bold transition-all duration-200 cursor-pointer active:scale-95 shadow-2xs"
-                title="Google Sheets Diagnostics & Settings"
-              >
-                <LucideTable size={15} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span className="hidden sm:inline">Google Sheets</span>
-              </button>
 
               {/* Notification Bell Button */}
               <button
@@ -309,12 +288,6 @@ export default function Header({
         }}
       />
 
-      {/* Google Sheets Strict Connection Diagnostic Modal */}
-      <GoogleSheetsDiagnosticModal
-        isOpen={showGoogleDiagnosticModal}
-        onClose={() => setShowGoogleDiagnosticModal(false)}
-        lang={lang}
-      />
     </>
   );
 }

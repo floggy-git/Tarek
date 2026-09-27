@@ -2,7 +2,7 @@
  * TAREK RIJSCHOOL student gateway. Deploy as a SEPARATE standalone Apps Script
  * project, never in the spreadsheet's bound administration project.
  * Script Properties: SHEET_ID, FIREBASE_API_KEY, FIREBASE_PROJECT_ID,
- * FIREBASE_SERVICE_ACCOUNT_JSON, APP_ORIGIN, ADMIN_SECRET.
+ * FIREBASE_SERVICE_ACCOUNT_JSON, APP_ORIGIN, ADMIN_SECRET, GEMINI_API_KEY.
  * Web app: execute as owner, access anyone. Every callable operation authenticates.
  */
 
@@ -24,6 +24,7 @@ function doGet(e) {
     'window.addEventListener("message",function(e){if(e.origin!==ORIGIN||!e.data||e.data.tarekGateway!=="request")return;'+
     'var d=e.data;if(d.bridge!==BRIDGE)return;var run=google.script.run.withSuccessHandler(function(v){top.postMessage({tarekGateway:"reply",bridge:BRIDGE,id:d.id,ok:true,value:v},ORIGIN)}).withFailureHandler(function(err){top.postMessage({tarekGateway:"reply",bridge:BRIDGE,id:d.id,ok:false,error:String(err.message||err)},ORIGIN)});'+
     'if(d.action==="me")run.gatewayStudentMe(d.token);else if(d.action==="register")run.gatewayStudentRegister(d.token,d.profile);'+
+    'else if(d.action==="chat")run.gatewayStudentChat(d.token,d.profile);'+
     'else top.postMessage({tarekGateway:"reply",bridge:BRIDGE,id:d.id,ok:false,error:"Unknown operation"},ORIGIN);'+
     '});</script>';
   return HtmlService.createHtmlOutput(html).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
@@ -80,8 +81,33 @@ function gatewayStudentMe(token) {
     if(sid<0)throw new Error(name+' headers are missing.');
     return [values[0]].concat(values.slice(1).filter(function(r){return r[sid]===id;}));
   });
-  var student={};h.forEach(function(key,index){if(key)student[key]=row[index]||'';});
+  var student={};h.forEach(function(key,index){if(key&&!/password|secret|token|hash/i.test(key))student[key]=row[index]||'';});
   return {success:true,student:student,lessons:linked[0],wallet:linked[1]};
+}
+
+function gatewayStudentChat(token,input) {
+  var profile=gatewayStudentMe(token).student;
+  var key=PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if(!key)throw new Error('Gemini API key is not configured in the student gateway.');
+  var message=String(input&&input.message||'').trim();
+  if(!message||message.length>1800)throw new Error('Message must be between 1 and 1800 characters.');
+  var cache=CacheService.getScriptCache(),bucket='chat-'+gatewayDeletedHash_(String(profile.Email||''));
+  if(cache.get(bucket))throw new Error('Wait a few seconds before sending another message.');
+  cache.put(bucket,'1',8);
+  var language=['ar','nl','en'].indexOf(input.lang)>=0?input.lang:'nl';
+  var history=Array.isArray(input.history)?input.history.slice(-6).map(function(item){return {role:item.sender==='assistant'?'model':'user',parts:[{text:String(item.text||'').slice(0,800)}]};}):[];
+  var parts=[{text:message}],image=String(input.image||'');
+  var match=/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(image);
+  if(image&&!match)throw new Error('Unsupported image format.');
+  if(match){if(match[2].length>1400000)throw new Error('Image is too large.');parts.push({inlineData:{mimeType:match[1],data:match[2]}});}
+  var request={systemInstruction:{parts:[{text:'You are TAREK RIJSCHOOL driving coach. Answer only questions about Dutch driving lessons and traffic rules. Reply in '+language+'. Never invent legal requirements; advise checking CBR or official rules when uncertain. Student: '+String(profile.Name||'').slice(0,100)+'.'}]},contents:history.concat([{role:'user',parts:parts}]),generationConfig:{maxOutputTokens:700,temperature:0.25}};
+  var response=UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent',{method:'post',contentType:'application/json',headers:{'x-goog-api-key':key},payload:JSON.stringify(request),muteHttpExceptions:true});
+  if(response.getResponseCode()!==200)throw new Error('AI service unavailable ('+response.getResponseCode()+').');
+  var json=JSON.parse(response.getContentText());
+  var reply=((json.candidates||[])[0]||{}).content;
+  var result=reply&&reply.parts?reply.parts.map(function(p){return p.text||'';}).join('').trim():'';
+  if(!result)throw new Error('AI service returned an empty reply.');
+  return {reply:result};
 }
 
 function gatewayStudentRegister(token,profile) {

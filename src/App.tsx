@@ -27,7 +27,6 @@ import { DatePicker } from './components/DatePicker';
 import { ThemeProvider } from './themes/ThemeContext';
 import LoginScreen from './components/LoginScreen';
 import { PackageCard } from './components/PackageCard';
-import AdminControlCenterModal from './components/adminControlCenter/AdminControlCenterModal';
 
 const StudentLessons = React.lazy(() => import('./components/StudentLessons'));
 const StudentLearning = React.lazy(() => import('./components/StudentLearning'));
@@ -242,14 +241,6 @@ export default function App() {
   const [resetConfirmPassword, setResetConfirmPassword] = useState('');
   const [resetErrorMsg, setResetErrorMsg] = useState('');
 
-  // Admin Control Center Modal state
-  const [showAdminControlCenter, setShowAdminControlCenter] = useState(false);
-
-  useEffect(() => {
-    const handleOpenAdmin = () => setShowAdminControlCenter(true);
-    window.addEventListener('openAdminControlCenter', handleOpenAdmin);
-    return () => window.removeEventListener('openAdminControlCenter', handleOpenAdmin);
-  }, []);
 
   // Core databases
   const [lessons, setLessons] = useState<Lesson[]>(INITIAL_LESSONS);
@@ -2324,23 +2315,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Full Application Admin Control Center Modal (Google Sheets Central Authority) */}
-      {showAdminControlCenter && (
-        <AdminControlCenterModal
-          isOpen={showAdminControlCenter}
-          onClose={() => setShowAdminControlCenter(false)}
-          defaultLang={lang === 'ar' ? 'ar' : lang === 'nl' ? 'nl' : 'en'}
-          spreadsheetId={getSheetsConfig().spreadsheetId || '1nKF40i125QY7MQMghOoOnyqjpHLFWKM12ZYIIGxW9Ck'}
-          students={students}
-          setStudents={setStudents}
-          lessons={lessons}
-          setLessons={setLessons}
-          packages={packages}
-          setPackages={setPackages}
-          schoolSettings={schoolSettings}
-          setSchoolSettings={setSchoolSettings}
-        />
-      )}
 
       </div>
     </ThemeProvider>

@@ -59,10 +59,10 @@ function handleModelQuotaExceeded(model: string) {
 
 // Global state to track Gemini quota exhaustion for general compatibility
 function isQuotaExhausted(): boolean {
-  return isModelUnavailable('gemini-3.7-flash') && isModelUnavailable('gemini-3.1-flash-lite') && isModelUnavailable('gemini-flash-latest');
+  return isModelUnavailable('gemini-3.5-flash-lite') && isModelUnavailable('gemini-3.1-flash-lite');
 }
 function handleQuotaExceeded() {
-  handleModelQuotaExceeded('gemini-3.7-flash');
+  handleModelQuotaExceeded('gemini-3.5-flash-lite');
 }
 
 /**
@@ -1587,7 +1587,7 @@ ${studentSummary}`;
       let response: any = null;
       let usedModel = '';
       let geminiDurationMs = 0;
-      const allCandidateModels = ['gemini-3.7-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+      const allCandidateModels = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
       // Sort models putting non-cooldown ones first
       const modelsToTry = [...allCandidateModels].sort((a, b) => {
         const aUnavail = isModelUnavailable(a) ? 1 : 0;
