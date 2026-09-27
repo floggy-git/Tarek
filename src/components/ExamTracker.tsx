@@ -38,7 +38,7 @@ interface ExamTrackerProps {
   lang: Language;
   lessons?: any[];
   students?: { name: string }[];
-  onRouteSaved?: (studentName: string, points: TrackedPoint[], durationSeconds: number) => void;
+  onRouteSaved?: (studentName: string, points: TrackedPoint[], durationSeconds: number, distanceKm: number) => void;
 }
 
 // Haversine helper to calculate distance between two lat/lng coordinates in km
@@ -158,7 +158,7 @@ function ExamTrackerComponent({ lang, lessons, students: enrolledStudents = [], 
     safeSetItem('rijschool_tracked_exams', JSON.stringify(updated));
 
     if (onRouteSaved) {
-      onRouteSaved(selectedStudent, finalPoints, finalDuration);
+      onRouteSaved(selectedStudent, finalPoints, finalDuration, calculateTotalDistance(finalPoints));
     }
 
     setTrackingMode('idle');

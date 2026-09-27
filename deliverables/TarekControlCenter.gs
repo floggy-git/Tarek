@@ -1109,17 +1109,16 @@ function installSheetFormButtons() {
     SHEET_FORM_BUTTONS.forEach(function(item) {
       var currentHeight = sheet.getRowHeight(item.row);
       rowHeights[item.row] = currentHeight;
-      var targetHeight = Math.max(currentHeight, item.row >= 19 ? 32 : 30);
+      var targetHeight = 32;
       var blob = Utilities.newBlob(Utilities.base64Decode(SHEET_FORM_BUTTON_PNG[item.label]), 'image/png', item.handler+'.png');
       var image = sheet.insertImage(blob, 1, item.row, 4, 1);
       created.push(image);
-      image.setWidth(width).setHeight(targetHeight-3);
+      image.setWidth(Math.min(width,270)).setHeight(29);
       image.setAltTextTitle('TAREK_FORM_BUTTON:'+item.handler).setAltTextDescription(item.label);
       image.assignScript(item.handler);
     });
     SHEET_FORM_BUTTONS.forEach(function(item) {
-      var desired = Math.max(rowHeights[item.row], item.row >= 19 ? 32 : 30);
-      if (rowHeights[item.row] < desired) sheet.setRowHeight(item.row, desired);
+      sheet.setRowHeight(item.row,32);
     });
   } catch (error) {
     created.forEach(function(image){image.remove();});
@@ -1315,15 +1314,15 @@ function tarekFormsSave(section,input){
   }finally{lock.releaseLock();}
 }
 
-/** Give the existing assigned-image sidebar buttons comfortable laptop spacing. */
+/** Compact the existing assigned-image sidebar buttons for a laptop viewport. */
 function polishDashboardButtons() {
   var sheet=SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Dashboard');
   if(!sheet)throw new Error('Dashboard sheet is missing.');
   var buttons=sheet.getImages().filter(function(image){return String(image.getAltTextTitle()||'').indexOf('TAREK_FORM_BUTTON:')===0;});
   if(!buttons.length)throw new Error('Install the sidebar buttons first.');
-  sheet.setColumnWidth(1,42);sheet.setColumnWidth(2,255);sheet.setColumnWidth(3,26);
-  sheet.setRowHeights(5,12,44);sheet.setRowHeights(19,4,44);
-  buttons.forEach(function(image){image.setWidth(307).setHeight(39);});
-  SpreadsheetApp.getActiveSpreadsheet().toast('Sidebar spacing updated for laptop.','TAREK RIJSCHOOL',4);
+  sheet.setColumnWidth(1,42);sheet.setColumnWidth(2,210);sheet.setColumnWidth(3,26);
+  sheet.setRowHeights(5,12,32);sheet.setRowHeights(19,4,32);
+  buttons.forEach(function(image){image.setWidth(270).setHeight(29);});
+  SpreadsheetApp.getActiveSpreadsheet().toast('Sidebar buttons compacted.','TAREK RIJSCHOOL',4);
   return {success:true,buttons:buttons.length};
 }

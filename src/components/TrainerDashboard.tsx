@@ -4268,7 +4268,7 @@ function TrainerDashboardComponent({
             lang={lang} 
             lessons={lessons}
             students={students}
-            onRouteSaved={(studentName, points, durationSeconds) => {
+            onRouteSaved={(studentName, points, durationSeconds, distanceKm) => {
               const prev = lessons;
               // Try to find an active lesson for this student first
               let targetIndex = prev.findIndex(l => l.studentName === studentName && l.status === 'active');
@@ -4289,7 +4289,7 @@ function TrainerDashboardComponent({
                   ...updated[targetIndex],
                   routePoints: points,
                   elapsedTime: `${Math.floor(durationSeconds / 60)}m ${durationSeconds % 60}s`,
-                  distanceKm: Number((points.length * 0.15).toFixed(2))
+                  distanceKm: Number(distanceKm.toFixed(2))
                 };
                 setLessons(updated);
               }
