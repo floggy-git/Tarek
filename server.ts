@@ -1083,6 +1083,21 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+  app.use('/api/students', (req, res, next) => {
+    const origin = req.headers.origin;
+    if (!origin) return next();
+    const allowed = [process.env.APP_URL, process.env.FRONTEND_URL].filter(Boolean).map(value => {
+      try { return new URL(String(value)).origin; } catch { return ''; }
+    });
+    if (!allowed.includes(origin)) return res.status(403).json({ success: false, error: 'Unrecognized application origin.' });
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+  });
+
   // Global In-Memory Rate Limiter for Abuse Protection
   const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
   function checkRateLimit(key: string, limit: number, windowMs: number): boolean {

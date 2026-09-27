@@ -18,6 +18,11 @@ Students sheet.
    editor access to the specific spreadsheet.
 2. Set Apps Script **Script Properties** `BACKEND_URL` (the deployed app URL)
    and `WEBHOOK_SECRET` (the exact same value as `SHEETS_WEBHOOK_SECRET`).
+   If the browser app runs on GitHub Pages, set repository variable
+   `API_BASE_URL` to the HTTPS API server origin and set its matching
+   `FRONTEND_URL` to the Pages origin. The Pages workflow builds only the
+   frontend; the server must be deployed separately before these endpoints
+   work. The student API refuses to run from Pages without this configuration.
 3. Install the single, standalone control center `.gs` file in the spreadsheet's
    bound Apps Script project, replacing the earlier standalone version. Save,
    reload the sheet, and run `installLiveSyncTrigger` once to pick up manual

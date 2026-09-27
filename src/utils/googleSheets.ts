@@ -431,7 +431,7 @@ export async function loadAuthenticatedStudent(idToken: string): Promise<Student
 }
 
 export async function loadAuthenticatedDossier(idToken: string): Promise<{student:StudentRecord;lessons:Lesson[];transactions:{id:string;studentId:string;studentName:string;date:string;type:'deposit'|'payment'|'adjustment';amount:number;description:string}[]}> {
-  const response = await fetch('/api/students/me', { headers: { Authorization: `Bearer ${idToken}` }, cache: 'no-store' });
+  const response = await fetch(studentApiUrl('/api/students/me'), { headers: { Authorization: `Bearer ${idToken}` }, cache: 'no-store' });
   if (!response.ok) throw new Error([401,403].includes(response.status) ? 'Student record inactive.' : 'Student register temporarily unavailable.');
   const result = await response.json();
   const headers = ['Student ID','Name','Email','Phone','Date of Birth','City','Current Package','Balance (€)','Exam Readiness (%)','Status','Theory Exam Status','Drive Folder ID'];
@@ -448,12 +448,20 @@ export async function loadAuthenticatedDossier(idToken: string): Promise<{studen
 }
 
 export async function registerAuthenticatedStudent(idToken: string, student: Partial<StudentRecord>): Promise<string> {
-  const response = await fetch('/api/students/register', {
+  const response = await fetch(studentApiUrl('/api/students/register'), {
     method: 'POST', headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(student)
   });
   if (!response.ok) throw new Error('Student registration could not be saved in the sheet.');
   return (await response.json()).studentId;
+}
+
+function studentApiUrl(path: string): string {
+  const base = String((import.meta as any).env?.VITE_API_BASE_URL || '').trim().replace(/\/$/, '');
+  if (typeof window !== 'undefined' && window.location.hostname.endsWith('github.io') && !base) {
+    throw new Error('Student API backend is not configured for this deployment.');
+  }
+  return base + path;
 }
 
 export async function appendStudentToGoogleSheet(config: GoogleSheetsConfig, student: StudentRecord): Promise<string> {
