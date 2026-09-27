@@ -243,7 +243,6 @@ export default function App() {
   const [resetConfirmPassword, setResetConfirmPassword] = useState('');
   const [resetErrorMsg, setResetErrorMsg] = useState('');
 
-
   // Core databases
   const [lessons, setLessons] = useState<Lesson[]>(INITIAL_LESSONS);
   const [transactions, setTransactions] = useState<WalletTransaction[]>(INITIAL_TRANSACTIONS);
