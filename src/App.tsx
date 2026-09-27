@@ -15,7 +15,7 @@ import { getSheetsConfig, loadPackagesFromGoogleSheet, writePackagesToGoogleShee
 import { syncEngine, SyncDelta } from './utils/syncEngine';
 import { isRecordForStudent, studentNamesMatch } from './utils/identity';
 import { getUnreadNotificationCount, markAllNotificationsAsRead } from './utils/notificationStore';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, deleteUser } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, deleteUser, sendPasswordResetEmail, verifyPasswordResetCode, confirmPasswordReset } from 'firebase/auth';
 import { auth as firebaseAuth } from './services/googleAuthService';
 
 // Import our custom sub-app workspaces
@@ -310,31 +310,15 @@ export default function App() {
   // Verify reset password token from URL on startup
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const tok = params.get('token');
-    const em = params.get('email');
-    if (tok && em) {
-      setResetTokenFromUrl(tok);
-      setResetEmailFromUrl(em);
+    const code = params.get('oobCode');
+    if (params.get('mode') === 'resetPassword' && code) {
+      setResetTokenFromUrl(code);
       setResetPasswordStatus('verifying');
-      
-      const config = getSheetsConfig();
-      fetch(`/api/verify-reset-token?email=${encodeURIComponent(em)}&token=${tok}&spreadsheetId=${encodeURIComponent(config.spreadsheetId || '')}&accessToken=${encodeURIComponent(config.accessToken || '')}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.valid) {
-            setResetPasswordStatus('valid');
-          } else {
-            setResetPasswordStatus('invalid');
-            setResetErrorMsg(
-              data.error === 'expired' 
-                ? (lang === 'ar' ? 'انتهت صلاحية رابط إعادة التعيين.' : lang === 'nl' ? 'De resetlink is verlopen.' : 'The reset link has expired.')
-                : (lang === 'ar' ? 'رابط إعادة التعيين غير صالح.' : lang === 'nl' ? 'De resetlink is ongeldig.' : 'The reset link is invalid.')
-            );
-          }
-        })
+      verifyPasswordResetCode(firebaseAuth, code)
+        .then(email => { setResetEmailFromUrl(email); setResetPasswordStatus('valid'); })
         .catch(() => {
           setResetPasswordStatus('invalid');
-          setResetErrorMsg(lang === 'ar' ? 'حدث خطأ أثناء التحقق من الرابط.' : lang === 'nl' ? 'Er is een fout opgetreden bij het controleren van de link.' : 'An error occurred while verifying the link.');
+          setResetErrorMsg(lang === 'ar' ? 'رابط إعادة التعيين غير صالح أو منتهي الصلاحية.' : lang === 'nl' ? 'De resetlink is ongeldig of verlopen.' : 'The reset link is invalid or expired.');
         });
     }
   }, [lang]);
@@ -422,12 +406,8 @@ export default function App() {
           else if (stId.includes('AND-SANNE')) stId = 'ST-000002';
           else if (stId.includes('AND-MICHAEL')) stId = 'ST-000003';
           else if (!stId.startsWith('ST-')) stId = `ST-${String(idx + 1).padStart(6, '0')}`;
-          return {
-            ...s,
-            id: stId,
-            studentId: stId,
-            password: s.password || ''
-          };
+          const { password: _discardLegacyPassword, ...safeStudent } = s;
+          return { ...safeStudent, id: stId, studentId: stId };
         });
       }
     } catch (e) {
@@ -1489,40 +1469,15 @@ export default function App() {
       return;
     }
 
-    // Check account existence
-    const matchedStudent = students.find(s => s.email?.toLowerCase() === cleanEmail);
-    const trainerEmailSetting = schoolSettings?.email?.toLowerCase() || 'trainer@drivingschool.nl';
-    const isTrainerEmail = cleanEmail === trainerEmailSetting || cleanEmail === 'samir@al-andalos.nl';
-    
-    if (!matchedStudent && !isTrainerEmail) {
-      setForgotPasswordStatus('error');
-      setForgotPasswordMessage(FORGOT_PASSWORD_T[lang].errNotFound);
-      return;
-    }
-
     setForgotPasswordStatus('submitting');
-
     try {
-      const config = getSheetsConfig();
-      const response = await fetch('/api/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: cleanEmail,
-          lang: lang,
-          spreadsheetId: config.spreadsheetId,
-          accessToken: config.accessToken
-        })
-      });
-
-      const result = await response.json();
-      if (result.success) {
-        setForgotPasswordStatus('success');
-      } else {
-        throw new Error(result.error || "API call failed");
-      }
+      // Firebase sends a one-time link to the registered mailbox. The owner
+      // chooses the new password; it is never copied into Sheets or email.
+      firebaseAuth.languageCode = lang === 'ar' ? 'ar' : lang === 'nl' ? 'nl' : 'en';
+      await sendPasswordResetEmail(firebaseAuth, cleanEmail);
+      setForgotPasswordStatus('success');
     } catch (err) {
-      console.error("Forgot password flow error:", err);
+      console.error('Forgot password flow error:', err);
       setForgotPasswordStatus('error');
       setForgotPasswordMessage(FORGOT_PASSWORD_T[lang].errSendFailed);
     }
@@ -1557,91 +1512,11 @@ export default function App() {
     setResetPasswordStatus('submitting');
 
     try {
-      const config = getSheetsConfig();
-      const response = await fetch('/api/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: resetEmailFromUrl,
-          token: resetTokenFromUrl,
-          newPassword: resetNewPassword,
-          spreadsheetId: config.spreadsheetId,
-          accessToken: config.accessToken
-        })
-      });
-
-      const result = await response.json();
-      if (result.success && result.hashedPassword) {
-        // Record Audit Log for Password Reset
-        const matchedStudent = students.find(s => s.email?.toLowerCase() === resetEmailFromUrl?.toLowerCase());
-        
-        let logUserId = 'N/A';
-        let logUserName = resetEmailFromUrl || 'Unknown User';
-        let logUserRole = 'Student';
-
-        if (matchedStudent) {
-          logUserId = matchedStudent.id || 'N/A';
-          logUserName = matchedStudent.name || matchedStudent.email || 'N/A';
-          logUserRole = 'Student';
-        } else {
-          const isTrainer = resetEmailFromUrl?.toLowerCase() === 'samir@al-andalos.nl' || (schoolSettings?.email && schoolSettings.email.toLowerCase() === resetEmailFromUrl?.toLowerCase());
-          if (isTrainer) {
-            logUserId = 'trainer-samir';
-            logUserName = schoolSettings?.instructorName || 'Instructeur Samir';
-            logUserRole = 'Trainer';
-          } else {
-            logUserId = 'unknown';
-            logUserName = resetEmailFromUrl || 'Unknown';
-            logUserRole = 'Student';
-          }
-        }
-
-        const ipAddress = await fetchClientIpAddress();
-        const now = new Date();
-        const dateStr = now.toISOString().split('T')[0];
-        const timeStr = now.toTimeString().split(' ')[0];
-        const timeZoneStr = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Unknown';
-        const auditId = 'AUD-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7).toUpperCase();
-
-        const auditEntry: AuditLogEntry = {
-          auditId: auditId,
-          userId: logUserId,
-          userName: logUserName,
-          userRole: logUserRole,
-          action: 'Password Changed',
-          changedBy: 'Self',
-          date: dateStr,
-          time: timeStr,
-          timeZone: timeZoneStr,
-          ipAddress,
-          deviceBrowser: navigator.userAgent || 'Unknown'
-        };
-
-        if (config.spreadsheetId && config.accessToken) {
-          try {
-            await writeAuditLogToGoogleSheet(config, auditEntry);
-          } catch (auditErr) {
-            console.error("Failed to write password reset audit log to sheets:", auditErr);
-          }
-        }
-
-        // Update local React state for students with the hashed password returned by server
-        setStudents(prevStudents => {
-          const updated = prevStudents.map(student => {
-            if (student.email?.toLowerCase() === resetEmailFromUrl?.toLowerCase()) {
-              return { ...student, password: result.hashedPassword };
-            }
-            return student;
-          });
-          return updated;
-        });
-
-        setResetPasswordStatus('success');
-        setResetNewPassword('');
-        setResetConfirmPassword('');
-      } else {
-        throw new Error(result.error || 'Reset failed');
-      }
+      if (!resetTokenFromUrl) throw new Error('Password reset code is missing.');
+      await confirmPasswordReset(firebaseAuth, resetTokenFromUrl, resetNewPassword);
+      setResetPasswordStatus('success');
+      setResetNewPassword('');
+      setResetConfirmPassword('');
     } catch (err) {
       console.error('Password reset submit error:', err);
       setResetPasswordStatus('valid');

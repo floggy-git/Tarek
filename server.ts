@@ -2071,6 +2071,8 @@ ${studentSummary}`;
   });
 
   app.post('/api/forgot-password', async (req, res) => {
+    // Retired: this legacy flow did not change the Firebase sign-in password.
+    return res.status(410).json({ success: false, error: 'Use Firebase password reset.' });
     const clientIp = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown');
     if (!checkRateLimit(`forgot:${clientIp}`, 5, 60000)) {
       return res.status(429).json({ error: 'Too many password reset requests. Please wait a minute.' });
@@ -2196,6 +2198,7 @@ ${studentSummary}`;
   });
 
   app.get('/api/verify-reset-token', async (req, res) => {
+    return res.status(410).json({ valid: false, error: 'Use Firebase password reset.' });
     const { email, token, spreadsheetId, accessToken } = req.query;
     if (!email || !token) {
       return res.status(400).json({ valid: false, error: 'missing_params' });
@@ -2242,6 +2245,7 @@ ${studentSummary}`;
   });
 
   app.post('/api/reset-password', async (req, res) => {
+    return res.status(410).json({ success: false, error: 'Use Firebase password reset.' });
     const clientIp = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown');
     if (!checkRateLimit(`reset:${clientIp}`, 10, 60000)) {
       return res.status(429).json({ success: false, error: 'Too many requests. Please wait a moment.' });

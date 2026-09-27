@@ -3,6 +3,11 @@
 The **Students** sheet is the source of record. Firebase Authentication checks
 passwords and holds the login account. A row in the sheet alone does not create
 a Firebase account; the installed sheet form provisions both. The application
+stores the student's name and profile in the sheet; it never writes the password
+into a student row or sends a new password through email. The existing forgot
+password screen emails a one-time Firebase reset link, where the student chooses
+their new password. The old local reset endpoints are retired.
+The application
 reads an authenticated student's row, lessons, and wallet from its own server
 every 10 seconds and checks the sheet again at login. Admin student edits use
 targeted row writes. Old browser state is never published over the entire
