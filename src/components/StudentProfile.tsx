@@ -5,9 +5,9 @@ import {
   FileText, CalendarX, CalendarCheck, Clock, Inbox, MessageSquare, ChevronDown,
   CreditCard, Package as PackageIcon, Check, Info
 } from 'lucide-react';
-import bcrypt from 'bcryptjs';
-import { getSheetsConfig, writeStudentsToGoogleSheet, writeAuditLogToGoogleSheet, fetchClientIpAddress } from '../utils/googleSheets';
-import { TRANSLATIONS, Language, AchievementBadge, Lesson, StudentRecord, AuditLogEntry, SchoolSettings, getSchoolName, WalletTransaction, DrivePackage } from '../types';
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
+import { auth as firebaseAuth } from '../services/googleAuthService';
+import { TRANSLATIONS, Language, AchievementBadge, Lesson, StudentRecord, SchoolSettings, getSchoolName, WalletTransaction, DrivePackage } from '../types';
 import { getStudentPhoto, saveStudentPhoto, getStudentInitials, deleteStudentPhoto, compressImage, getTrainerPhoto } from '../utils/studentPhoto';
 import { getPersistentStudentHistory, markAllNotificationsAsRead, AppNotification } from '../utils/notificationStore';
 import { isRecordForStudent } from '../utils/identity';
@@ -219,79 +219,15 @@ function StudentProfileComponent({
       return;
     }
 
-    // Verify current password
-    const storedPassword = currentStudentRec.password || 'student123';
-    let isPasswordCorrect = false;
-    try {
-      if (storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$')) {
-        isPasswordCorrect = bcrypt.compareSync(oldPassword, storedPassword);
-      } else {
-        isPasswordCorrect = oldPassword === storedPassword;
-      }
-    } catch (err) {
-      console.error("Password verification error:", err);
-      isPasswordCorrect = oldPassword === storedPassword;
-    }
-
-    if (!isPasswordCorrect) {
-      setPasswordError(
-        lang === 'ar' 
-          ? 'كلمة المرور الحالية غير صحيحة.' 
-          : lang === 'nl' 
-          ? 'Huidig wachtwoord is onjuist.' 
-          : 'Current password is incorrect.'
-      );
-      return;
-    }
-
     setIsSavingPassword(true);
 
     try {
-      // Hash new password using bcrypt
-      const newHashedPassword = bcrypt.hashSync(newPassword, 10);
-
-      // Create updated students list
-      const updatedStudents = (students || []).map(s => {
-        if (s.email?.toLowerCase() === currentUser?.email?.toLowerCase() || s.name?.toLowerCase() === currentUser?.name?.toLowerCase()) {
-          return { ...s, password: newHashedPassword };
-        }
-        return s;
-      });
-
-      const config = getSheetsConfig();
-      if (config.spreadsheetId && config.accessToken) {
-        try {
-          const ipAddress = await fetchClientIpAddress();
-          const now = new Date();
-          const dateStr = now.toISOString().split('T')[0];
-          const timeStr = now.toTimeString().split(' ')[0];
-          const timeZoneStr = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Unknown';
-          const auditId = 'AUD-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7).toUpperCase();
-
-          const auditLogEntry: AuditLogEntry = {
-            auditId: auditId,
-            userId: currentStudentRec.id || 'N/A',
-            userName: currentStudentRec.name || 'N/A',
-            userRole: 'Student',
-            action: 'Password Changed',
-            changedBy: 'Self',
-            date: dateStr,
-            time: timeStr,
-            timeZone: timeZoneStr,
-            ipAddress: ipAddress,
-            deviceBrowser: navigator.userAgent || 'Unknown'
-          };
-
-          await writeStudentsToGoogleSheet(config, updatedStudents);
-          await writeAuditLogToGoogleSheet(config, auditLogEntry);
-        } catch (e) {
-          console.error("Background sync failed for password change:", e);
-        }
+      const authenticatedUser = firebaseAuth.currentUser;
+      if (!authenticatedUser?.email || authenticatedUser.email.toLowerCase() !== currentStudentRec.email?.toLowerCase()) {
+        throw new Error('Student identity is not authenticated');
       }
-
-      if (setStudents) {
-        setStudents(updatedStudents);
-      }
+      await reauthenticateWithCredential(authenticatedUser, EmailAuthProvider.credential(authenticatedUser.email, oldPassword));
+      await updatePassword(authenticatedUser, newPassword);
 
       setPassSuccess(true);
       setOldPassword('');

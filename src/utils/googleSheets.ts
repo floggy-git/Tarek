@@ -425,6 +425,67 @@ export async function loadStudentsFromGoogleSheet(config: GoogleSheetsConfig): P
   return parseSheetRowsToStudents(data.values);
 }
 
+/** Read one authenticated student from the server's authoritative sheet access. */
+export async function loadAuthenticatedStudent(idToken: string): Promise<StudentRecord> {
+  return (await loadAuthenticatedDossier(idToken)).student;
+}
+
+export async function loadAuthenticatedDossier(idToken: string): Promise<{student:StudentRecord;lessons:Lesson[];transactions:{id:string;studentId:string;studentName:string;date:string;type:'deposit'|'payment'|'adjustment';amount:number;description:string}[]}> {
+  const response = await fetch('/api/students/me', { headers: { Authorization: `Bearer ${idToken}` }, cache: 'no-store' });
+  if (!response.ok) throw new Error([401,403].includes(response.status) ? 'Student record inactive.' : 'Student register temporarily unavailable.');
+  const result = await response.json();
+  const headers = ['Student ID','Name','Email','Phone','Date of Birth','City','Current Package','Balance (€)','Exam Readiness (%)','Status','Theory Exam Status','Drive Folder ID'];
+  const student = parseSheetRowsToStudents([headers, headers.map(h => result.student[h] ?? '')])[0];
+  const wallet = result.wallet || [];
+  const head = wallet[0] || [], index = (h:string) => head.indexOf(h);
+  const transactions = wallet.slice(1).map((row:string[]) => ({
+    id: String(row[index('Transaction ID')] || ''), studentId: student.id,
+    studentName: student.name, date: String(row[index('Date')] || ''),
+    type: String(row[index('Type')] || 'deposit') as 'deposit'|'payment'|'adjustment',
+    amount: Number(row[index('Amount (€)')] || 0), description: String(row[index('Description')] || '')
+  }));
+  return { student, lessons: parseSheetRowsToLessons(result.lessons || []), transactions };
+}
+
+export async function registerAuthenticatedStudent(idToken: string, student: Partial<StudentRecord>): Promise<string> {
+  const response = await fetch('/api/students/register', {
+    method: 'POST', headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(student)
+  });
+  if (!response.ok) throw new Error('Student registration could not be saved in the sheet.');
+  return (await response.json()).studentId;
+}
+
+export async function appendStudentToGoogleSheet(config: GoogleSheetsConfig, student: StudentRecord): Promise<string> {
+  if (!config.accessToken) throw new Error('Google administrator access is required.');
+  const current = await loadStudentsFromGoogleSheet(config);
+  const email = String(student.email || '').trim().toLowerCase();
+  if (current.some(s => s.email.toLowerCase() === email)) throw new Error('Student email already exists.');
+  const next = current.reduce((n, s) => Math.max(n, Number(/^ST-(\d{6})$/.exec(s.id)?.[1] || 0)), 0) + 1;
+  const id = `ST-${String(next).padStart(6, '0')}`;
+  const sheetId = config.spreadsheetId;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent('Students!A:L')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+  const values = convertStudentsToSheetRows([{ ...student, id, studentId: id }])[1];
+  const response = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${config.accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ values: [values] }) });
+  if (!response.ok) throw new Error(`Student create failed (${response.status}).`);
+  return id;
+}
+
+export async function appendWalletAdjustmentToGoogleSheet(config: GoogleSheetsConfig, transaction: {id:string;studentId:string;studentName:string;date:string;type:string;amount:number;description:string}, newBalance:number): Promise<void> {
+  if(!config.accessToken)throw new Error('Google administrator access is required.');
+  const base=`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(config.spreadsheetId)}/values/`;
+  const headers={ Authorization:`Bearer ${config.accessToken}`,'Content-Type':'application/json' };
+  const appended=await fetch(base+encodeURIComponent('Wallet!A:I')+':append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',{
+    method:'POST',headers,body:JSON.stringify({values:[[transaction.id,transaction.studentId,sanitizeSpreadsheetCell(transaction.studentName),transaction.date,transaction.type,transaction.amount,sanitizeSpreadsheetCell(transaction.description),'','']]})
+  });
+  if(!appended.ok)throw new Error('Wallet transaction could not be saved.');
+  const range=(await appended.json()).updates?.updatedRange;
+  if(!await patchStudentInGoogleSheet(transaction.studentId,{balance:newBalance},config)){
+    if(range)await fetch(base+encodeURIComponent(range)+':clear',{method:'POST',headers,body:'{}'});
+    throw new Error('Student balance could not be updated; wallet transaction was rolled back.');
+  }
+}
+
 /**
  * Writes the student records array to the 'Students' sheet tab.
  */
@@ -1957,6 +2018,3 @@ export async function writeHelpItemsToGoogleSheet(config: GoogleSheetsConfig, it
     throw new Error(`Google Sheets Help Write Error: ${response.status} ${response.statusText} - ${errorDetails}`);
   }
 }
-
-
-

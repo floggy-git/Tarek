@@ -2,11 +2,8 @@ import React, { useState } from 'react';
 import {
   Users,
   Search,
-  Plus,
   ArrowDownToLine,
-  ArrowUpFromLine,
   RefreshCw,
-  KeyRound,
   CheckCircle2,
   AlertCircle,
   X,
@@ -16,8 +13,8 @@ import {
 import { StudentRecord, DrivePackage } from '../../types';
 import { AdminLang, ADMIN_I18N } from './types';
 import { recordAdminAuditLog } from '../../utils/adminAuditLogger';
-import { syncStudentsFromSheet, writeStudentsToSheet } from '../../services/googleSheetsService';
-import bcrypt from 'bcryptjs';
+import { syncStudentsFromSheet } from '../../services/googleSheetsService';
+import { getSheetsConfig, patchStudentInGoogleSheet, loadStudentsFromGoogleSheet, appendStudentToGoogleSheet } from '../../utils/googleSheets';
 
 interface AdminStudentsViewProps {
   lang: AdminLang;
@@ -41,8 +38,6 @@ export default function AdminStudentsView({
   const [selectedStudent, setSelectedStudent] = useState<StudentRecord | null>(null);
   const [isNewStudent, setIsNewStudent] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [newPasswordInput, setNewPasswordInput] = useState('');
-  const [passwordResetSuccess, setPasswordResetSuccess] = useState(false);
 
   const t = ADMIN_I18N[lang];
 
@@ -66,8 +61,6 @@ export default function AdminStudentsView({
   const handleOpenEdit = (student: StudentRecord) => {
     setSelectedStudent({ ...student });
     setIsNewStudent(false);
-    setNewPasswordInput('');
-    setPasswordResetSuccess(false);
   };
 
   const handleOpenNew = () => {
@@ -87,13 +80,15 @@ export default function AdminStudentsView({
       theoryExamStatus: 'Passed'
     });
     setIsNewStudent(true);
-    setNewPasswordInput('');
-    setPasswordResetSuccess(false);
   };
 
   const handleSaveStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudent) return;
+    if (isNewStudent) {
+      onShowMessage(lang === 'ar' ? 'أنشئ الطالب من فورم الشيت حتى يُنشأ حساب Firebase معه.' : 'Create students from the sheet form so their Firebase account is provisioned.', true);
+      return;
+    }
 
     if (!selectedStudent.name || !selectedStudent.email) {
       onShowMessage(lang === 'ar' ? 'يرجى إدخال اسم الطالب وبريده الإلكتروني' : 'Name and email are required.', true);
@@ -101,19 +96,12 @@ export default function AdminStudentsView({
     }
 
     const prevStudent = students.find(s => s.id === selectedStudent.id);
+    if (prevStudent?.email?.toLowerCase() !== selectedStudent.email?.toLowerCase()) {
+      onShowMessage(lang === 'ar' ? 'غيّر البريد أو كلمة المرور من فورم الطالب في الشيت لمزامنة Firebase.' : 'Change email or password from the student sheet form to sync Firebase.', true);
+      return;
+    }
     let updatedStudent = { ...selectedStudent };
 
-    // If new password is provided, securely hash it with bcrypt before persisting
-    if (newPasswordInput.trim()) {
-      try {
-        const salt = bcrypt.genSaltSync(10);
-        const hash = bcrypt.hashSync(newPasswordInput.trim(), salt);
-        updatedStudent.password = hash;
-        setPasswordResetSuccess(true);
-      } catch (err) {
-        console.error('Password hash error:', err);
-      }
-    }
 
     let nextStudentsList: StudentRecord[];
     if (isNewStudent) {
@@ -122,7 +110,22 @@ export default function AdminStudentsView({
       nextStudentsList = students.map(s => (s.id === updatedStudent.id ? updatedStudent : s));
     }
 
-    setStudents(nextStudentsList);
+    try {
+      const config = getSheetsConfig();
+      if (!config.accessToken) throw new Error('Google Sheets administrator access is required to save a student.');
+      if (isNewStudent) {
+        const createdId = await appendStudentToGoogleSheet(config, updatedStudent);
+        updatedStudent = { ...updatedStudent, id: createdId, studentId: createdId };
+        nextStudentsList = [updatedStudent, ...students];
+      } else if (!await patchStudentInGoogleSheet(updatedStudent.id, updatedStudent, config)) {
+        throw new Error('Student row could not be updated in Google Sheets.');
+      }
+      const latest = await loadStudentsFromGoogleSheet(config);
+      setStudents(latest);
+    } catch (err: any) {
+      onShowMessage(err.message || 'Could not save the student in Google Sheets.', true);
+      return;
+    }
     try {
       localStorage.setItem('drivingschool_students', JSON.stringify(nextStudentsList));
     } catch (e) {
@@ -134,7 +137,7 @@ export default function AdminStudentsView({
       action: isNewStudent ? 'Student Created' : 'Student Updated',
       targetRecord: `Student ID: ${updatedStudent.id} (${updatedStudent.name})`,
       previousValue: prevStudent ? `Status: ${prevStudent.status}, Balance: €${prevStudent.balance}` : 'None',
-      newValue: `Status: ${updatedStudent.status}, Balance: €${updatedStudent.balance}, Readiness: ${updatedStudent.readiness}%${newPasswordInput ? ', Password Reset' : ''}`,
+      newValue: `Status: ${updatedStudent.status}, Balance: €${updatedStudent.balance}, Readiness: ${updatedStudent.readiness}%`,
       changedBy: 'Admin Control Center',
       studentId: updatedStudent.id,
       source: 'Admin Portal'
@@ -176,31 +179,6 @@ export default function AdminStudentsView({
     }
   };
 
-  const handlePushToSheet = async () => {
-    setIsSyncing(true);
-    try {
-      const res = await writeStudentsToSheet(spreadsheetId, students);
-      if (res.success) {
-        await recordAdminAuditLog({
-          action: 'Students Pushed to Sheet',
-          targetRecord: 'Tab: Students',
-          newValue: `${students.length} records written`,
-          source: 'Control Center'
-        });
-        onShowMessage(
-          lang === 'ar'
-            ? `تم تصدير ${students.length} متدرب إلى Google Sheets بنجاح`
-            : `Pushed ${students.length} students to Google Sheets.`
-        );
-      } else {
-        onShowMessage(res.error || 'Failed to write students.', true);
-      }
-    } catch (err: any) {
-      onShowMessage(err.message || 'Error writing students.', true);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   return (
     <div className="space-y-4">
@@ -240,22 +218,6 @@ export default function AdminStudentsView({
             <span>{t.actions.syncFromSheet}</span>
           </button>
 
-          <button
-            onClick={handlePushToSheet}
-            disabled={isSyncing}
-            className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-          >
-            <ArrowUpFromLine size={14} />
-            <span>{t.actions.syncToSheet}</span>
-          </button>
-
-          <button
-            onClick={handleOpenNew}
-            className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus size={14} />
-            <span>{t.actions.add}</span>
-          </button>
         </div>
       </div>
 
@@ -497,33 +459,7 @@ export default function AdminStudentsView({
                 </div>
               </div>
 
-              {/* Safe Password Reset Box */}
-              <div className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 space-y-2">
-                <div className="flex items-center gap-1.5 text-slate-700 dark:text-zinc-200 font-bold">
-                  <KeyRound size={14} className="text-amber-500" />
-                  <span>{lang === 'ar' ? 'إعادة تعيين كلمة المرور الآمنة' : 'Secure Password Reset'}</span>
-                </div>
-                <p className="text-[11px] text-slate-500">
-                  {lang === 'ar'
-                    ? 'سيتم تشفير كلمة المرور فوراً بـ bcrypt دون كشفها في السجلات أو التبويبات.'
-                    : 'The password is encrypted immediately with bcrypt; credentials remain private.'}
-                </p>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="password"
-                    placeholder={lang === 'ar' ? 'أدخل كلمة مرور جديدة (اختياري)...' : 'Enter new password (optional)...'}
-                    value={newPasswordInput}
-                    onChange={e => setNewPasswordInput(e.target.value)}
-                    className="flex-1 px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-xs"
-                  />
-                  {passwordResetSuccess && (
-                    <span className="text-emerald-600 font-bold text-[11px] flex items-center gap-1">
-                      <Check size={13} />
-                      {lang === 'ar' ? 'تم الضبط' : 'Reset'}
-                    </span>
-                  )}
-                </div>
-              </div>
+              <p className="text-[11px] text-slate-500">{lang === 'ar' ? 'لتغيير البريد أو كلمة المرور استخدم فورم الطالب داخل الشيت.' : 'Use the student form in the sheet to change email or password.'}</p>
 
               <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex justify-end gap-2">
                 <button

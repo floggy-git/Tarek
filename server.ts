@@ -5,6 +5,7 @@ import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
+import { deleteFirebaseStudentByEmail, createFirebaseStudent, resetFirebaseStudentPassword, syncFirebaseStudent, verifySheetRequest, getSheetStudents, getSheetRows, verifyStudentIdToken, appendSheetStudent, wasStudentDeleted, recordDeletedStudent, removeDeletedStudent } from './src/server/studentAuthAdmin.ts';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import { retrieveGroundedKnowledge, retrieveGroundedKnowledgeAsync, isPromptInjectionAttempt, sanitizeAndFormatAIResponse } from './src/services/aiKnowledgeEngine.ts';
@@ -2378,6 +2379,126 @@ ${studentSummary}`;
   const SHEETS_WEBHOOK_SECRET = process.env.SHEETS_WEBHOOK_SECRET || '';
   const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY || '';
 
+  app.get('/api/students/me', async (req, res) => {
+    try {
+      const idToken = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+      const email = await verifyStudentIdToken(idToken);
+      if (await wasStudentDeleted(email)) return res.status(403).json({success:false,error:'Student was permanently deleted.'});
+      const values = await getSheetStudents();
+      const headers = (values[0] || []).map((v: string) => String(v).trim());
+      const emailColumn = headers.indexOf('Email'), statusColumn = headers.indexOf('Status');
+      if (emailColumn < 0 || statusColumn < 0) throw new Error('Students sheet schema mismatch.');
+      const row = values.slice(1).find((r: string[]) => String(r[emailColumn] || '').toLowerCase() === email);
+      if (!row || String(row[statusColumn] || '').toLowerCase() !== 'active') return res.status(403).json({ success: false, error: 'Student is not active in the school register.' });
+      const id = String(row[headers.indexOf('Student ID')] || '');
+      const related = await Promise.all(['Lessons!A1:M','Wallet!A1:I'].map(range => getSheetRows(range)));
+      const filtered = related.map(values => {
+        const columns = values[0] || [], sid = columns.indexOf('Student ID');
+        if (sid < 0) throw new Error('Linked sheet is missing Student ID.');
+        return [columns, ...values.slice(1).filter(r => String(r[sid] || '') === id)];
+      });
+      return res.json({ success: true, student: Object.fromEntries(headers.map((header: string, i: number) => [header, row[i] || ''])), lessons: filtered[0], wallet: filtered[1] });
+    } catch (err: any) {
+      return res.status(err.message === 'Invalid Firebase session.' ? 401 : 503).json({ success: false, error: err.message });
+    }
+  });
+
+  let registrationQueue = Promise.resolve();
+  app.post('/api/students/register', express.json({ limit: '8kb' }), async (req, res) => {
+    const idToken = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    try {
+      const email = await verifyStudentIdToken(idToken);
+      if (await wasStudentDeleted(email)) return res.status(403).json({success:false,error:'This account cannot be registered again.'});
+      const name = String(req.body?.name || '').trim().slice(0, 100);
+      if (!name) return res.status(400).json({ success: false, error: 'Student name is required.' });
+      const result = await new Promise<string>((resolve, reject) => {
+        registrationQueue = registrationQueue.then(async () => {
+          const values = await getSheetStudents();
+          const headers = (values[0] || []).map((v: string) => String(v).trim());
+          if (headers[0] !== 'Student ID' || headers[2] !== 'Email') throw new Error('Students sheet schema mismatch.');
+          const existing = values.slice(1).find((r: string[]) => String(r[2] || '').toLowerCase() === email);
+          if (existing) return String(existing[0]);
+          const next = values.slice(1).reduce((n: number, r: string[]) => Math.max(n, Number(/^ST-(\d{6})$/.exec(String(r[0] || ''))?.[1] || 0)), 0) + 1;
+          const studentId = `ST-${String(next).padStart(6, '0')}`;
+          const clean = (v: unknown) => { const t = String(v || '').trim().slice(0, 300); return /^[=+@-]/.test(t) ? "'" + t : t; };
+          await appendSheetStudent([studentId, clean(name), email, clean(req.body?.phone), clean(req.body?.dob), clean(req.body?.city), clean(req.body?.currentPackage), 0, 0, 'active', clean(req.body?.theoryExamStatus), '']);
+          return studentId;
+        }).then(resolve, reject).then(() => {}, () => {});
+      });
+      return res.json({ success: true, studentId: result });
+    } catch (err: any) {
+      return res.status(503).json({ success: false, error: err.message });
+    }
+  });
+
+  // Called only by the bound spreadsheet script before its irreversible row
+  // deletion. The shared secret is never delivered to a browser.
+  app.post('/api/admin/delete-student-auth', express.json({ limit: '8kb', verify: (req: any, _res, buf) => { req.rawBody = buf.toString(); } }), async (req, res) => {
+    const raw = (req as any).rawBody || '';
+    if (!verifySheetRequest(SHEETS_WEBHOOK_SECRET, String(req.headers['x-sheets-timestamp'] || ''), String(req.headers['x-sheets-signature'] || ''), raw)) {
+      return res.status(403).json({ success: false, error: 'Invalid spreadsheet signature.' });
+    }
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const studentId = String(req.body?.studentId || '').trim();
+    if (!/^ST-\d{6}$/.test(studentId) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, error: 'Invalid student account.' });
+    }
+    try {
+      const registered = await getSheetStudents();
+      const cols = (registered[0] || []).map((v: string) => String(v).trim());
+      const idCol = cols.indexOf('Student ID'), emailCol = cols.indexOf('Email');
+      if (idCol < 0 || emailCol < 0 || registered.slice(1).filter((row: string[]) =>
+        String(row[idCol] || '').trim() === studentId && String(row[emailCol] || '').trim().toLowerCase() === email
+      ).length !== 1) {
+        return res.status(409).json({ success: false, error: 'Student ID and email do not identify one registered student.' });
+      }
+      await recordDeletedStudent(email);
+      let state: 'deleted' | 'missing';
+      try { state = await deleteFirebaseStudentByEmail(email); }
+      catch (error) { await removeDeletedStudent(email); throw error; }
+      return res.json({ success: true, state, studentId });
+    } catch (err: any) {
+      return res.status(503).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/admin/create-student-auth', express.json({ limit: '8kb', verify: (req: any, _res, buf) => { req.rawBody = buf.toString(); } }), async (req, res) => {
+    if (!verifySheetRequest(SHEETS_WEBHOOK_SECRET, String(req.headers['x-sheets-timestamp'] || ''), String(req.headers['x-sheets-signature'] || ''), (req as any).rawBody || '')) {
+      return res.status(403).json({ success: false, error: 'Invalid spreadsheet signature.' });
+    }
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const name = String(req.body?.name || '').trim();
+    const password = String(req.body?.password || '');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !name || password.length < 6 || password.length > 128) {
+      return res.status(400).json({ success: false, error: 'Invalid student credentials.' });
+    }
+    try {
+      if (await wasStudentDeleted(email)) return res.status(403).json({success:false,error:'This account cannot be registered again.'});
+      await createFirebaseStudent(email, name, password);
+      return res.json({ success: true });
+    } catch (err: any) {
+      return res.status(503).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/admin/reset-student-password', express.json({ limit: '8kb', verify: (req: any, _res, buf) => { req.rawBody = buf.toString(); } }), async (req, res) => {
+    if (!verifySheetRequest(SHEETS_WEBHOOK_SECRET, String(req.headers['x-sheets-timestamp'] || ''), String(req.headers['x-sheets-signature'] || ''), (req as any).rawBody || '')) {
+      return res.status(403).json({ success: false, error: 'Invalid spreadsheet signature.' });
+    }
+    const email = String(req.body?.email || '').trim().toLowerCase(), password = String(req.body?.password || '');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 6 || password.length > 128) return res.status(400).json({ success: false, error: 'Invalid credentials.' });
+    try { await resetFirebaseStudentPassword(email,password); return res.json({ success:true }); }
+    catch(err:any){ return res.status(503).json({ success:false,error:err.message }); }
+  });
+
+  app.post('/api/admin/sync-student-auth', express.json({ limit: '8kb', verify: (req: any, _res, buf) => { req.rawBody = buf.toString(); } }), async (req, res) => {
+    if (!verifySheetRequest(SHEETS_WEBHOOK_SECRET, String(req.headers['x-sheets-timestamp'] || ''), String(req.headers['x-sheets-signature'] || ''), (req as any).rawBody || '')) return res.status(403).json({success:false,error:'Invalid spreadsheet signature.'});
+    const oldEmail=String(req.body?.oldEmail||'').trim().toLowerCase(),email=String(req.body?.email||'').trim().toLowerCase(),name=String(req.body?.name||'').trim(),password=String(req.body?.password||'');
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(oldEmail)||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!name||password.length>128)return res.status(400).json({success:false,error:'Invalid identity update.'});
+    try{await syncFirebaseStudent(oldEmail,email,name,password||undefined);return res.json({success:true});}
+    catch(err:any){return res.status(503).json({success:false,error:err.message});}
+  });
+
   // Strict Administrator Role & Secret Authentication Middleware
   const requireAdminAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const authHeader = req.headers.authorization;
@@ -2461,7 +2582,11 @@ ${studentSummary}`;
       recentSyncDeltas.shift();
     }
 
-    const payload = `data: ${JSON.stringify(delta)}\n\n`;
+      // The SSE stream currently has no verified identity. Broadcast only an
+      // invalidation for student records; the client fetches details through
+      // its authenticated sheet endpoint.
+      const outbound = delta.entityType === 'STUDENT' ? { ...delta, data: null } : delta;
+      const payload = `data: ${JSON.stringify(outbound)}\n\n`;
     let deliveredCount = 0;
 
     sseClients.forEach((client, connectionId) => {
@@ -2556,6 +2681,9 @@ ${studentSummary}`;
       if (!delta || !delta.entityType || !delta.entityId) {
         return res.status(400).json({ success: false, error: 'Invalid delta payload structure' });
       }
+      if (delta.entityType === 'STUDENT') {
+        return res.status(403).json({ success: false, error: 'Student changes must come from the signed spreadsheet webhook.' });
+      }
 
       delta.updatedAt = delta.updatedAt || Date.now();
       delta.syncId = delta.syncId || `sync-${delta.updatedAt}-${Math.random().toString(36).substring(2, 7)}`;
@@ -2584,6 +2712,7 @@ ${studentSummary}`;
       }
 
       const signature = String(req.headers['x-sheets-signature'] || req.headers['x-hub-signature-256'] || '');
+      if (!SHEETS_WEBHOOK_SECRET) return res.status(503).json({ success: false, error: 'Sheet webhook is not configured.' });
       const timestampHeader = String(req.headers['x-sheets-timestamp'] || '');
       const eventId = String(req.headers['x-sheets-event-id'] || req.body?.syncId || '');
 
@@ -2660,6 +2789,23 @@ ${studentSummary}`;
       }
 
       const safeEntityId = String(entityId || studentId || `entity-${Date.now()}`).substring(0, 128);
+      let normalizedData = rowData || body;
+      if (sheetName === 'Students' && changeType !== 'DELETE_ROW' && changeType !== 'REMOVE_ROW') {
+        const row = Array.isArray(rowData) ? {
+          'Student ID': rowData[0], Name: rowData[1], Email: rowData[2], Phone: rowData[3],
+          'Date of Birth': rowData[4], City: rowData[5], 'Current Package': rowData[6],
+          'Balance (€)': rowData[7], 'Exam Readiness (%)': rowData[8], Status: rowData[9],
+          'Theory Exam Status': rowData[10]
+        } : rowData || {};
+        normalizedData = {
+          id: String(row['Student ID'] || safeEntityId), studentId: String(row['Student ID'] || safeEntityId),
+          name: row.Name, email: row.Email, phone: row.Phone, dob: row['Date of Birth'],
+          city: row.City, currentPackage: row['Current Package'], balance: row['Balance (€)'],
+          readiness: row['Exam Readiness (%)'], status: row.Status,
+          theoryExamStatus: row['Theory Exam Status']
+        };
+        Object.keys(normalizedData).forEach(key => { if (normalizedData[key] === undefined) delete normalizedData[key]; });
+      }
 
       // Safe Logging: Never output secrets, credentials, or sensitive student PII
       console.log(`[SyncServer] Webhook verified: Sheet=${sheetName}, Type=${changeType}, Entity=${safeEntityId}`);
@@ -2679,9 +2825,9 @@ ${studentSummary}`;
         syncId: syncId || eventId || `sheets-sync-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         originClientId: originClientId || 'google-sheets-webhook',
         entityType,
-        action: changeType === 'REMOVE_ROW' ? 'DELETE' : 'UPDATE',
+        action: ['REMOVE_ROW','DELETE_ROW'].includes(changeType) ? 'DELETE' : changeType === 'INSERT_ROW' ? 'CREATE' : 'UPDATE',
         entityId: safeEntityId,
-        data: rowData || body,
+        data: normalizedData,
         updatedAt: Date.now(),
         studentId: studentId || (entityType === 'STUDENT' ? safeEntityId : undefined)
       };
@@ -2698,7 +2844,7 @@ ${studentSummary}`;
   // 4. Missed Deltas Endpoint (For reconnecting/offline recovery)
   app.get('/api/sync/deltas', (req, res) => {
     const since = Number(req.query.since || 0);
-    const missed = recentSyncDeltas.filter(d => d.updatedAt > since);
+    const missed = recentSyncDeltas.filter(d => d.updatedAt > since).map(d => d.entityType === 'STUDENT' ? { ...d, data: null } : d);
     res.json({
       success: true,
       since,

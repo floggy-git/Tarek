@@ -4,7 +4,6 @@ import {
   Search,
   Plus,
   ArrowDownToLine,
-  ArrowUpFromLine,
   ArrowDownRight,
   ArrowUpRight,
   DollarSign,
@@ -16,7 +15,8 @@ import {
 import { WalletTransaction, StudentRecord } from '../../types';
 import { AdminLang, ADMIN_I18N } from './types';
 import { recordAdminAuditLog } from '../../utils/adminAuditLogger';
-import { syncWalletFromSheet, writeWalletToSheet } from '../../services/googleSheetsService';
+import { syncWalletFromSheet } from '../../services/googleSheetsService';
+import { appendWalletAdjustmentToGoogleSheet, getSheetsConfig } from '../../utils/googleSheets';
 
 interface AdminPaymentsViewProps {
   lang: AdminLang;
@@ -76,10 +76,11 @@ export default function AdminPaymentsView({
     const isCredit = adjustType === 'deposit';
     const finalAmount = Math.abs(adjustAmount);
     const newBalance = isCredit ? previousBalance + finalAmount : previousBalance - finalAmount;
+    if (!(finalAmount > 0) || newBalance < 0) { onShowMessage(lang === 'ar' ? 'المبلغ غير صالح أو الرصيد غير كافٍ.' : 'Invalid amount or insufficient balance.', true); return; }
 
     // 1. Create Transaction
     const newTx: WalletTransaction = {
-      id: `TX-${Date.now().toString(36).toUpperCase()}`,
+      id: `TX-${Date.now()}`,
       studentId: targetStudent.studentId || targetStudent.id,
       studentName: targetStudent.name,
       date: new Date().toISOString().split('T')[0],
@@ -87,6 +88,21 @@ export default function AdminPaymentsView({
       amount: finalAmount,
       description: adjustDescription
     };
+
+    try {
+      await appendWalletAdjustmentToGoogleSheet(getSheetsConfig(), {
+        id: newTx.id,
+        studentId: targetStudent.studentId || targetStudent.id,
+        studentName: targetStudent.name,
+        date: newTx.date,
+        type: newTx.type,
+        amount: finalAmount,
+        description: adjustDescription
+      }, newBalance);
+    } catch (err:any) {
+      onShowMessage(err.message || 'Wallet adjustment could not be saved.', true);
+      return;
+    }
 
     const updatedTransactions = [newTx, ...transactions];
     setTransactions(updatedTransactions);
@@ -154,31 +170,6 @@ export default function AdminPaymentsView({
     }
   };
 
-  const handlePushToSheet = async () => {
-    setIsSyncing(true);
-    try {
-      const res = await writeWalletToSheet(spreadsheetId, transactions);
-      if (res.success) {
-        await recordAdminAuditLog({
-          action: 'Wallet Transactions Pushed to Sheet',
-          targetRecord: 'Tab: Wallet',
-          newValue: `${transactions.length} transactions written`,
-          source: 'Control Center'
-        });
-        onShowMessage(
-          lang === 'ar'
-            ? `تم تصدير ${transactions.length} حركة محفظة إلى Google Sheets بنجاح`
-            : `Pushed ${transactions.length} transactions to Google Sheets.`
-        );
-      } else {
-        onShowMessage(res.error || 'Failed to write wallet.', true);
-      }
-    } catch (err: any) {
-      onShowMessage(err.message || 'Error writing wallet.', true);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   return (
     <div className="space-y-4">
@@ -215,15 +206,6 @@ export default function AdminPaymentsView({
           >
             <ArrowDownToLine size={14} />
             <span>{t.actions.syncFromSheet}</span>
-          </button>
-
-          <button
-            onClick={handlePushToSheet}
-            disabled={isSyncing}
-            className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-          >
-            <ArrowUpFromLine size={14} />
-            <span>{t.actions.syncToSheet}</span>
           </button>
 
           <button

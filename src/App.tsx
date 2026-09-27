@@ -11,11 +11,11 @@ import { Language, UserRole, TRANSLATIONS, Lesson, WalletTransaction, Achievemen
 import { safeSetItem } from './utils/safeStorage';
 import { pruneExpiredAiConversations } from './utils/aiCoachStorage';
 import { INITIAL_LESSONS, INITIAL_TRANSACTIONS, INITIAL_ACHIEVEMENTS, MOCK_TRAINER_SCHEDULE, INITIAL_PACKAGES, DEFAULT_SCHOOL_SETTINGS } from './data';
-import { getSheetsConfig, loadPackagesFromGoogleSheet, writePackagesToGoogleSheet, loadStudentsFromGoogleSheet, writeStudentsToGoogleSheet, loadMediaVideosFromGoogleSheet, writeMediaVideosToGoogleSheet, loadLessonsFromGoogleSheet, writeLessonsToGoogleSheet, checkGoogleDriveFileExists, loadSchoolSettingsFromGoogleSheet, writeSchoolSettingsToGoogleSheet, writeAuditLogToGoogleSheet, fetchClientIpAddress, patchStudentInGoogleSheet, patchSettingInGoogleSheet } from './utils/googleSheets';
+import { getSheetsConfig, loadPackagesFromGoogleSheet, writePackagesToGoogleSheet, loadStudentsFromGoogleSheet, loadAuthenticatedStudent, loadAuthenticatedDossier, registerAuthenticatedStudent, writeStudentsToGoogleSheet, loadMediaVideosFromGoogleSheet, writeMediaVideosToGoogleSheet, loadLessonsFromGoogleSheet, writeLessonsToGoogleSheet, checkGoogleDriveFileExists, loadSchoolSettingsFromGoogleSheet, writeSchoolSettingsToGoogleSheet, writeAuditLogToGoogleSheet, fetchClientIpAddress, patchStudentInGoogleSheet, patchSettingInGoogleSheet } from './utils/googleSheets';
 import { syncEngine, SyncDelta } from './utils/syncEngine';
 import { isRecordForStudent, studentNamesMatch } from './utils/identity';
 import { getUnreadNotificationCount, markAllNotificationsAsRead } from './utils/notificationStore';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, deleteUser } from 'firebase/auth';
 import { auth as firebaseAuth } from './services/googleAuthService';
 
 // Import our custom sub-app workspaces
@@ -204,6 +204,7 @@ export default function App() {
     }
     return null;
   });
+  const [studentVerified, setStudentVerified] = useState(false);
 
   // Auth gate options state
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
@@ -585,7 +586,7 @@ export default function App() {
 
       loadStudentsFromGoogleSheet(config)
         .then(stList => {
-          if (stList && stList.length > 0) {
+          if (stList) {
             setStudents(stList);
             lastSavedStudentsRef.current = stList;
           } else {
@@ -719,6 +720,11 @@ export default function App() {
               lastSavedStudentsRef.current = updated;
               return updated;
             });
+            if (currentUser?.role === 'student' && (currentUser.studentId || currentUser.id) === delta.entityId) {
+              void firebaseAuth.signOut();
+              sessionStorage.removeItem('drivingschool_user');
+              setCurrentUser(null);
+            }
           }
         } else if (delta.entityType === 'TRANSACTION' || delta.entityType === 'WALLET') {
           if (delta.action === 'UPDATE' || delta.action === 'CREATE') {
@@ -851,36 +857,50 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [packages]);
 
-  // Auto-write students to Google Sheets on modification (debounced)
+  // The Students sheet is authoritative. Never publish an old browser snapshot
+  // over rows edited or deleted by the school administrator.
   useEffect(() => {
-    if (!isStudentsLoadedFromSheets.current) return;
-    if (lastSavedStudentsRef.current === students) return;
-
-    const timer = setTimeout(() => {
-      if (lastSavedStudentsRef.current && JSON.stringify(lastSavedStudentsRef.current) === JSON.stringify(students)) {
-        lastSavedStudentsRef.current = students;
-        return;
-      }
-
+    let cancelled = false;
+    const refresh = async () => {
       const config = getSheetsConfig();
-      if (config.spreadsheetId && config.accessToken) {
-        writeStudentsToGoogleSheet(config, students)
-          .then(() => {
-            console.log("Successfully synchronized students to Google Sheets in background.");
-            lastSavedStudentsRef.current = students;
-          })
-          .catch(err => {
-            console.error("Failed to write students in background:", err);
-          });
-      } else {
-        if (lastSavedStudentsRef.current) {
-          lastSavedStudentsRef.current = students;
+      if (!config.spreadsheetId) return;
+      try {
+        if (currentUser?.role === 'student') {
+          await firebaseAuth.authStateReady();
+          const authUser = firebaseAuth.currentUser;
+          if (!authUser) { setStudentVerified(false); setCurrentUser(null); return; }
+          const dossier = await loadAuthenticatedDossier(await authUser.getIdToken());
+          const person = dossier.student;
+          if (cancelled) return;
+          setStudents(prev => [...prev.filter(s => s.id !== person.id), person]);
+          setLessons(dossier.lessons);
+          lastSavedLessonsRef.current = dossier.lessons;
+          setTransactions(dossier.transactions);
+          setStudentVerified(true);
+          setCurrentUser(prev => prev ? { ...prev, name: person.name, email: person.email, studentId: person.id, id: person.id } : null);
+          return;
         }
+        if (!config.apiKey && !config.accessToken) return;
+        const live = await loadStudentsFromGoogleSheet(config);
+        if (cancelled) return;
+        setStudents(live);
+        lastSavedStudentsRef.current = live;
+      } catch (err) {
+        if (currentUser?.role === 'student') {
+          setStudentVerified(false);
+          // A temporary network failure must not be mistaken for a deletion.
+          if (String(err).includes('inactive')) {
+            await firebaseAuth.signOut();
+            sessionStorage.removeItem('drivingschool_user');
+            setCurrentUser(null);
+          }
+        } else console.warn('Students sheet refresh failed; keeping last verified state.', err);
       }
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, [students]);
+    };
+    void refresh();
+    const timer = window.setInterval(refresh, 10000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [currentUser?.role, currentUser?.email]);
 
   // Auto-write lessons to Google Sheets on modification (debounced)
   useEffect(() => {
@@ -1245,18 +1265,7 @@ export default function App() {
     } else {
       // Login as student - STRICT VERIFICATION (No unauthenticated fallback)
       const cleanEmail = loginEmail.trim().toLowerCase();
-      const matchedStudent = students.find(s => s.email?.toLowerCase() === cleanEmail);
-      
-      if (!matchedStudent) {
-        alert(
-          lang === 'ar' 
-            ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة.' 
-            : lang === 'nl' 
-            ? 'Ongeldig e-mailadres of wachtwoord.' 
-            : 'Invalid email or password.'
-        );
-        return;
-      }
+      let matchedStudent: StudentRecord;
 
       // Firebase Auth is the only password authority.
       let isPasswordCorrect = false;
@@ -1275,6 +1284,15 @@ export default function App() {
             ? 'Ongeldig e-mailadres of wachtwoord.' 
             : 'Invalid email or password.'
         );
+        return;
+      }
+      try {
+        matchedStudent = await loadAuthenticatedStudent(await firebaseAuth.currentUser!.getIdToken());
+        if (matchedStudent.email.toLowerCase() !== cleanEmail) throw new Error('Email mismatch');
+        setStudents(prev => [...prev.filter(s => s.id !== matchedStudent.id), matchedStudent]);
+      } catch {
+        await firebaseAuth.signOut();
+        alert(lang === 'ar' ? 'هذا الحساب غير موجود أو غير نشط في سجل المدرسة.' : lang === 'nl' ? 'Dit account staat niet actief in het schoolregister.' : 'This account is not active in the school register.');
         return;
       }
 
@@ -1310,10 +1328,11 @@ export default function App() {
         packagePrice: pkgPrice,
         dob: matchedStudent.dob || "2004-10-10",
         city: matchedStudent.city || "Rotterdam",
-        transmissionType: matchedStudent.transmissionType || 'manual',
+        transmissionType: 'manual' as const,
         notificationsEnabled: matchedStudent.notificationsEnabled !== false
       };
       setCurrentUser(user);
+      setStudentVerified(true);
     }
     setLoginEmail('');
     setLoginPassword('');
@@ -1360,7 +1379,7 @@ export default function App() {
       return;
     }
 
-    const studentId = `ST-${String(students.length + 1).padStart(6, '0')}`;
+    let studentId = '';
     const selectedPkgObj = packages.find(p => p.id === regPackageId || p.name === regPackage || p.title === regPackage);
     const matchHours = regPackage.match(/(\d+)\s*(?:hours|hour|h|ساعة|uur)/i);
     const parsedPkgHours = selectedPkgObj?.hours !== undefined 
@@ -1368,6 +1387,16 @@ export default function App() {
       : (matchHours ? parseInt(matchHours[1], 10) : 0);
     const parsedPkgPrice = selectedPkgObj?.price !== undefined ? Number(selectedPkgObj.price) : 0;
     const resolvedPkgName = selectedPkgObj?.name || selectedPkgObj?.title || regPackage;
+    try {
+      studentId = await registerAuthenticatedStudent(await firebaseAuth.currentUser!.getIdToken(), {
+        name: regName.trim(), phone: regPhone.trim(), dob: regDob, city: regCity,
+        currentPackage: resolvedPkgName, theoryExamStatus: regTheoryStatus
+      });
+    } catch {
+      try { if (firebaseAuth.currentUser) await deleteUser(firebaseAuth.currentUser); } catch { await firebaseAuth.signOut(); }
+      alert(lang === 'ar' ? 'تعذر حفظ التسجيل في الشيت. لم يكتمل إنشاء الحساب.' : lang === 'nl' ? 'Opslaan in het spreadsheet mislukt. Registratie niet voltooid.' : 'Could not save the student to the sheet. Registration was not completed.');
+      return;
+    }
 
     // Register details dynamically
     const newStudent = {
@@ -1418,6 +1447,7 @@ export default function App() {
       notificationsEnabled: true
     };
     setStudents(prev => [...prev, newRecord]);
+    setStudentVerified(true);
 
     // Clear password fields from memory
     setRegPassword('');
@@ -1627,6 +1657,7 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    setStudentVerified(false);
     setLoginEmail('');
     setLoginPassword('');
     setActiveTab('home');
@@ -2009,6 +2040,10 @@ export default function App() {
               />
             )}
 
+          </div>
+        ) : currentUser.role === 'student' && !studentVerified ? (
+          <div className="max-w-xl mx-auto p-6 text-center rounded-xl bg-white text-slate-700" role="status">
+            {lang === 'ar' ? 'جارٍ التحقق من حسابك في سجل المدرسة…' : lang === 'nl' ? 'Je schoolaccount wordt gecontroleerd…' : 'Checking your school account…'}
           </div>
         ) : (
           

@@ -646,6 +646,11 @@ function controlCenterAudit_(action, target, previousValue, newValue) {
 function controlCenterMenu_() {
   SpreadsheetApp.getUi().createMenu('🚗 TAREK RIJSCHOOL')
     .addItem('Open Master Control Center', 'controlCenterOpen')
+    .addItem('Install sidebar form buttons', 'installSheetFormButtons')
+    .addItem('New Student form', 'sheetButton12')
+    .addItem('New Lesson form', 'sheetButton13')
+    .addItem('New Trainer form', 'sheetButton14')
+    .addItem('Add Deposit form', 'sheetButton15')
     .addItem('Refresh Control Center Data', 'controlCenterRefresh_')
     .addToUi();
 }
