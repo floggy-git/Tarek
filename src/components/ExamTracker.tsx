@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Navigation, Play, Square, Activity, Wifi, WifiOff, History, User, Trash2, Eye, Compass, MapPin, AlertTriangle
+  Navigation, Play, Square, Activity, WifiOff, History, User, Trash2, Eye, Compass, AlertTriangle
 } from 'lucide-react';
 import { Language } from '../types';
 import { safeSetItem } from '../utils/safeStorage';
@@ -37,7 +37,8 @@ interface SavedExamRoute {
 interface ExamTrackerProps {
   lang: Language;
   lessons?: any[];
-  onRouteSaved?: (studentName: string, points: TrackedPoint[], durationSeconds: number) => void;
+  students?: { name: string }[];
+  onRouteSaved?: (studentName: string, points: TrackedPoint[], durationSeconds: number, distanceKm: number) => void;
 }
 
 // Haversine helper to calculate distance between two lat/lng coordinates in km
@@ -62,25 +63,21 @@ const calculateTotalDistance = (points: TrackedPoint[]): number => {
   return total;
 };
 
-function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps) {
+function ExamTrackerComponent({ lang, lessons, students: enrolledStudents = [], onRouteSaved }: ExamTrackerProps) {
   // Get student names from the passed lessons list
   const activeLessons = lessons || [];
   const activeStudents = activeLessons.map(l => l.studentName);
   const uniqueStudents = Array.from(new Set(activeStudents)).filter(Boolean);
 
-  // Setup fallback students list if none passed
-  const fallbackStudents = [
-    { name: lang === 'ar' ? "أمير الحسن" : "Amir Al-Hassan" },
-    { name: lang === 'ar' ? "ساني دي يونغ" : "Sanne de Jong" },
-    { name: lang === 'ar' ? "مايكل فان بيرغ" : "Michael van Berg" },
-  ];
-
-  const students = uniqueStudents.length > 0 
-    ? uniqueStudents.map(name => ({ name }))
-    : fallbackStudents;
-
-  const [selectedStudent, setSelectedStudent] = useState(students[0].name);
-  const [trackingMode, setTrackingMode] = useState<'idle' | 'tracking' | 'review'>('idle');
+  const students = Array.from(new Set([...enrolledStudents.map(s => s.name), ...uniqueStudents]))
+    .filter(Boolean).map(name => ({ name }));
+  const [selectedStudent, setSelectedStudent] = useState('');
+  const [examResult, setExamResult] = useState<'pass' | 'fail'>('fail');
+  const [examNotes, setExamNotes] = useState('');
+  useEffect(() => {
+    if (!students.some(s => s.name === selectedStudent)) setSelectedStudent(students[0]?.name || '');
+  }, [students.map(s => s.name).join('|'), selectedStudent]);
+  const [trackingMode, setTrackingMode] = useState<'idle' | 'tracking' | 'review' | 'return'>('idle');
   
   // Tracking telemetry state
   const [currentPoints, setCurrentPoints] = useState<TrackedPoint[]>([]);
@@ -88,28 +85,10 @@ function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps)
   const [duration, setDuration] = useState<number>(0);
   const [gpsError, setGpsError] = useState<string | null>(null);
   
-  // Hidden developer mode state (Hidden Simulation Mode)
-  const [clickCount, setClickCount] = useState<number>(0);
-  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
-
   // History state loaded from localStorage
   const [savedRoutes, setSavedRoutes] = useState<SavedExamRoute[]>([]);
   const [reviewRoute, setReviewRoute] = useState<SavedExamRoute | null>(null);
   const [routeToDelete, setRouteToDelete] = useState<string | null>(null);
-
-  // References for Leaflet map integration
-  const mapRef = useRef<any>(null);
-  const polylineRef = useRef<any>(null);
-  const carMarkerRef = useRef<any>(null);
-  const startMarkerRef = useRef<any>(null);
-
-  const gpsWatchIdRef = useRef<number | null>(null);
-  const simIntervalRef = useRef<any>(null);
-
-  // Load Leaflet library
-  const loadLeaflet = (callback: () => void) => {
-    callback();
-  };
 
   // Seed default history or load from local storage
   useEffect(() => {
@@ -125,31 +104,6 @@ function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps)
       } catch (e) {
         console.error("Failed to parse saved routes", e);
       }
-    } else {
-      // Seed initial mockup route around Sloterdijk Station
-      const initialMockRoutes: SavedExamRoute[] = [
-        {
-          id: 'exam-mock-1',
-          studentName: lang === 'ar' ? "أمير الحسن" : "Amir Al-Hassan",
-          routeName: lang === 'ar' ? "مسار تتبع الدرس المباشر" : "Live Trajectory Lesson",
-          date: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString().split('T')[0],
-          time: "11:30",
-          durationSeconds: 1250,
-          points: [
-            { lat: 52.3892, lng: 4.8378 },
-            { lat: 52.3880, lng: 4.8410 },
-            { lat: 52.3860, lng: 4.8450 },
-            { lat: 52.3840, lng: 4.8490 },
-            { lat: 52.3820, lng: 4.8510 }
-          ],
-          markers: [],
-          result: 'pass',
-          notes: lang === 'ar' ? "أداء ممتاز وانضباط تام بقوانين السير." : "Flawless lesson tracked with smooth braking and optimal highway speed.",
-          maxSpeed: 48
-        }
-      ];
-      setSavedRoutes(initialMockRoutes);
-      safeSetItem('rijschool_tracked_exams', JSON.stringify(initialMockRoutes));
     }
   }, [lang]);
 
@@ -166,115 +120,49 @@ function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps)
     return () => clearInterval(interval);
   }, [trackingMode, trackingStartTime]);
 
-  // Clean up timers on unmount
-  useEffect(() => {
-    return () => {
-      if (simIntervalRef.current) {
-        clearInterval(simIntervalRef.current);
-      }
-    };
-  }, []);
-
   // Start tracking
   const startTracking = () => {
+    if (!selectedStudent) return;
     setCurrentPoints([]);
     setTrackingStartTime(Date.now());
     setDuration(0);
     setTrackingMode('tracking');
     setGpsError(null);
 
-    if (isDemoMode) {
-      // Simulate route points for CBR exam simulation
-      const demoPoints: TrackedPoint[] = [
-        { lat: 52.3892, lng: 4.8378 },
-        { lat: 52.3881, lng: 4.8415 },
-        { lat: 52.3865, lng: 4.8445 },
-        { lat: 52.3842, lng: 4.8488 },
-        { lat: 52.3815, lng: 4.8515 },
-        { lat: 52.3795, lng: 4.8505 },
-        { lat: 52.3812, lng: 4.8458 },
-        { lat: 52.3835, lng: 4.8402 },
-        { lat: 52.3862, lng: 4.8361 },
-        { lat: 52.3892, lng: 4.8378 }
-      ];
 
-      let idx = 0;
-      setCurrentPoints([demoPoints[0]]);
-      simIntervalRef.current = setInterval(() => {
-        idx++;
-        if (idx < demoPoints.length) {
-          setCurrentPoints(prev => [...prev, demoPoints[idx]]);
-        } else {
-          clearInterval(simIntervalRef.current);
-          simIntervalRef.current = null;
-        }
-      }, 3000);
-    }
   };
 
   // Finish and save route
   const saveTrackedRoute = () => {
-    if (simIntervalRef.current) {
-      clearInterval(simIntervalRef.current);
-      simIntervalRef.current = null;
+    if (currentPoints.length < 2) {
+      setGpsError(lang === 'ar' ? 'يلزم تسجيل نقطتي GPS على الأقل قبل حفظ المسار.' : 'Record at least two GPS positions before saving.');
+      return;
     }
-
-    let finalPoints = currentPoints;
-    let finalDuration = duration;
-
-    if (currentPoints.length < 2 && isDemoMode) {
-      // populate full mock path if simulation did not finish
-      finalPoints = [
-        { lat: 52.3892, lng: 4.8378 },
-        { lat: 52.3881, lng: 4.8415 },
-        { lat: 52.3865, lng: 4.8445 },
-        { lat: 52.3842, lng: 4.8488 },
-        { lat: 52.3815, lng: 4.8515 }
-      ];
-      finalDuration = duration || 450;
-      const newRoute: SavedExamRoute = {
+    const finalPoints = currentPoints;
+    const finalDuration = duration;
+    const newRoute: SavedExamRoute = {
         id: `exam-${Date.now()}`,
         studentName: selectedStudent,
-        routeName: lang === 'ar' ? "مسار تتبع الدرس المباشر" : "Live Trajectory Lesson",
+        routeName: lang === 'ar' ? 'مسار امتحان القيادة' : 'Driving Exam Route',
         date: new Date().toISOString().split('T')[0],
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         durationSeconds: finalDuration,
         points: finalPoints,
         markers: [],
-        result: 'pass',
-        notes: lang === 'ar' ? "درس تدريبي تم تتبعه بنجاح عن طريق نظام الـ GPS المباشر." : "Successfully tracked driving session with real-time GPS logging.",
-        maxSpeed: 45
-      };
-
-      const updated = [newRoute, ...savedRoutes];
-      setSavedRoutes(updated);
-      safeSetItem('rijschool_tracked_exams', JSON.stringify(updated));
-    } else if (currentPoints.length >= 1) {
-      const newRoute: SavedExamRoute = {
-        id: `exam-${Date.now()}`,
-        studentName: selectedStudent,
-        routeName: lang === 'ar' ? "مسار تتبع الدرس المباشر" : "Live Trajectory Lesson",
-        date: new Date().toISOString().split('T')[0],
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        durationSeconds: finalDuration,
-        points: finalPoints,
-        markers: [],
-        result: 'pass',
-        notes: lang === 'ar' ? "درس تدريبي تم تتبعه بنجاح عن طريق نظام الـ GPS المباشر." : "Successfully tracked driving session with real-time GPS logging.",
-        maxSpeed: Math.floor(35 + Math.random() * 20)
-      };
-
-      const updated = [newRoute, ...savedRoutes];
-      setSavedRoutes(updated);
-      safeSetItem('rijschool_tracked_exams', JSON.stringify(updated));
-    }
+        result: examResult,
+        notes: examNotes.trim(),
+        maxSpeed: 0
+    };
+    const updated = [newRoute, ...savedRoutes];
+    setSavedRoutes(updated);
+    safeSetItem('rijschool_tracked_exams', JSON.stringify(updated));
 
     if (onRouteSaved) {
-      onRouteSaved(selectedStudent, finalPoints, finalDuration);
+      onRouteSaved(selectedStudent, finalPoints, finalDuration, calculateTotalDistance(finalPoints));
     }
 
     setTrackingMode('idle');
-    alert(lang === 'ar' ? `تم إيقاف التتبع وحفظ مسار الدرس للمتدرب (${selectedStudent}) بنجاح. يرجى إكمال تفاصيل الدرس والدفع من سجل الدروس.` : `GPS route tracking stopped and saved for ${selectedStudent} successfully. Please complete the lesson and payment details from the Lesson Log.`);
+    alert(lang === 'ar' ? `تم حفظ مسار امتحان ${selectedStudent}.` : `Exam route saved for ${selectedStudent}.`);
   };
 
   // Delete recorded track - open custom warning modal instead of native confirm
@@ -300,18 +188,6 @@ function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps)
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  // Hidden Easter Egg toggler for Demo simulation
-  const handleEasterEggClick = () => {
-    const newCount = clickCount + 1;
-    if (newCount >= 5) {
-      setIsDemoMode(!isDemoMode);
-      setClickCount(0);
-      alert(`Simulation Mode ${!isDemoMode ? 'ENABLED (Simulated office route)' : 'DISABLED (Using real GPS location)'}`);
-    } else {
-      setClickCount(newCount);
-    }
-  };
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fadeIn font-sans" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       
@@ -325,11 +201,7 @@ function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps)
                 <Navigation className="h-5 w-5 animate-pulse" />
               </span>
               <div>
-                <h3 
-                  onClick={handleEasterEggClick}
-                  className="font-extrabold text-slate-800 dark:text-white text-sm select-none cursor-pointer"
-                  title="Click 5 times for hidden simulation mode"
-                >
+                <h3 className="font-extrabold text-slate-800 dark:text-white text-sm">
                   {lang === 'ar' ? 'تتبع مسار نظام الـ GPS الفعلي' : 'Real-time GPS Route Tracker'}
                 </h3>
                 <p className="text-[11px] text-slate-450 dark:text-zinc-400 mt-0.5">
@@ -349,13 +221,23 @@ function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps)
                   className="w-full h-8 px-3 py-1 text-xs font-semibold bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 >
                   {students.map((std, idx) => (
-                    <option key={idx} value={std.name}>{std.name}</option>
+                  <option key={idx} value={std.name}>{std.name}</option>
                   ))}
                 </select>
               </div>
 
+              <label className="text-xs font-bold text-slate-500 dark:text-zinc-400 block">
+                {lang === 'ar' ? 'نتيجة الامتحان' : 'Exam result'}
+                <select value={examResult} onChange={e => setExamResult(e.target.value as 'pass' | 'fail')} className="w-full mt-2 h-10 px-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950">
+                  <option value="fail">{lang === 'ar' ? 'رسوب — مراجعة الطريق' : 'Failed — review route'}</option>
+                  <option value="pass">{lang === 'ar' ? 'نجاح' : 'Passed'}</option>
+                </select>
+              </label>
+              <textarea value={examNotes} onChange={e => setExamNotes(e.target.value)} placeholder={lang === 'ar' ? 'دوّن أخطاء الامتحان لمراجعتها مع الطالب' : 'Record exam mistakes for review'} className="w-full min-h-20 p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-xs" />
+
               <button
                 onClick={startTracking}
+                disabled={!selectedStudent}
                 className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black cursor-pointer transition flex items-center justify-center gap-2 shadow-md shadow-blue-500/10"
               >
                 <Play className="h-4 w-4 fill-white" />
@@ -397,7 +279,7 @@ function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps)
                 <span className="text-slate-400 font-bold">{lang === 'ar' ? 'حالة الإشارة:' : 'GPS Status:'}</span>
                 <span className="font-mono font-black text-green-500 flex items-center gap-1">
                   <Activity className="h-3 w-3 animate-ping" />
-                  {isDemoMode ? (lang === 'ar' ? 'محاكاة نشطة' : 'SIMULATED') : (lang === 'ar' ? 'اتصال قوي' : 'LIVE / HIGH PRECISION')}
+                  {currentPoints.length ? (lang === 'ar' ? 'تسجيل الموقع الفعلي' : 'GPS positions recorded') : (lang === 'ar' ? 'بانتظار GPS' : 'Waiting for GPS')}
                 </span>
               </div>
               
@@ -427,7 +309,7 @@ function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps)
         )}
 
         {/* Review HUD */}
-        {trackingMode === 'review' && reviewRoute && (
+        {(trackingMode === 'review' || trackingMode === 'return') && reviewRoute && (
           <div className="p-5 bg-white dark:bg-zinc-900 border border-blue-100 dark:border-zinc-800 rounded-3xl shadow-lg space-y-4">
             <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-zinc-800">
               <div className="flex items-center gap-2">
@@ -454,6 +336,18 @@ function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps)
               </button>
             </div>
 
+            {reviewRoute.result === 'fail' && reviewRoute.points.length > 1 && (
+              <button type="button" onClick={() => setTrackingMode(trackingMode === 'return' ? 'review' : 'return')}
+                className="w-full rounded-xl bg-blue-600 px-4 py-3 text-xs font-bold text-white hover:bg-blue-700">
+                {trackingMode === 'return'
+                  ? (lang === 'ar' ? 'إيقاف إرشاد العودة' : 'Stop return guidance')
+                  : (lang === 'ar' ? 'اتبع طريق الامتحان بالعكس' : 'Follow the exam route in reverse')}
+              </button>
+            )}
+            {trackingMode === 'return' && <p className="text-xs text-blue-700 dark:text-blue-300">
+              {lang === 'ar' ? 'سيظهر موقعك الحي وخط مسار الامتحان بالعكس لمراجعة الأخطاء. التزم بقواعد السير الحالية.' : 'Your live location and reversed exam track are shown for review. Follow current traffic rules.'}
+            </p>}
+
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3 text-center text-xs font-bold">
                 <div className="p-2.5 bg-slate-50 dark:bg-zinc-950 rounded-2xl border border-slate-100 dark:border-zinc-800/50">
@@ -462,7 +356,7 @@ function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps)
                 </div>
                 <div className="p-2.5 bg-slate-50 dark:bg-zinc-950 rounded-2xl border border-slate-100 dark:border-zinc-800/50">
                   <span className="text-[9px] text-slate-400 block uppercase tracking-wider">{lang === 'ar' ? 'أعلى سرعة' : 'Max Speed'}</span>
-                  <span className="text-sm font-black text-slate-850 dark:text-white mt-1 block font-mono">{reviewRoute.maxSpeed || 45} km/h</span>
+                  <span className="text-sm font-black text-slate-850 dark:text-white mt-1 block font-mono">{reviewRoute.maxSpeed ? `${reviewRoute.maxSpeed} km/h` : '—'}</span>
                 </div>
               </div>
 
@@ -483,7 +377,7 @@ function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps)
           <div>
             <h2 className="font-extrabold text-sm tracking-wide uppercase flex items-center gap-1.5">
               <span>🗺️</span>
-              {lang === 'ar' ? 'تتبع درس القيادة المباشر' : 'Live Lesson Tracking'}
+              {lang === 'ar' ? 'تتبع مسار الامتحان' : 'Live Exam Route'}
             </h2>
             <p className="text-[10px] text-slate-400 mt-0.5">
               {trackingMode === 'tracking' 
@@ -499,20 +393,21 @@ function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps)
         <div className="h-[460px] lg:h-[480px] rounded-3xl overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-lg relative bg-slate-100 dark:bg-slate-900 z-10">
           <LiveNavigationMap 
             points={
-              trackingMode === 'tracking' 
+              trackingMode === 'tracking'
                 ? currentPoints 
-                : trackingMode === 'review' && reviewRoute 
-                  ? reviewRoute.points.map(p => ('lat' in p ? p : { lat: 52.3892 + ((p as any).y - 350) * -0.0001, lng: 4.8378 + ((p as any).x - 320) * 0.0001 }))
+                : (trackingMode === 'review' || trackingMode === 'return') && reviewRoute
+                  ? (trackingMode === 'return' ? [...reviewRoute.points].reverse() : reviewRoute.points)
                   : []
             }
-            isTracking={trackingMode === 'tracking'}
+            isTracking={trackingMode === 'tracking' || trackingMode === 'return'}
             lang={lang}
             height="100%"
-            studentName={selectedStudent || 'Student'}
-            activeLessonTitle={trackingMode === 'review' && reviewRoute ? reviewRoute.title : 'Driving Exam Track'}
+            studentName={reviewRoute?.studentName || selectedStudent || 'Student'}
+            activeLessonTitle={reviewRoute ? reviewRoute.routeName : 'Driving Exam Track'}
             elapsedSeconds={duration}
             showTelemetry={false}
             onLocationUpdate={(pt) => {
+              if (trackingMode !== 'tracking') return;
               setCurrentPoints(prev => {
                 if (prev.length === 0) return [pt];
                 const last = prev[prev.length - 1];
@@ -578,7 +473,7 @@ function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps)
 
                 <div className="flex gap-4 text-[10px] font-bold text-slate-450 border-t border-slate-100 dark:border-zinc-850/50 pt-2 flex-wrap font-mono">
                   <span>⏱️ {formatDuration(route.durationSeconds)}</span>
-                  <span>⚡ MAX SPEED: {route.maxSpeed || 45} km/h</span>
+                  <span>⚡ MAX SPEED: {route.maxSpeed ? `${route.maxSpeed} km/h` : '—'}</span>
                   <span className="text-blue-600 dark:text-blue-400">📍 {route.points.length} coordinates</span>
                 </div>
 

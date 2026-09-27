@@ -11,12 +11,13 @@ import { Language, UserRole, TRANSLATIONS, Lesson, WalletTransaction, Achievemen
 import { safeSetItem } from './utils/safeStorage';
 import { pruneExpiredAiConversations } from './utils/aiCoachStorage';
 import { INITIAL_LESSONS, INITIAL_TRANSACTIONS, INITIAL_ACHIEVEMENTS, MOCK_TRAINER_SCHEDULE, INITIAL_PACKAGES, DEFAULT_SCHOOL_SETTINGS } from './data';
-import { getSheetsConfig, loadPackagesFromGoogleSheet, writePackagesToGoogleSheet, loadStudentsFromGoogleSheet, writeStudentsToGoogleSheet, loadMediaVideosFromGoogleSheet, writeMediaVideosToGoogleSheet, loadLessonsFromGoogleSheet, writeLessonsToGoogleSheet, checkGoogleDriveFileExists, loadSchoolSettingsFromGoogleSheet, writeSchoolSettingsToGoogleSheet, writeAuditLogToGoogleSheet, fetchClientIpAddress, patchStudentInGoogleSheet, patchSettingInGoogleSheet } from './utils/googleSheets';
+import { getSheetsConfig, loadPackagesFromGoogleSheet, writePackagesToGoogleSheet, loadStudentsFromGoogleSheet, loadAuthenticatedStudent, loadAuthenticatedDossier, registerAuthenticatedStudent, writeStudentsToGoogleSheet, loadMediaVideosFromGoogleSheet, writeMediaVideosToGoogleSheet, loadLessonsFromGoogleSheet, writeLessonsToGoogleSheet, checkGoogleDriveFileExists, loadSchoolSettingsFromGoogleSheet, writeSchoolSettingsToGoogleSheet, writeAuditLogToGoogleSheet, fetchClientIpAddress, patchStudentInGoogleSheet, patchSettingInGoogleSheet } from './utils/googleSheets';
 import { syncEngine, SyncDelta } from './utils/syncEngine';
 import { isRecordForStudent, studentNamesMatch } from './utils/identity';
 import { getUnreadNotificationCount, markAllNotificationsAsRead } from './utils/notificationStore';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, deleteUser, sendPasswordResetEmail, verifyPasswordResetCode, confirmPasswordReset } from 'firebase/auth';
 import { auth as firebaseAuth } from './services/googleAuthService';
+import { callStudentGateway } from './utils/sheetStudentGateway';
 
 // Import our custom sub-app workspaces
 import Header from './components/Header';
@@ -203,6 +204,8 @@ export default function App() {
     }
     return null;
   });
+  const [studentVerified, setStudentVerified] = useState(false);
+  const [trainerVerified, setTrainerVerified] = useState(false);
 
   // Auth gate options state
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
@@ -299,31 +302,15 @@ export default function App() {
   // Verify reset password token from URL on startup
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const tok = params.get('token');
-    const em = params.get('email');
-    if (tok && em) {
-      setResetTokenFromUrl(tok);
-      setResetEmailFromUrl(em);
+    const code = params.get('oobCode');
+    if (params.get('mode') === 'resetPassword' && code) {
+      setResetTokenFromUrl(code);
       setResetPasswordStatus('verifying');
-      
-      const config = getSheetsConfig();
-      fetch(`/api/verify-reset-token?email=${encodeURIComponent(em)}&token=${tok}&spreadsheetId=${encodeURIComponent(config.spreadsheetId || '')}&accessToken=${encodeURIComponent(config.accessToken || '')}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.valid) {
-            setResetPasswordStatus('valid');
-          } else {
-            setResetPasswordStatus('invalid');
-            setResetErrorMsg(
-              data.error === 'expired' 
-                ? (lang === 'ar' ? 'انتهت صلاحية رابط إعادة التعيين.' : lang === 'nl' ? 'De resetlink is verlopen.' : 'The reset link has expired.')
-                : (lang === 'ar' ? 'رابط إعادة التعيين غير صالح.' : lang === 'nl' ? 'De resetlink is ongeldig.' : 'The reset link is invalid.')
-            );
-          }
-        })
+      verifyPasswordResetCode(firebaseAuth, code)
+        .then(email => { setResetEmailFromUrl(email); setResetPasswordStatus('valid'); })
         .catch(() => {
           setResetPasswordStatus('invalid');
-          setResetErrorMsg(lang === 'ar' ? 'حدث خطأ أثناء التحقق من الرابط.' : lang === 'nl' ? 'Er is een fout opgetreden bij het controleren van de link.' : 'An error occurred while verifying the link.');
+          setResetErrorMsg(lang === 'ar' ? 'رابط إعادة التعيين غير صالح أو منتهي الصلاحية.' : lang === 'nl' ? 'De resetlink is ongeldig of verlopen.' : 'The reset link is invalid or expired.');
         });
     }
   }, [lang]);
@@ -411,12 +398,8 @@ export default function App() {
           else if (stId.includes('AND-SANNE')) stId = 'ST-000002';
           else if (stId.includes('AND-MICHAEL')) stId = 'ST-000003';
           else if (!stId.startsWith('ST-')) stId = `ST-${String(idx + 1).padStart(6, '0')}`;
-          return {
-            ...s,
-            id: stId,
-            studentId: stId,
-            password: s.password || ''
-          };
+          const { password: _discardLegacyPassword, ...safeStudent } = s;
+          return { ...safeStudent, id: stId, studentId: stId };
         });
       }
     } catch (e) {
@@ -575,7 +558,7 @@ export default function App() {
 
       loadStudentsFromGoogleSheet(config)
         .then(stList => {
-          if (stList && stList.length > 0) {
+          if (stList) {
             setStudents(stList);
             lastSavedStudentsRef.current = stList;
           } else {
@@ -709,6 +692,11 @@ export default function App() {
               lastSavedStudentsRef.current = updated;
               return updated;
             });
+            if (currentUser?.role === 'student' && (currentUser.studentId || currentUser.id) === delta.entityId) {
+              void firebaseAuth.signOut();
+              sessionStorage.removeItem('drivingschool_user');
+              setCurrentUser(null);
+            }
           }
         } else if (delta.entityType === 'TRANSACTION' || delta.entityType === 'WALLET') {
           if (delta.action === 'UPDATE' || delta.action === 'CREATE') {
@@ -841,36 +829,69 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [packages]);
 
-  // Auto-write students to Google Sheets on modification (debounced)
+  // The Students sheet is authoritative. Never publish an old browser snapshot
+  // over rows edited or deleted by the school administrator.
   useEffect(() => {
-    if (!isStudentsLoadedFromSheets.current) return;
-    if (lastSavedStudentsRef.current === students) return;
-
-    const timer = setTimeout(() => {
-      if (lastSavedStudentsRef.current && JSON.stringify(lastSavedStudentsRef.current) === JSON.stringify(students)) {
-        lastSavedStudentsRef.current = students;
-        return;
-      }
-
+    let cancelled = false;
+    const refresh = async () => {
       const config = getSheetsConfig();
-      if (config.spreadsheetId && config.accessToken) {
-        writeStudentsToGoogleSheet(config, students)
-          .then(() => {
-            console.log("Successfully synchronized students to Google Sheets in background.");
-            lastSavedStudentsRef.current = students;
-          })
-          .catch(err => {
-            console.error("Failed to write students in background:", err);
-          });
-      } else {
-        if (lastSavedStudentsRef.current) {
-          lastSavedStudentsRef.current = students;
+      if (!config.spreadsheetId) return;
+      try {
+        if (currentUser?.role === 'trainer') {
+          await firebaseAuth.authStateReady();
+          const authUser = firebaseAuth.currentUser;
+          if (!authUser || authUser.email?.toLowerCase() !== currentUser.email.toLowerCase()) {
+            setTrainerVerified(false); setCurrentUser(null); return;
+          }
+          const result = await callStudentGateway<{trainer: Record<string,string>}>('trainerMe', await authUser.getIdToken());
+          if (cancelled) return;
+          if (result.trainer['Trainer ID'] !== currentUser.id) throw new Error('Trainer record mismatch');
+          setTrainerVerified(true);
+          return;
         }
+        if (currentUser?.role === 'student') {
+          await firebaseAuth.authStateReady();
+          const authUser = firebaseAuth.currentUser;
+          if (!authUser) { setStudentVerified(false); setCurrentUser(null); return; }
+          const dossier = await loadAuthenticatedDossier(await authUser.getIdToken());
+          const person = dossier.student;
+          if (cancelled) return;
+          setStudents(prev => [...prev.filter(s => s.id !== person.id), person]);
+          setLessons(dossier.lessons);
+          lastSavedLessonsRef.current = dossier.lessons;
+          setTransactions(dossier.transactions);
+          setStudentVerified(true);
+          setCurrentUser(prev => prev ? { ...prev, name: person.name, email: person.email, studentId: person.id, id: person.id } : null);
+          return;
+        }
+        if (!config.apiKey && !config.accessToken) return;
+        const live = await loadStudentsFromGoogleSheet(config);
+        if (cancelled) return;
+        setStudents(live);
+        lastSavedStudentsRef.current = live;
+      } catch (err) {
+        if (currentUser?.role === 'student') {
+          setStudentVerified(false);
+          // A temporary network failure must not be mistaken for a deletion.
+          if (String(err).includes('inactive')) {
+            await firebaseAuth.signOut();
+            sessionStorage.removeItem('drivingschool_user');
+            setCurrentUser(null);
+          }
+        } else if (currentUser?.role === 'trainer') {
+          setTrainerVerified(false);
+          if (/not active|record mismatch/i.test(String(err))) {
+            await firebaseAuth.signOut();
+            sessionStorage.removeItem('drivingschool_user');
+            setCurrentUser(null);
+          }
+        } else console.warn('Students sheet refresh failed; keeping last verified state.', err);
       }
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, [students]);
+    };
+    void refresh();
+    const timer = window.setInterval(refresh, 10000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [currentUser?.role, currentUser?.email]);
 
   // Auto-write lessons to Google Sheets on modification (debounced)
   useEffect(() => {
@@ -1168,85 +1189,37 @@ export default function App() {
 
   const regAge = calculateAge(regDob);
 
-  // Demo account logger helper
-  const handleDemoLogin = (pRole: 'student' | 'trainer') => {
-    if (pRole === 'student') {
-      const demoEmail = "amir@student.drivingschool.nl";
-      const matchedStudent = students.find(s => s.studentId === "ST-000001" || s.id === "ST-000001" || s.email?.toLowerCase() === demoEmail.toLowerCase());
-      const selectedPkgObj = packages.find(p => p.id === matchedStudent?.packageId || p.name === matchedStudent?.packageName || p.name === matchedStudent?.currentPackage);
-      const pkgName = matchedStudent?.packageName || matchedStudent?.currentPackage || matchedStudent?.packageSelection || selectedPkgObj?.name || "Optimal Progress Pack";
-      const pkgHours = matchedStudent?.packageHours !== undefined ? Number(matchedStudent.packageHours) : (matchedStudent?.targetHours !== undefined ? Number(matchedStudent.targetHours) : (selectedPkgObj?.hours ?? 20));
-      const pkgPrice = matchedStudent?.packagePrice !== undefined ? Number(matchedStudent.packagePrice) : (selectedPkgObj?.price ?? 1250);
-
-      const demoUser = {
-        id: matchedStudent?.id || "ST-000001",
-        studentId: matchedStudent?.studentId || "ST-000001",
-        name: matchedStudent ? matchedStudent.name : "Amir Al-Hassan",
-        email: demoEmail,
-        phone: matchedStudent?.phone || "+31 6 1234 5678",
-        role: "student" as const,
-        lang: lang,
-        packageName: pkgName,
-        packageSelection: pkgName,
-        currentPackage: pkgName,
-        packageHours: pkgHours,
-        targetHours: pkgHours,
-        packagePrice: pkgPrice,
-        packageId: matchedStudent?.packageId || selectedPkgObj?.id || "PKG-000002",
-        dob: matchedStudent?.dob || "2005-08-15",
-        city: matchedStudent?.city || schoolSettings?.city || "Maastricht",
-        notificationsEnabled: matchedStudent ? matchedStudent.notificationsEnabled !== false : true
-      };
-      setCurrentUser(demoUser);
-    } else {
-      const isNotificationsEnabled = schoolSettings ? schoolSettings.notificationsEnabled !== false : true;
-      const demoTrainer = {
-        name: schoolSettings?.instructorName || "Lead Instructor",
-        email: schoolSettings?.email || "trainer@drivingschool.nl",
-        phone: "+31 6 9876 5432",
-        role: "trainer" as const,
-        lang: lang,
-        notificationsEnabled: isNotificationsEnabled
-      };
-      setCurrentUser(demoTrainer);
-    }
-    setActiveTab('home');
-  };
-
   const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail.trim()) return;
 
     if (loginRole === 'trainer') {
-      // Login as customized trainer
       const cleanEmail = loginEmail.trim().toLowerCase();
-      const trainerPassword = loginPassword;
-      
-      const isNotificationsEnabled = schoolSettings ? schoolSettings.notificationsEnabled !== false : true;
-      const trainer = {
-        name: cleanEmail.includes('samir') ? "Instructeur Samir" : cleanEmail.split('@')[0].toUpperCase(),
-        email: loginEmail.trim(),
-        phone: "+31 6 9876 5432",
-        role: "trainer" as const,
-        lang: lang,
-        notificationsEnabled: isNotificationsEnabled
-      };
-      setCurrentUser(trainer);
+      try {
+        if (!loginPassword) throw new Error('Password required');
+        const credentials = await signInWithEmailAndPassword(firebaseAuth, cleanEmail, loginPassword);
+        const record = await callStudentGateway<{trainer: Record<string,string>}>('trainerMe', await credentials.user.getIdToken());
+        if (String(record.trainer.Email || '').toLowerCase() !== cleanEmail) throw new Error('Trainer email mismatch');
+        const isNotificationsEnabled = schoolSettings ? schoolSettings.notificationsEnabled !== false : true;
+        setCurrentUser({
+          id: record.trainer['Trainer ID'],
+          name: record.trainer.Name,
+          email: cleanEmail,
+          phone: record.trainer.Phone || '',
+          role: 'trainer' as const,
+          lang,
+          notificationsEnabled: isNotificationsEnabled
+        });
+        setTrainerVerified(true);
+      } catch {
+        await firebaseAuth.signOut();
+        alert(lang === 'ar' ? 'تعذر دخول المدرّب. تحقق من كلمة المرور وأن حسابك نشط في شيت المدربين.' : lang === 'nl' ? 'Inloggen mislukt. Controleer je wachtwoord en actieve instructeursregistratie.' : 'Trainer sign-in failed. Check your password and active trainer record.');
+        return;
+      }
     } else {
       // Login as student - STRICT VERIFICATION (No unauthenticated fallback)
       const cleanEmail = loginEmail.trim().toLowerCase();
-      const matchedStudent = students.find(s => s.email?.toLowerCase() === cleanEmail);
-      
-      if (!matchedStudent) {
-        alert(
-          lang === 'ar' 
-            ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة.' 
-            : lang === 'nl' 
-            ? 'Ongeldig e-mailadres of wachtwoord.' 
-            : 'Invalid email or password.'
-        );
-        return;
-      }
+      let matchedStudent: StudentRecord;
 
       // Firebase Auth is the only password authority.
       let isPasswordCorrect = false;
@@ -1265,6 +1238,15 @@ export default function App() {
             ? 'Ongeldig e-mailadres of wachtwoord.' 
             : 'Invalid email or password.'
         );
+        return;
+      }
+      try {
+        matchedStudent = await loadAuthenticatedStudent(await firebaseAuth.currentUser!.getIdToken());
+        if (matchedStudent.email.toLowerCase() !== cleanEmail) throw new Error('Email mismatch');
+        setStudents(prev => [...prev.filter(s => s.id !== matchedStudent.id), matchedStudent]);
+      } catch {
+        await firebaseAuth.signOut();
+        alert(lang === 'ar' ? 'هذا الحساب غير موجود أو غير نشط في سجل المدرسة.' : lang === 'nl' ? 'Dit account staat niet actief in het schoolregister.' : 'This account is not active in the school register.');
         return;
       }
 
@@ -1300,10 +1282,11 @@ export default function App() {
         packagePrice: pkgPrice,
         dob: matchedStudent.dob || "2004-10-10",
         city: matchedStudent.city || "Rotterdam",
-        transmissionType: matchedStudent.transmissionType || 'manual',
+        transmissionType: 'manual' as const,
         notificationsEnabled: matchedStudent.notificationsEnabled !== false
       };
       setCurrentUser(user);
+      setStudentVerified(true);
     }
     setLoginEmail('');
     setLoginPassword('');
@@ -1350,7 +1333,7 @@ export default function App() {
       return;
     }
 
-    const studentId = `ST-${String(students.length + 1).padStart(6, '0')}`;
+    let studentId = '';
     const selectedPkgObj = packages.find(p => p.id === regPackageId || p.name === regPackage || p.title === regPackage);
     const matchHours = regPackage.match(/(\d+)\s*(?:hours|hour|h|ساعة|uur)/i);
     const parsedPkgHours = selectedPkgObj?.hours !== undefined 
@@ -1358,6 +1341,16 @@ export default function App() {
       : (matchHours ? parseInt(matchHours[1], 10) : 0);
     const parsedPkgPrice = selectedPkgObj?.price !== undefined ? Number(selectedPkgObj.price) : 0;
     const resolvedPkgName = selectedPkgObj?.name || selectedPkgObj?.title || regPackage;
+    try {
+      studentId = await registerAuthenticatedStudent(await firebaseAuth.currentUser!.getIdToken(), {
+        name: regName.trim(), phone: regPhone.trim(), dob: regDob, city: regCity,
+        currentPackage: resolvedPkgName, theoryExamStatus: regTheoryStatus
+      });
+    } catch {
+      try { if (firebaseAuth.currentUser) await deleteUser(firebaseAuth.currentUser); } catch { await firebaseAuth.signOut(); }
+      alert(lang === 'ar' ? 'تعذر حفظ التسجيل في الشيت. لم يكتمل إنشاء الحساب.' : lang === 'nl' ? 'Opslaan in het spreadsheet mislukt. Registratie niet voltooid.' : 'Could not save the student to the sheet. Registration was not completed.');
+      return;
+    }
 
     // Register details dynamically
     const newStudent = {
@@ -1408,6 +1401,7 @@ export default function App() {
       notificationsEnabled: true
     };
     setStudents(prev => [...prev, newRecord]);
+    setStudentVerified(true);
 
     // Clear password fields from memory
     setRegPassword('');
@@ -1449,40 +1443,15 @@ export default function App() {
       return;
     }
 
-    // Check account existence
-    const matchedStudent = students.find(s => s.email?.toLowerCase() === cleanEmail);
-    const trainerEmailSetting = schoolSettings?.email?.toLowerCase() || 'trainer@drivingschool.nl';
-    const isTrainerEmail = cleanEmail === trainerEmailSetting || cleanEmail === 'samir@al-andalos.nl';
-    
-    if (!matchedStudent && !isTrainerEmail) {
-      setForgotPasswordStatus('error');
-      setForgotPasswordMessage(FORGOT_PASSWORD_T[lang].errNotFound);
-      return;
-    }
-
     setForgotPasswordStatus('submitting');
-
     try {
-      const config = getSheetsConfig();
-      const response = await fetch('/api/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: cleanEmail,
-          lang: lang,
-          spreadsheetId: config.spreadsheetId,
-          accessToken: config.accessToken
-        })
-      });
-
-      const result = await response.json();
-      if (result.success) {
-        setForgotPasswordStatus('success');
-      } else {
-        throw new Error(result.error || "API call failed");
-      }
+      // Firebase sends a one-time link to the registered mailbox. The owner
+      // chooses the new password; it is never copied into Sheets or email.
+      firebaseAuth.languageCode = lang === 'ar' ? 'ar' : lang === 'nl' ? 'nl' : 'en';
+      await sendPasswordResetEmail(firebaseAuth, cleanEmail);
+      setForgotPasswordStatus('success');
     } catch (err) {
-      console.error("Forgot password flow error:", err);
+      console.error('Forgot password flow error:', err);
       setForgotPasswordStatus('error');
       setForgotPasswordMessage(FORGOT_PASSWORD_T[lang].errSendFailed);
     }
@@ -1517,91 +1486,11 @@ export default function App() {
     setResetPasswordStatus('submitting');
 
     try {
-      const config = getSheetsConfig();
-      const response = await fetch('/api/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: resetEmailFromUrl,
-          token: resetTokenFromUrl,
-          newPassword: resetNewPassword,
-          spreadsheetId: config.spreadsheetId,
-          accessToken: config.accessToken
-        })
-      });
-
-      const result = await response.json();
-      if (result.success && result.hashedPassword) {
-        // Record Audit Log for Password Reset
-        const matchedStudent = students.find(s => s.email?.toLowerCase() === resetEmailFromUrl?.toLowerCase());
-        
-        let logUserId = 'N/A';
-        let logUserName = resetEmailFromUrl || 'Unknown User';
-        let logUserRole = 'Student';
-
-        if (matchedStudent) {
-          logUserId = matchedStudent.id || 'N/A';
-          logUserName = matchedStudent.name || matchedStudent.email || 'N/A';
-          logUserRole = 'Student';
-        } else {
-          const isTrainer = resetEmailFromUrl?.toLowerCase() === 'samir@al-andalos.nl' || (schoolSettings?.email && schoolSettings.email.toLowerCase() === resetEmailFromUrl?.toLowerCase());
-          if (isTrainer) {
-            logUserId = 'trainer-samir';
-            logUserName = schoolSettings?.instructorName || 'Instructeur Samir';
-            logUserRole = 'Trainer';
-          } else {
-            logUserId = 'unknown';
-            logUserName = resetEmailFromUrl || 'Unknown';
-            logUserRole = 'Student';
-          }
-        }
-
-        const ipAddress = await fetchClientIpAddress();
-        const now = new Date();
-        const dateStr = now.toISOString().split('T')[0];
-        const timeStr = now.toTimeString().split(' ')[0];
-        const timeZoneStr = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Unknown';
-        const auditId = 'AUD-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7).toUpperCase();
-
-        const auditEntry: AuditLogEntry = {
-          auditId: auditId,
-          userId: logUserId,
-          userName: logUserName,
-          userRole: logUserRole,
-          action: 'Password Changed',
-          changedBy: 'Self',
-          date: dateStr,
-          time: timeStr,
-          timeZone: timeZoneStr,
-          ipAddress,
-          deviceBrowser: navigator.userAgent || 'Unknown'
-        };
-
-        if (config.spreadsheetId && config.accessToken) {
-          try {
-            await writeAuditLogToGoogleSheet(config, auditEntry);
-          } catch (auditErr) {
-            console.error("Failed to write password reset audit log to sheets:", auditErr);
-          }
-        }
-
-        // Update local React state for students with the hashed password returned by server
-        setStudents(prevStudents => {
-          const updated = prevStudents.map(student => {
-            if (student.email?.toLowerCase() === resetEmailFromUrl?.toLowerCase()) {
-              return { ...student, password: result.hashedPassword };
-            }
-            return student;
-          });
-          return updated;
-        });
-
-        setResetPasswordStatus('success');
-        setResetNewPassword('');
-        setResetConfirmPassword('');
-      } else {
-        throw new Error(result.error || 'Reset failed');
-      }
+      if (!resetTokenFromUrl) throw new Error('Password reset code is missing.');
+      await confirmPasswordReset(firebaseAuth, resetTokenFromUrl, resetNewPassword);
+      setResetPasswordStatus('success');
+      setResetNewPassword('');
+      setResetConfirmPassword('');
     } catch (err) {
       console.error('Password reset submit error:', err);
       setResetPasswordStatus('valid');
@@ -1617,6 +1506,7 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    setStudentVerified(false);
     setLoginEmail('');
     setLoginPassword('');
     setActiveTab('home');
@@ -1959,7 +1849,6 @@ export default function App() {
                 loginPassword={loginPassword}
                 setLoginPassword={setLoginPassword}
                 handleManualLogin={handleManualLogin}
-                handleDemoLogin={handleDemoLogin}
                 handleRegisterSubmit={handleRegisterSubmit}
                 regName={regName}
                 setRegName={setRegName}
@@ -1999,6 +1888,10 @@ export default function App() {
               />
             )}
 
+          </div>
+        ) : (currentUser.role === 'student' && !studentVerified) || (currentUser.role === 'trainer' && !trainerVerified) ? (
+          <div className="max-w-xl mx-auto p-6 text-center rounded-xl bg-white text-slate-700" role="status">
+            {lang === 'ar' ? 'جارٍ التحقق من حسابك في سجل المدرسة…' : lang === 'nl' ? 'Je schoolaccount wordt gecontroleerd…' : 'Checking your school account…'}
           </div>
         ) : (
           

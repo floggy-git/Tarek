@@ -19,6 +19,8 @@ import {
   getStableStudentId 
 } from '../utils/aiCoachStorage';
 import { isRecordForStudent } from '../utils/identity';
+import { auth as firebaseAuth } from '../services/googleAuthService';
+import { callStudentGateway } from '../utils/sheetStudentGateway';
 
 interface StudentLearningProps {
   lang: Language;
@@ -1035,13 +1037,21 @@ function StudentLearningComponent({
         } : null
       });
 
-      // Call our secure server-side proxy
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: payload
+      // The static deployment calls Gemini through the authenticated student
+      // gateway; its API key stays in Apps Script properties.
+      const gatewayConfigured = Boolean((import.meta as any).env?.VITE_STUDENT_GATEWAY_URL);
+      const gatewayReply = gatewayConfigured
+        ? await (async () => {
+            const token = await firebaseAuth.currentUser?.getIdToken();
+            if (!token) throw new Error('Student sign-in is required for AI coaching.');
+            return callStudentGateway<{ reply: string }>('chat', token, {
+              message: userMsg.text, image: userMsg.image, lang,
+              history: messages.slice(-6).map(m => ({ sender: m.sender, text: m.text }))
+            });
+          })()
+        : null;
+      const response = gatewayConfigured ? null : await fetch('/api/chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload
       });
 
       let replyText = "";
@@ -1051,8 +1061,8 @@ function StudentLearningComponent({
       let suspensionTier = 0;
       let warningCount = 0;
 
-      if (response.ok) {
-        const data = await response.json();
+      if (gatewayReply || response?.ok) {
+        const data = gatewayReply || await response!.json();
         replyText = data.reply;
         isWarning = !!data.warning;
         isSuspended = !!data.suspended;

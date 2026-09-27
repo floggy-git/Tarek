@@ -14,7 +14,7 @@ import { sendAppEmail } from '../utils/emailService';
 import { safeSetItem } from '../utils/safeStorage';
 import { DatePicker } from './DatePicker';
 import { getStudentPhoto, getStudentInitials, getStudentId, saveStudentPhoto, compressImage, deleteStudentPhoto, getTrainerPhoto, saveTrainerPhoto, deleteTrainerPhoto } from '../utils/studentPhoto';
-import { getSheetsConfig, uploadVideoToGoogleDrive, deleteVideoFromGoogleDrive, writeStudentsToGoogleSheet, writeAuditLogToGoogleSheet, fetchClientIpAddress, writePackagesToGoogleSheet, writeMediaVideosToGoogleSheet } from '../utils/googleSheets';
+import { getSheetsConfig, uploadVideoToGoogleDrive, deleteVideoFromGoogleDrive, patchStudentInGoogleSheet, writeAuditLogToGoogleSheet, fetchClientIpAddress, writePackagesToGoogleSheet, writeMediaVideosToGoogleSheet } from '../utils/googleSheets';
 import { AlertTriangle, Compass, Mic, MicOff, Sliders, Palette, Type, Smile, Layers, Disc, Scissors, Snowflake, ZoomIn, Target, Droplet, Volume2, Square } from 'lucide-react';
 import { PackageCard } from './PackageCard';
 import { AddImageModule } from './AddImageModule';
@@ -4267,7 +4267,8 @@ function TrainerDashboardComponent({
           <ExamTracker 
             lang={lang} 
             lessons={lessons}
-            onRouteSaved={(studentName, points, durationSeconds) => {
+            students={students}
+            onRouteSaved={(studentName, points, durationSeconds, distanceKm) => {
               const prev = lessons;
               // Try to find an active lesson for this student first
               let targetIndex = prev.findIndex(l => l.studentName === studentName && l.status === 'active');
@@ -4288,7 +4289,7 @@ function TrainerDashboardComponent({
                   ...updated[targetIndex],
                   routePoints: points,
                   elapsedTime: `${Math.floor(durationSeconds / 60)}m ${durationSeconds % 60}s`,
-                  distanceKm: Number((points.length * 0.15).toFixed(2))
+                  distanceKm: Number(distanceKm.toFixed(2))
                 };
                 setLessons(updated);
               }
@@ -7967,7 +7968,7 @@ function TrainerDashboardComponent({
             <div className="w-full space-y-3 max-h-[55vh] overflow-y-auto overflow-x-hidden py-1.5 px-3 scrollbar-thin mx-auto">
               
               {/* Full Name */}
-              <div className="space-y-1 w-full">
+              <div className="space-y-1 w-full hidden">
                 <label className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-400 uppercase tracking-wider block text-start">
                   {lang === 'ar' ? 'الاسم الكامل *' : 'Full Name *'}
                 </label>
@@ -8102,25 +8103,12 @@ function TrainerDashboardComponent({
                     return;
                   }
 
-                  let targetHashedPassword = editingStudent.password;
-                  let passwordWasChanged = false;
                   if (newStudentPassword.trim()) {
-                    if (newStudentPassword.trim().length < 6) {
-                      alert(lang === 'ar' ? 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل.' : 'Password must be at least 6 characters.');
-                      return;
-                    }
-                    try {
-                      const bcrypt = await import('bcryptjs');
-                      targetHashedPassword = bcrypt.hashSync(newStudentPassword.trim(), 10);
-                      passwordWasChanged = true;
-                    } catch (hashErr) {
-                      console.error("Hashing password failed:", hashErr);
-                      alert(lang === 'ar' ? 'حدث خطأ أثناء تشفير كلمة المرور.' : 'An error occurred while hashing the password.');
-                      return;
-                    }
+                    alert(lang === 'ar' ? 'غيّر كلمة المرور من نموذج الطالب في الشيت.' : 'Change the password using the student form in the sheet.');
+                    return;
                   }
 
-                  const updatedStudentRec = { ...editingStudent, password: targetHashedPassword };
+                  const updatedStudentRec = { ...editingStudent };
 
                   const updatedStudentsList = students.map(s => 
                     studentNamesMatch(s.name, editingStudent.name) || s.id === editingStudent.id 
@@ -8134,38 +8122,8 @@ function TrainerDashboardComponent({
                     const config = getSheetsConfig();
                     const hasSheetsConfig = !!(config.spreadsheetId && config.accessToken);
 
-                    if (hasSheetsConfig) {
-                      let auditLogEntry: AuditLogEntry | null = null;
-                      if (passwordWasChanged) {
-                        const ipAddress = await fetchClientIpAddress();
-                        const now = new Date();
-                        const dateStr = now.toISOString().split('T')[0];
-                        const timeStr = now.toTimeString().split(' ')[0];
-                        const timeZoneStr = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Unknown';
-                        const auditId = 'AUD-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7).toUpperCase();
-
-                        auditLogEntry = {
-                          auditId: auditId,
-                          userId: editingStudent.id || 'N/A',
-                          userName: editingStudent.name || 'N/A',
-                          userRole: 'Student',
-                          action: 'Password Changed',
-                          changedBy: 'Admin',
-                          date: dateStr,
-                          time: timeStr,
-                          timeZone: timeZoneStr,
-                          ipAddress: ipAddress,
-                          deviceBrowser: navigator.userAgent || 'Unknown'
-                        };
-                      }
-
-                      // Write updates directly to Google Sheets first!
-                      await writeStudentsToGoogleSheet(config, updatedStudentsList);
-
-                      // Write Audit Log
-                      if (auditLogEntry) {
-                        await writeAuditLogToGoogleSheet(config, auditLogEntry);
-                      }
+                    if (!hasSheetsConfig || !editingStudent.id || !await patchStudentInGoogleSheet(editingStudent.id, updatedStudentRec, config)) {
+                      throw new Error('Could not update the student row in Google Sheets');
                     }
 
                     // Local state update
