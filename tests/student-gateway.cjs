@@ -12,7 +12,8 @@ function makeGateway() {
       ['ST-000001','A','a@example.com','','','','',0,0,'active','',''],
       ['ST-000002','B','b@example.com','','','','',0,0,'active','','']],
     Lessons: [['Lesson ID','Student ID','Student Name'],['L1','ST-000001','A'],['L2','ST-000002','B']],
-    Wallet: [['Transaction ID','Student ID','Student Name'],['T1','ST-000001','A'],['T2','ST-000002','B']]
+    Wallet: [['Transaction ID','Student ID','Student Name'],['T1','ST-000001','A'],['T2','ST-000002','B']],
+    Trainers: [['Trainer ID','Name','Email','Status','Password'],['TR-01','Trainer A','coach@example.com','active','private'],['TR-02','Trainer B','other@example.com','inactive','private']]
   };
   const sheets = {getSheetByName(name) { const values=rows[name];return values && {
     getLastRow:()=>values.length,getDataRange:()=>({getDisplayValues:()=>values}),
@@ -44,6 +45,17 @@ test('inactive and missing student profiles cannot be read',()=>{
   assert.throws(()=>context.gatewayStudentMe('verified-token'),/not active/);
   context.gatewayEmail_=()=> 'unknown@example.com';
   assert.throws(()=>context.gatewayStudentMe('verified-token'),/not active/);
+});
+
+test('trainer access requires an active matching email and never exposes password',()=>{
+  const {context}=makeGateway();context.gatewayEmail_=()=> 'coach@example.com';
+  const result=context.gatewayTrainerMe('verified-token');
+  assert.equal(result.trainer['Trainer ID'],'TR-01');
+  assert.equal(result.trainer.Password,undefined);
+  context.gatewayEmail_=()=> 'other@example.com';
+  assert.throws(()=>context.gatewayTrainerMe('verified-token'),/not active/);
+  context.gatewayEmail_=()=> 'outsider@example.com';
+  assert.throws(()=>context.gatewayTrainerMe('verified-token'),/not active/);
 });
 
 test('student registration is idempotent and never writes a password to the sheet',()=>{

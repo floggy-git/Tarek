@@ -41,7 +41,6 @@ interface LoginScreenProps {
   loginPassword: string;
   setLoginPassword: (val: string) => void;
   handleManualLogin: (e: React.FormEvent) => void;
-  handleDemoLogin: (role: 'student' | 'trainer') => void;
   handleRegisterSubmit: (e: React.FormEvent) => void;
   regName: string;
   setRegName: (val: string) => void;
@@ -97,7 +96,6 @@ export default function LoginScreen({
   loginPassword,
   setLoginPassword,
   handleManualLogin,
-  handleDemoLogin,
   handleRegisterSubmit,
   regName,
   setRegName,
@@ -336,32 +334,6 @@ export default function LoginScreen({
               <span>{isRtl ? 'دخول الحساب' : 'Sign In'}</span>
               <ArrowIcon className="h-4 w-4" />
             </button>
-
-            {/* Instant Quick Demo Divider */}
-            <div className="pt-4 border-t border-slate-100 dark:border-zinc-800 space-y-3">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block text-center">
-                {isRtl ? 'أو التجربة السريعة بنقرة واحدة' : 'Or try with a one-click demo'}
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleDemoLogin('student')}
-                  className="py-2.5 px-3 bg-slate-100 dark:bg-zinc-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <User className="h-3.5 w-3.5" />
-                  <span>{isRtl ? 'تجربة الطالب' : 'Student Demo'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleDemoLogin('trainer')}
-                  className="py-2.5 px-3 bg-slate-100 dark:bg-zinc-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Shield className="h-3.5 w-3.5" />
-                  <span>{isRtl ? 'تجربة المدرب' : 'Trainer Demo'}</span>
-                </button>
-              </div>
-            </div>
 
           </form>
         )}

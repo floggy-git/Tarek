@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Navigation, Play, Square, Activity, Wifi, WifiOff, History, User, Trash2, Eye, Compass, MapPin, AlertTriangle
+  Navigation, Play, Square, Activity, WifiOff, History, User, Trash2, Eye, Compass, AlertTriangle
 } from 'lucide-react';
 import { Language } from '../types';
 import { safeSetItem } from '../utils/safeStorage';
@@ -85,28 +85,10 @@ function ExamTrackerComponent({ lang, lessons, students: enrolledStudents = [], 
   const [duration, setDuration] = useState<number>(0);
   const [gpsError, setGpsError] = useState<string | null>(null);
   
-  // Hidden developer mode state (Hidden Simulation Mode)
-  const [clickCount, setClickCount] = useState<number>(0);
-  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
-
   // History state loaded from localStorage
   const [savedRoutes, setSavedRoutes] = useState<SavedExamRoute[]>([]);
   const [reviewRoute, setReviewRoute] = useState<SavedExamRoute | null>(null);
   const [routeToDelete, setRouteToDelete] = useState<string | null>(null);
-
-  // References for Leaflet map integration
-  const mapRef = useRef<any>(null);
-  const polylineRef = useRef<any>(null);
-  const carMarkerRef = useRef<any>(null);
-  const startMarkerRef = useRef<any>(null);
-
-  const gpsWatchIdRef = useRef<number | null>(null);
-  const simIntervalRef = useRef<any>(null);
-
-  // Load Leaflet library
-  const loadLeaflet = (callback: () => void) => {
-    callback();
-  };
 
   // Seed default history or load from local storage
   useEffect(() => {
@@ -138,15 +120,6 @@ function ExamTrackerComponent({ lang, lessons, students: enrolledStudents = [], 
     return () => clearInterval(interval);
   }, [trackingMode, trackingStartTime]);
 
-  // Clean up timers on unmount
-  useEffect(() => {
-    return () => {
-      if (simIntervalRef.current) {
-        clearInterval(simIntervalRef.current);
-      }
-    };
-  }, []);
-
   // Start tracking
   const startTracking = () => {
     if (!selectedStudent) return;
@@ -156,33 +129,7 @@ function ExamTrackerComponent({ lang, lessons, students: enrolledStudents = [], 
     setTrackingMode('tracking');
     setGpsError(null);
 
-    if (isDemoMode) {
-      // Simulate route points for CBR exam simulation
-      const demoPoints: TrackedPoint[] = [
-        { lat: 52.3892, lng: 4.8378 },
-        { lat: 52.3881, lng: 4.8415 },
-        { lat: 52.3865, lng: 4.8445 },
-        { lat: 52.3842, lng: 4.8488 },
-        { lat: 52.3815, lng: 4.8515 },
-        { lat: 52.3795, lng: 4.8505 },
-        { lat: 52.3812, lng: 4.8458 },
-        { lat: 52.3835, lng: 4.8402 },
-        { lat: 52.3862, lng: 4.8361 },
-        { lat: 52.3892, lng: 4.8378 }
-      ];
 
-      let idx = 0;
-      setCurrentPoints([demoPoints[0]]);
-      simIntervalRef.current = setInterval(() => {
-        idx++;
-        if (idx < demoPoints.length) {
-          setCurrentPoints(prev => [...prev, demoPoints[idx]]);
-        } else {
-          clearInterval(simIntervalRef.current);
-          simIntervalRef.current = null;
-        }
-      }, 3000);
-    }
   };
 
   // Finish and save route
@@ -191,11 +138,6 @@ function ExamTrackerComponent({ lang, lessons, students: enrolledStudents = [], 
       setGpsError(lang === 'ar' ? 'يلزم تسجيل نقطتي GPS على الأقل قبل حفظ المسار.' : 'Record at least two GPS positions before saving.');
       return;
     }
-    if (simIntervalRef.current) {
-      clearInterval(simIntervalRef.current);
-      simIntervalRef.current = null;
-    }
-
     const finalPoints = currentPoints;
     const finalDuration = duration;
     const newRoute: SavedExamRoute = {
@@ -246,18 +188,6 @@ function ExamTrackerComponent({ lang, lessons, students: enrolledStudents = [], 
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  // Hidden Easter Egg toggler for Demo simulation
-  const handleEasterEggClick = () => {
-    const newCount = clickCount + 1;
-    if (newCount >= 5) {
-      setIsDemoMode(!isDemoMode);
-      setClickCount(0);
-      alert(`Simulation Mode ${!isDemoMode ? 'ENABLED (Simulated office route)' : 'DISABLED (Using real GPS location)'}`);
-    } else {
-      setClickCount(newCount);
-    }
-  };
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fadeIn font-sans" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       
@@ -271,11 +201,7 @@ function ExamTrackerComponent({ lang, lessons, students: enrolledStudents = [], 
                 <Navigation className="h-5 w-5 animate-pulse" />
               </span>
               <div>
-                <h3 
-                  onClick={handleEasterEggClick}
-                  className="font-extrabold text-slate-800 dark:text-white text-sm select-none cursor-pointer"
-                  title="Click 5 times for hidden simulation mode"
-                >
+                <h3 className="font-extrabold text-slate-800 dark:text-white text-sm">
                   {lang === 'ar' ? 'تتبع مسار نظام الـ GPS الفعلي' : 'Real-time GPS Route Tracker'}
                 </h3>
                 <p className="text-[11px] text-slate-450 dark:text-zinc-400 mt-0.5">
@@ -353,7 +279,7 @@ function ExamTrackerComponent({ lang, lessons, students: enrolledStudents = [], 
                 <span className="text-slate-400 font-bold">{lang === 'ar' ? 'حالة الإشارة:' : 'GPS Status:'}</span>
                 <span className="font-mono font-black text-green-500 flex items-center gap-1">
                   <Activity className="h-3 w-3 animate-ping" />
-                  {isDemoMode ? (lang === 'ar' ? 'محاكاة نشطة' : 'SIMULATED') : (lang === 'ar' ? 'اتصال قوي' : 'LIVE / HIGH PRECISION')}
+                  {currentPoints.length ? (lang === 'ar' ? 'تسجيل الموقع الفعلي' : 'GPS positions recorded') : (lang === 'ar' ? 'بانتظار GPS' : 'Waiting for GPS')}
                 </span>
               </div>
               
@@ -430,7 +356,7 @@ function ExamTrackerComponent({ lang, lessons, students: enrolledStudents = [], 
                 </div>
                 <div className="p-2.5 bg-slate-50 dark:bg-zinc-950 rounded-2xl border border-slate-100 dark:border-zinc-800/50">
                   <span className="text-[9px] text-slate-400 block uppercase tracking-wider">{lang === 'ar' ? 'أعلى سرعة' : 'Max Speed'}</span>
-                  <span className="text-sm font-black text-slate-850 dark:text-white mt-1 block font-mono">{reviewRoute.maxSpeed || 45} km/h</span>
+                  <span className="text-sm font-black text-slate-850 dark:text-white mt-1 block font-mono">{reviewRoute.maxSpeed ? `${reviewRoute.maxSpeed} km/h` : '—'}</span>
                 </div>
               </div>
 
@@ -547,7 +473,7 @@ function ExamTrackerComponent({ lang, lessons, students: enrolledStudents = [], 
 
                 <div className="flex gap-4 text-[10px] font-bold text-slate-450 border-t border-slate-100 dark:border-zinc-850/50 pt-2 flex-wrap font-mono">
                   <span>⏱️ {formatDuration(route.durationSeconds)}</span>
-                  <span>⚡ MAX SPEED: {route.maxSpeed || 45} km/h</span>
+                  <span>⚡ MAX SPEED: {route.maxSpeed ? `${route.maxSpeed} km/h` : '—'}</span>
                   <span className="text-blue-600 dark:text-blue-400">📍 {route.points.length} coordinates</span>
                 </div>
 

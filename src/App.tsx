@@ -17,6 +17,7 @@ import { isRecordForStudent, studentNamesMatch } from './utils/identity';
 import { getUnreadNotificationCount, markAllNotificationsAsRead } from './utils/notificationStore';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, deleteUser, sendPasswordResetEmail, verifyPasswordResetCode, confirmPasswordReset } from 'firebase/auth';
 import { auth as firebaseAuth } from './services/googleAuthService';
+import { callStudentGateway } from './utils/sheetStudentGateway';
 
 // Import our custom sub-app workspaces
 import Header from './components/Header';
@@ -204,6 +205,7 @@ export default function App() {
     return null;
   });
   const [studentVerified, setStudentVerified] = useState(false);
+  const [trainerVerified, setTrainerVerified] = useState(false);
 
   // Auth gate options state
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
@@ -836,6 +838,18 @@ export default function App() {
       const config = getSheetsConfig();
       if (!config.spreadsheetId) return;
       try {
+        if (currentUser?.role === 'trainer') {
+          await firebaseAuth.authStateReady();
+          const authUser = firebaseAuth.currentUser;
+          if (!authUser || authUser.email?.toLowerCase() !== currentUser.email.toLowerCase()) {
+            setTrainerVerified(false); setCurrentUser(null); return;
+          }
+          const result = await callStudentGateway<{trainer: Record<string,string>}>('trainerMe', await authUser.getIdToken());
+          if (cancelled) return;
+          if (result.trainer['Trainer ID'] !== currentUser.id) throw new Error('Trainer record mismatch');
+          setTrainerVerified(true);
+          return;
+        }
         if (currentUser?.role === 'student') {
           await firebaseAuth.authStateReady();
           const authUser = firebaseAuth.currentUser;
@@ -861,6 +875,13 @@ export default function App() {
           setStudentVerified(false);
           // A temporary network failure must not be mistaken for a deletion.
           if (String(err).includes('inactive')) {
+            await firebaseAuth.signOut();
+            sessionStorage.removeItem('drivingschool_user');
+            setCurrentUser(null);
+          }
+        } else if (currentUser?.role === 'trainer') {
+          setTrainerVerified(false);
+          if (/not active|record mismatch/i.test(String(err))) {
             await firebaseAuth.signOut();
             sessionStorage.removeItem('drivingschool_user');
             setCurrentUser(null);
@@ -1169,70 +1190,33 @@ export default function App() {
 
   const regAge = calculateAge(regDob);
 
-  // Demo account logger helper
-  const handleDemoLogin = (pRole: 'student' | 'trainer') => {
-    if (pRole === 'student') {
-      const demoEmail = "amir@student.drivingschool.nl";
-      const matchedStudent = students.find(s => s.studentId === "ST-000001" || s.id === "ST-000001" || s.email?.toLowerCase() === demoEmail.toLowerCase());
-      const selectedPkgObj = packages.find(p => p.id === matchedStudent?.packageId || p.name === matchedStudent?.packageName || p.name === matchedStudent?.currentPackage);
-      const pkgName = matchedStudent?.packageName || matchedStudent?.currentPackage || matchedStudent?.packageSelection || selectedPkgObj?.name || "Optimal Progress Pack";
-      const pkgHours = matchedStudent?.packageHours !== undefined ? Number(matchedStudent.packageHours) : (matchedStudent?.targetHours !== undefined ? Number(matchedStudent.targetHours) : (selectedPkgObj?.hours ?? 20));
-      const pkgPrice = matchedStudent?.packagePrice !== undefined ? Number(matchedStudent.packagePrice) : (selectedPkgObj?.price ?? 1250);
-
-      const demoUser = {
-        id: matchedStudent?.id || "ST-000001",
-        studentId: matchedStudent?.studentId || "ST-000001",
-        name: matchedStudent ? matchedStudent.name : "Amir Al-Hassan",
-        email: demoEmail,
-        phone: matchedStudent?.phone || "+31 6 1234 5678",
-        role: "student" as const,
-        lang: lang,
-        packageName: pkgName,
-        packageSelection: pkgName,
-        currentPackage: pkgName,
-        packageHours: pkgHours,
-        targetHours: pkgHours,
-        packagePrice: pkgPrice,
-        packageId: matchedStudent?.packageId || selectedPkgObj?.id || "PKG-000002",
-        dob: matchedStudent?.dob || "2005-08-15",
-        city: matchedStudent?.city || schoolSettings?.city || "Maastricht",
-        notificationsEnabled: matchedStudent ? matchedStudent.notificationsEnabled !== false : true
-      };
-      setCurrentUser(demoUser);
-    } else {
-      const isNotificationsEnabled = schoolSettings ? schoolSettings.notificationsEnabled !== false : true;
-      const demoTrainer = {
-        name: schoolSettings?.instructorName || "Lead Instructor",
-        email: schoolSettings?.email || "trainer@drivingschool.nl",
-        phone: "+31 6 9876 5432",
-        role: "trainer" as const,
-        lang: lang,
-        notificationsEnabled: isNotificationsEnabled
-      };
-      setCurrentUser(demoTrainer);
-    }
-    setActiveTab('home');
-  };
-
   const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail.trim()) return;
 
     if (loginRole === 'trainer') {
-      // Login as customized trainer
       const cleanEmail = loginEmail.trim().toLowerCase();
-      const trainerPassword = loginPassword;
-      
-      const isNotificationsEnabled = schoolSettings ? schoolSettings.notificationsEnabled !== false : true;
-      const trainer = {
-        name: cleanEmail.includes('samir') ? "Instructeur Samir" : cleanEmail.split('@')[0].toUpperCase(),
-        email: loginEmail.trim(),
-        phone: "+31 6 9876 5432",
-        role: "trainer" as const,
-        lang: lang,
-        notificationsEnabled: isNotificationsEnabled
-      };
-      setCurrentUser(trainer);
+      try {
+        if (!loginPassword) throw new Error('Password required');
+        const credentials = await signInWithEmailAndPassword(firebaseAuth, cleanEmail, loginPassword);
+        const record = await callStudentGateway<{trainer: Record<string,string>}>('trainerMe', await credentials.user.getIdToken());
+        if (String(record.trainer.Email || '').toLowerCase() !== cleanEmail) throw new Error('Trainer email mismatch');
+        const isNotificationsEnabled = schoolSettings ? schoolSettings.notificationsEnabled !== false : true;
+        setCurrentUser({
+          id: record.trainer['Trainer ID'],
+          name: record.trainer.Name,
+          email: cleanEmail,
+          phone: record.trainer.Phone || '',
+          role: 'trainer' as const,
+          lang,
+          notificationsEnabled: isNotificationsEnabled
+        });
+        setTrainerVerified(true);
+      } catch {
+        await firebaseAuth.signOut();
+        alert(lang === 'ar' ? 'تعذر دخول المدرّب. تحقق من كلمة المرور وأن حسابك نشط في شيت المدربين.' : lang === 'nl' ? 'Inloggen mislukt. Controleer je wachtwoord en actieve instructeursregistratie.' : 'Trainer sign-in failed. Check your password and active trainer record.');
+        return;
+      }
     } else {
       // Login as student - STRICT VERIFICATION (No unauthenticated fallback)
       const cleanEmail = loginEmail.trim().toLowerCase();
@@ -1866,7 +1850,6 @@ export default function App() {
                 loginPassword={loginPassword}
                 setLoginPassword={setLoginPassword}
                 handleManualLogin={handleManualLogin}
-                handleDemoLogin={handleDemoLogin}
                 handleRegisterSubmit={handleRegisterSubmit}
                 regName={regName}
                 setRegName={setRegName}
@@ -1907,7 +1890,7 @@ export default function App() {
             )}
 
           </div>
-        ) : currentUser.role === 'student' && !studentVerified ? (
+        ) : (currentUser.role === 'student' && !studentVerified) || (currentUser.role === 'trainer' && !trainerVerified) ? (
           <div className="max-w-xl mx-auto p-6 text-center rounded-xl bg-white text-slate-700" role="status">
             {lang === 'ar' ? 'جارٍ التحقق من حسابك في سجل المدرسة…' : lang === 'nl' ? 'Je schoolaccount wordt gecontroleerd…' : 'Checking your school account…'}
           </div>

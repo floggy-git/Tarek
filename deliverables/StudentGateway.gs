@@ -25,6 +25,7 @@ function doGet(e) {
     'var d=e.data;if(d.bridge!==BRIDGE)return;var run=google.script.run.withSuccessHandler(function(v){top.postMessage({tarekGateway:"reply",bridge:BRIDGE,id:d.id,ok:true,value:v},ORIGIN)}).withFailureHandler(function(err){top.postMessage({tarekGateway:"reply",bridge:BRIDGE,id:d.id,ok:false,error:String(err.message||err)},ORIGIN)});'+
     'if(d.action==="me")run.gatewayStudentMe(d.token);else if(d.action==="register")run.gatewayStudentRegister(d.token,d.profile);'+
     'else if(d.action==="chat")run.gatewayStudentChat(d.token,d.profile);'+
+    'else if(d.action==="trainerMe")run.gatewayTrainerMe(d.token);'+
     'else top.postMessage({tarekGateway:"reply",bridge:BRIDGE,id:d.id,ok:false,error:"Unknown operation"},ORIGIN);'+
     '});</script>';
   return HtmlService.createHtmlOutput(html).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
@@ -83,6 +84,19 @@ function gatewayStudentMe(token) {
   });
   var student={};h.forEach(function(key,index){if(key&&!/password|secret|token|hash/i.test(key))student[key]=row[index]||'';});
   return {success:true,student:student,lessons:linked[0],wallet:linked[1]};
+}
+
+function gatewayTrainerMe(token) {
+  var email=gatewayEmail_(token),ss=SpreadsheetApp.openById(gatewaySettings_().SHEET_ID);
+  var rows=gatewayRows_(ss,'Trainers'),h=rows[0];
+  var emailCol=h.indexOf('Email'),statusCol=h.indexOf('Status'),idCol=h.indexOf('Trainer ID');
+  if(emailCol<0||statusCol<0||idCol<0)throw new Error('Trainers headers are missing.');
+  var matches=rows.slice(1).filter(function(row){return String(row[emailCol]).trim().toLowerCase()===email;});
+  if(matches.length!==1||String(matches[0][statusCol]).trim().toLowerCase()!=='active')
+    throw new Error('Trainer is not active in the school register.');
+  var trainer={};
+  h.forEach(function(key,index){if(key&&!/password|secret|token|hash/i.test(key))trainer[key]=matches[0][index]||'';});
+  return {success:true,trainer:trainer};
 }
 
 function gatewayStudentChat(token,input) {
