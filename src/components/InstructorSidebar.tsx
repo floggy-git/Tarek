@@ -20,8 +20,7 @@ import {
   Mail as LucideMail, 
   Palette as LucidePalette, 
   Globe as LucideGlobe, 
-  Bot as LucideBot,
-  Database as LucideDatabase
+  Bot as LucideBot
 } from 'lucide-react';
 import { Language, SchoolSettings } from '../types';
 import SchoolLogo from './SchoolLogo';
@@ -126,15 +125,6 @@ export default function InstructorSidebar({
   ];
 
   const schoolManagementItems = [
-    {
-      id: 'admin-control-center',
-      label: isRtl ? 'مركز التحكم الشامل (Google Sheets)' : lang === 'nl' ? 'Beheer & Sheets Control Center' : 'Admin Sheets Control Center',
-      icon: LucideDatabase,
-      action: () => {
-        window.dispatchEvent(new CustomEvent('openAdminControlCenter'));
-        setDrawerOpen(false);
-      }
-    },
     {
       id: 'admin-media',
       label: isRtl ? 'مكتبة الوسائط' : lang === 'nl' ? 'Educatieve Mediatheek' : 'Media Library',
