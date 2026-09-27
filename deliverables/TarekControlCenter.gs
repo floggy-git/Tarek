@@ -262,9 +262,17 @@ function buildDashboardEn(){return TarekBuildDashboard('EN')}function buildDashb
 function TarekWebhookConfig(){var p=PropertiesService.getScriptProperties();return{backendUrl:p.getProperty('BACKEND_URL')||'',webhookSecretConfigured:!!p.getProperty('WEBHOOK_SECRET')}}
 
 function tarekSignedBackendPost_(route,body){
-  var p=PropertiesService.getScriptProperties(),base=p.getProperty('BACKEND_URL'),secret=p.getProperty('WEBHOOK_SECRET');
-  if(!base||!secret)return{skipped:true,reason:'Configure BACKEND_URL and WEBHOOK_SECRET in Script Properties'};
+  var p=PropertiesService.getScriptProperties(),gateway=p.getProperty('GATEWAY_URL'),base=p.getProperty('BACKEND_URL'),secret=p.getProperty('WEBHOOK_SECRET');
+  if(!secret||(!gateway&&!base))return{skipped:true,reason:'Configure GATEWAY_URL and WEBHOOK_SECRET in Script Properties'};
   var timestamp=String(Date.now()),payload=JSON.stringify(body);
+  if(gateway){
+    var signed=timestamp+'.'+route+'.'+payload;
+    var signature=Utilities.computeHmacSha256Signature(signed,secret).map(function(b){return('0'+(b&255).toString(16)).slice(-2)}).join('');
+    var answer=UrlFetchApp.fetch(gateway,{method:'post',contentType:'application/json',payload:JSON.stringify({route:route,body:body,timestamp:timestamp,signature:signature}),muteHttpExceptions:true});
+    var content=answer.getContentText(),result;
+    try{result=JSON.parse(content);}catch(ignore){result={success:false,error:'Gateway response is not JSON.'};}
+    return{status:answer.getResponseCode()===200&&result.success===true?200:503,body:result.error||content.slice(0,300)};
+  }
   var bytes=Utilities.computeHmacSha256Signature(timestamp+'.'+payload,secret);
   var signature=bytes.map(function(b){return ('0'+(b&255).toString(16)).slice(-2)}).join('');
   var res=UrlFetchApp.fetch(base.replace(/\/$/,'')+route,{method:'post',contentType:'application/json',payload:payload,headers:{'X-Sheets-Signature':signature,'X-Sheets-Timestamp':timestamp,'X-Sheets-Event-Id':body.syncId||''},muteHttpExceptions:true});

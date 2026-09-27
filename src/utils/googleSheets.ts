@@ -2,6 +2,7 @@ import { DrivePackage, StudentRecord, AuditLogEntry, Lesson, HelpFaqItem } from 
 import { getStudentId } from './studentPhoto';
 import bcrypt from 'bcryptjs';
 import { safeSetItem } from './safeStorage';
+import { callStudentGateway } from './sheetStudentGateway';
 
 /**
  * Utility functions for syncing package data directly with Google Sheets.
@@ -431,9 +432,14 @@ export async function loadAuthenticatedStudent(idToken: string): Promise<Student
 }
 
 export async function loadAuthenticatedDossier(idToken: string): Promise<{student:StudentRecord;lessons:Lesson[];transactions:{id:string;studentId:string;studentName:string;date:string;type:'deposit'|'payment'|'adjustment';amount:number;description:string}[]}> {
-  const response = await fetch(studentApiUrl('/api/students/me'), { headers: { Authorization: `Bearer ${idToken}` }, cache: 'no-store' });
-  if (!response.ok) throw new Error([401,403].includes(response.status) ? 'Student record inactive.' : 'Student register temporarily unavailable.');
-  const result = await response.json();
+  const gateway = String((import.meta as any).env?.VITE_STUDENT_GATEWAY_URL || '').trim();
+  let result: any;
+  if (gateway) result = await callStudentGateway('me', idToken);
+  else {
+    const response = await fetch(studentApiUrl('/api/students/me'), { headers: { Authorization: `Bearer ${idToken}` }, cache: 'no-store' });
+    if (!response.ok) throw new Error([401,403].includes(response.status) ? 'Student record inactive.' : 'Student register temporarily unavailable.');
+    result = await response.json();
+  }
   const headers = ['Student ID','Name','Email','Phone','Date of Birth','City','Current Package','Balance (€)','Exam Readiness (%)','Status','Theory Exam Status','Drive Folder ID'];
   const student = parseSheetRowsToStudents([headers, headers.map(h => result.student[h] ?? '')])[0];
   const wallet = result.wallet || [];
@@ -448,6 +454,11 @@ export async function loadAuthenticatedDossier(idToken: string): Promise<{studen
 }
 
 export async function registerAuthenticatedStudent(idToken: string, student: Partial<StudentRecord>): Promise<string> {
+  if (String((import.meta as any).env?.VITE_STUDENT_GATEWAY_URL || '').trim()) {
+    const result = await callStudentGateway<{ success: boolean; studentId: string }>('register', idToken, student);
+    if (!result.success || !result.studentId) throw new Error('Student registration failed.');
+    return result.studentId;
+  }
   const response = await fetch(studentApiUrl('/api/students/register'), {
     method: 'POST', headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(student)

@@ -15,6 +15,35 @@ Students sheet.
 
 ## Before enabling the new login path
 
+### Apps Script gateway (no Cloud Run)
+
+The sheet remains the data store. Deploy `deliverables/StudentGateway.gs`
+in a **different standalone Apps Script project**, with no administration
+functions from the bound spreadsheet project. Otherwise an anonymously
+accessible web app would expose the bound project's spreadsheet functions.
+Deploy the gateway web app as **execute as owner**, **anyone**, so Firebase
+students can reach it. Every gateway student request verifies a Firebase ID
+token; sheet administration uses a timestamped HMAC signature. The account
+password stays in Firebase Authentication and never appears in the sheet.
+
+Set gateway Script Properties `SHEET_ID`, `FIREBASE_API_KEY`,
+`FIREBASE_PROJECT_ID`, `FIREBASE_SERVICE_ACCOUNT_JSON`, `APP_ORIGIN` (the
+browser application's HTTPS origin), and `ADMIN_SECRET`. Give the service
+account permission to manage Firebase Authentication users. Configure the
+bound sheet project's Script Properties `GATEWAY_URL` (the gateway web app URL)
+and `WEBHOOK_SECRET` (the same value as `ADMIN_SECRET`). Set GitHub repository
+variable `STUDENT_GATEWAY_URL` to the gateway URL before building Pages. This
+removes the need to host the Node server for student records. Other existing
+application API features may still need that server until migrated separately.
+
+Do not deploy or replace the bound administration script until a disposable
+student can register, sign in, read only their own dossier, receive a Firebase
+password reset email, and lose access immediately after deletion. The iframe
+gateway transport requires a browser smoke test against the actual deployed
+Apps Script URL; local unit tests cannot prove browser sandbox behavior.
+
+### Existing Node server option
+
 1. Set the server secrets `FIREBASE_SERVICE_ACCOUNT_JSON`,
    `FIREBASE_PROJECT_ID`, `FIREBASE_WEB_API_KEY`, `GOOGLE_SPREADSHEET_ID`, and
    `SHEETS_WEBHOOK_SECRET`. Store JSON in a server secret store; never place a
