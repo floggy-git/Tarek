@@ -38,7 +38,6 @@ export const CompleteLessonModal: React.FC<CompleteLessonModalProps> = ({
   const [price, setPrice] = useState<string>('50');
   const [payStatus, setPayStatus] = useState<'paid' | 'unpaid'>('paid');
   const [payMethod, setPayMethod] = useState<'wallet' | 'cash' | 'transfer' | 'card'>('cash');
-  const [lessonNotes, setLessonNotes] = useState<string>('');
   const [instructorNotes, setInstructorNotes] = useState<string>('');
   const [performanceRating, setPerformanceRating] = useState<number>(5);
 
@@ -63,7 +62,6 @@ export const CompleteLessonModal: React.FC<CompleteLessonModalProps> = ({
       setPrice(lesson.price ? String(lesson.price) : '50');
       setPayStatus(lesson.payStatus === 'paid' ? 'paid' : 'unpaid');
       setPayMethod((lesson.payMethod as any) || 'cash');
-      setLessonNotes(lesson.lessonNotes || '');
       setInstructorNotes(lesson.instructorNotes || '');
       setPerformanceRating(
         lesson.performanceRating || 
@@ -86,7 +84,7 @@ export const CompleteLessonModal: React.FC<CompleteLessonModalProps> = ({
       lessonId: lesson.id,
       payStatus,
       method: payStatus === 'paid' ? payMethod : null,
-      lessonNotes,
+      lessonNotes: lesson.lessonNotes || '',
       instructorNotes,
       price: currentPriceNum,
       performanceRating,
@@ -384,24 +382,6 @@ export const CompleteLessonModal: React.FC<CompleteLessonModalProps> = ({
                     );
                   })}
                 </div>
-              </div>
-
-              {/* Topics Covered */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-[#64748b] dark:text-zinc-400">
-                  {lang === 'ar' ? 'مواضيع التدريب:' : lang === 'nl' ? 'Topics Covered' : 'Topics Covered'}
-                </label>
-                <textarea
-                  rows={2}
-                  value={lessonNotes}
-                  onChange={(e) => setLessonNotes(e.target.value)}
-                  placeholder={
-                    lang === 'ar'
-                      ? 'الركن المتوازي، التحكم بالقابض، الدوارات...'
-                      : 'Parallel parking, clutch control, highway joining...'
-                  }
-                  className="w-full p-3.5 bg-white dark:bg-zinc-900 border border-[#e6ebf2] dark:border-zinc-700/80 focus:border-[#1f4e94] focus:ring-1 focus:ring-[#1f4e94]/20 rounded-[12px] text-xs text-[#0f172a] dark:text-white placeholder:text-[#94a3b8] dark:placeholder:text-zinc-500 transition resize-none leading-relaxed"
-                />
               </div>
 
               {/* Instructor Notes */}

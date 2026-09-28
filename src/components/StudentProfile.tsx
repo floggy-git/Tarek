@@ -823,7 +823,7 @@ function StudentProfileComponent({
 
             {(() => {
               const completedWithNotes = lessons
-                .filter(l => l.status === 'completed' && (l.instructorNotes || l.trainerNotes || l.lessonNotes))
+                .filter(l => l.status === 'completed' && (l.instructorNotes || l.trainerNotes))
                 .sort((a, b) => {
                   const timeA = new Date(a.completedAt || `${a.date}T${a.time || '12:00'}`).getTime();
                   const timeB = new Date(b.completedAt || `${b.date}T${b.time || '12:00'}`).getTime();
@@ -846,7 +846,7 @@ function StudentProfileComponent({
               return (
                 <div className="space-y-3">
                   {completedWithNotes.map((lesson, idx) => {
-                    const notes = (lesson.instructorNotes || lesson.trainerNotes || lesson.lessonNotes || '').trim();
+                    const notes = (lesson.instructorNotes || lesson.trainerNotes || '').trim();
                     const rawName = lesson.trainerName || (lang === 'nl' ? 'Instructeur' : lang === 'ar' ? 'المدرب' : 'Instructor');
                     const trainerName = rawName.replace(/^(Instructeur|Instructor|مدرب|المدرب)\s+/i, '').trim() || rawName;
                     const trainerPhoto = getTrainerPhoto(trainerName);

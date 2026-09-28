@@ -992,19 +992,6 @@ const CompletedLessonCardItem: React.FC<CompletedLessonCardItemProps> = React.me
         </div>
       ) : null}
 
-      {/* 5. Lesson Topics - Only shown if entered */}
-      {item.lessonNotes ? (
-        <div className="bg-[#f8fafc] dark:bg-zinc-800/30 border border-[#e6ecf2] dark:border-zinc-800/60 rounded-[14px] p-3 space-y-1">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-[#0f172a] dark:text-white">
-            <BookOpen className="h-3.5 w-3.5 text-[#0f172a] dark:text-zinc-300" />
-            <span>{lang === 'ar' ? 'مواضيع الدرس:' : lang === 'nl' ? 'Lesonderwerpen:' : 'Lesson Topics:'}</span>
-          </div>
-          <p className="text-xs font-medium text-[#64748b] dark:text-zinc-300 leading-relaxed pl-5 rtl:pl-0 rtl:pr-5">
-            {item.lessonNotes}
-          </p>
-        </div>
-      ) : null}
-
       {/* 6. Instructor Feedback - Only shown if entered */}
       {feedbackText ? (
         <div className="bg-[#f5f8ff] dark:bg-blue-950/20 border border-[#1f4e94]/20 dark:border-blue-900/40 rounded-[14px] p-3 space-y-1">
@@ -7500,7 +7487,6 @@ function TrainerDashboardComponent({
           }}
           onConfirm={(data) => {
             const combinedNotes = [
-              data.lessonNotes ? `${lang === 'ar' ? 'مواضيع الدرس:' : 'Lesson Topics:'} ${data.lessonNotes}` : '',
               data.instructorNotes ? `${lang === 'ar' ? 'ملاحظات المعلم:' : 'Instructor Feedback:'} ${data.instructorNotes}` : ''
             ].filter(Boolean).join(' | ');
 

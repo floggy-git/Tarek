@@ -746,9 +746,9 @@ const DossierA4PagesComponent: React.FC<DossierA4PagesProps> = ({
                       <span className="font-mono font-extrabold text-slate-900 dark:text-zinc-100">€{l.price.toFixed(2)}</span>
                     </div>
 
-                    {(l.lessonNotes || l.instructorNotes) && (
+                    {(l.instructorNotes) && (
                       <p className="text-[9px] text-slate-500 dark:text-zinc-400 italic bg-white dark:bg-zinc-950 p-1.5 rounded border border-slate-100 dark:border-zinc-800/80 mt-1">
-                        {l.lessonNotes || l.instructorNotes}
+                        {l.instructorNotes}
                       </p>
                     )}
                   </div>
@@ -1352,7 +1352,7 @@ const DossierA4PagesComponent: React.FC<DossierA4PagesProps> = ({
                               </span>
                             </td>
                             <td className="p-1.5 pr-3 text-slate-500 italic break-words max-w-[180px]">
-                              {l.lessonNotes || l.instructorNotes || "-"}
+                              {l.instructorNotes || "-"}
                             </td>
                           </tr>
                         ))}
