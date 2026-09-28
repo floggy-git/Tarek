@@ -129,7 +129,38 @@ export default function LoginScreen({
   PackageCard: PassedPackageCard
 }: LoginScreenProps) {
   const isRtl = lang === 'ar';
+  const isNl = lang === 'nl';
   const ArrowIcon = isRtl ? ArrowLeft : ArrowRight;
+  const text = {
+    welcome: isRtl ? 'مرحباً بك مجدداً. الرجاء تسجيل الدخول لمتابعة حسابك.' : isNl ? 'Welkom terug. Log in om je dashboard te openen.' : 'Welcome back. Please sign in to access your dashboard.',
+    createAccount: isRtl ? 'أنشئ حسابك الجديد وابدأ رحلتك في تعلم القيادة.' : isNl ? 'Maak je studentenaccount aan om te beginnen.' : 'Create your student account to start learning.',
+    signIn: isRtl ? 'تسجيل الدخول' : isNl ? 'Inloggen' : 'Sign In',
+    register: isRtl ? 'حساب جديد' : isNl ? 'Registreren' : 'Register',
+    accountType: isRtl ? 'نوع الحساب' : isNl ? 'Accounttype' : 'Account Type',
+    student: isRtl ? 'طالب قيادة' : isNl ? 'Leerling' : 'Student',
+    trainer: isRtl ? 'مدرب' : isNl ? 'Instructeur' : 'Trainer',
+    email: isRtl ? 'البريد الإلكتروني' : isNl ? 'E-mailadres' : 'Email Address',
+    forgot: isRtl ? 'نسيت كلمة المرور؟' : isNl ? 'Wachtwoord vergeten?' : 'Forgot Password?',
+    demoDivider: isRtl ? 'أو التجربة السريعة بنقرة واحدة' : isNl ? 'Of probeer de demo met één klik' : 'Or try with a one-click demo',
+    studentDemo: isRtl ? 'تجربة الطالب' : isNl ? 'Leerlingdemo' : 'Student Demo',
+    trainerDemo: isRtl ? 'تجربة المدرب' : isNl ? 'Instructeursdemo' : 'Trainer Demo',
+    fullName: isRtl ? 'الاسم الكامل' : isNl ? 'Volledige naam' : 'Full Name',
+    phone: isRtl ? 'رقم الهاتف' : isNl ? 'Telefoonnummer' : 'Phone Number',
+    city: isRtl ? 'المدينة' : isNl ? 'Stad' : 'City',
+    dateOfBirth: isRtl ? 'تاريخ الميلاد' : isNl ? 'Geboortedatum' : 'Date of Birth',
+    selectDob: isRtl ? 'اختر تاريخ الميلاد' : isNl ? 'Selecteer geboortedatum' : 'Select date of birth',
+    transmission: isRtl ? 'نوع ناقل الحركة (الغيير)' : isNl ? 'Type versnellingsbak' : 'Transmission Type',
+    manual: isRtl ? 'عادي (Manual)' : isNl ? 'Handgeschakeld' : 'Manual',
+    automatic: isRtl ? 'أوتوماتيك (Automatic)' : isNl ? 'Automaat' : 'Automatic',
+    selectPackage: isRtl ? 'اختر باقة القيادة المطلوبة' : isNl ? 'Kies je rijlespakket' : 'Select Your Driving Package',
+    packagesAvailable: isRtl ? 'باقات متاحة' : isNl ? 'pakketten beschikbaar' : 'packages available',
+    terms: isRtl ? 'أوافق على الشروط والأحكام وسياسة الخصوصية للمدرسة' : isNl ? 'Ik ga akkoord met de voorwaarden en het privacybeleid van de rijschool' : 'I agree to the school terms, conditions and privacy policy',
+    completeRegistration: isRtl ? 'إنشاء الحساب الآن' : isNl ? 'Registratie voltooien' : 'Complete Registration',
+    lightMode: isRtl ? 'التبديل إلى الوضع الفاتح' : isNl ? 'Naar lichte modus' : 'Switch to Light Mode',
+    darkMode: isRtl ? 'التبديل إلى الوضع الداكن' : isNl ? 'Naar donkere modus' : 'Switch to Dark Mode',
+    showPassword: isRtl ? 'إظهار كلمة المرور' : isNl ? 'Wachtwoord tonen' : 'Show password',
+    hidePassword: isRtl ? 'إخفاء كلمة المرور' : isNl ? 'Wachtwoord verbergen' : 'Hide password',
+  };
 
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [showRegConfirmPassword, setShowRegConfirmPassword] = useState(false);
@@ -185,7 +216,7 @@ export default function LoginScreen({
                 type="button"
                 onClick={() => setDarkMode(!darkMode)}
                 className="p-1.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition cursor-pointer border border-slate-200/60 dark:border-zinc-700/60"
-                title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                title={darkMode ? text.lightMode : text.darkMode}
               >
                 {darkMode ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-slate-600" />}
               </button>
@@ -210,8 +241,8 @@ export default function LoginScreen({
           </div>
           <p className="text-xs text-slate-500 dark:text-zinc-400 pt-0.5 font-medium">
             {authTab === 'login' 
-              ? (isRtl ? 'مرحباً بك مجدداً. الرجاء تسجيل الدخول لمتابعة حسابك.' : 'Welcome back. Please sign in to access your dashboard.')
-              : (isRtl ? 'أنشئ حسابك الجديد وابدأ رحلتك في تعلم القيادة.' : 'Create your student account to start learning.')}
+              ? text.welcome
+              : text.createAccount}
           </p>
         </div>
 
@@ -226,7 +257,7 @@ export default function LoginScreen({
             }`}
           >
             <LogIn className="h-4 w-4" />
-            <span>{isRtl ? 'تسجيل الدخول' : 'Sign In'}</span>
+            <span>{text.signIn}</span>
           </button>
 
           <button
@@ -238,7 +269,7 @@ export default function LoginScreen({
             }`}
           >
             <UserPlus className="h-4 w-4" />
-            <span>{isRtl ? 'حساب جديد' : 'Register'}</span>
+            <span>{text.register}</span>
           </button>
         </div>
 
@@ -249,7 +280,7 @@ export default function LoginScreen({
             {/* Role Switcher */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 uppercase tracking-wider block">
-                {isRtl ? 'نوع الحساب' : 'Account Type'}
+                {text.accountType}
               </label>
               <div className="grid grid-cols-2 gap-2 p-1 bg-slate-50 dark:bg-zinc-950 rounded-2xl border border-slate-200/60 dark:border-zinc-800">
                 <button
@@ -262,7 +293,7 @@ export default function LoginScreen({
                   }`}
                 >
                   <User className="h-3.5 w-3.5" />
-                  <span>{isRtl ? 'طالب قيادة' : 'Student'}</span>
+                  <span>{text.student}</span>
                 </button>
 
                 <button
@@ -275,7 +306,7 @@ export default function LoginScreen({
                   }`}
                 >
                   <Shield className="h-3.5 w-3.5" />
-                  <span>{isRtl ? 'مدرب' : 'Trainer'}</span>
+                  <span>{text.trainer}</span>
                 </button>
               </div>
             </div>
@@ -283,7 +314,7 @@ export default function LoginScreen({
             {/* Email Field */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block">
-                {isRtl ? 'البريد الإلكتروني' : 'Email Address'}
+                {text.email}
               </label>
               <div className="relative">
                 <Mail className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -302,7 +333,7 @@ export default function LoginScreen({
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-slate-700 dark:text-zinc-300">
-                  {isRtl ? 'كلمة المرور' : 'Password'}
+                  {isRtl ? 'كلمة المرور' : isNl ? 'Wachtwoord' : 'Password'}
                 </label>
                 <button
                   type="button"
@@ -312,7 +343,7 @@ export default function LoginScreen({
                   }}
                   className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                 >
-                  {isRtl ? 'نسيت كلمة المرور؟' : 'Forgot Password?'}
+                  {text.forgot}
                 </button>
               </div>
               <div className="relative">
@@ -333,14 +364,14 @@ export default function LoginScreen({
               type="submit"
               className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs sm:text-sm transition-all shadow-md shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer active:scale-95 mt-2"
             >
-              <span>{isRtl ? 'دخول الحساب' : 'Sign In'}</span>
+              <span>{text.signIn}</span>
               <ArrowIcon className="h-4 w-4" />
             </button>
 
             {/* Instant Quick Demo Divider */}
             <div className="pt-4 border-t border-slate-100 dark:border-zinc-800 space-y-3">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block text-center">
-                {isRtl ? 'أو التجربة السريعة بنقرة واحدة' : 'Or try with a one-click demo'}
+                {text.demoDivider}
               </span>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -349,7 +380,7 @@ export default function LoginScreen({
                   className="py-2.5 px-3 bg-slate-100 dark:bg-zinc-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <User className="h-3.5 w-3.5" />
-                  <span>{isRtl ? 'تجربة الطالب' : 'Student Demo'}</span>
+                  <span>{text.studentDemo}</span>
                 </button>
 
                 <button
@@ -358,7 +389,7 @@ export default function LoginScreen({
                   className="py-2.5 px-3 bg-slate-100 dark:bg-zinc-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Shield className="h-3.5 w-3.5" />
-                  <span>{isRtl ? 'تجربة المدرب' : 'Trainer Demo'}</span>
+                  <span>{text.trainerDemo}</span>
                 </button>
               </div>
             </div>
@@ -374,14 +405,14 @@ export default function LoginScreen({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block">
-                  {isRtl ? 'الاسم الكامل' : 'Full Name'} *
+                  {text.fullName} *
                 </label>
                 <div className="relative">
                   <User className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <input
                     type="text"
                     required
-                    placeholder={isRtl ? 'محمد علي' : 'Full name'}
+                    placeholder={isRtl ? 'محمد علي' : isNl ? 'Volledige naam' : 'Full name'}
                     value={regName}
                     onChange={e => setRegName(e.target.value)}
                     className="w-full pl-9 pr-3 rtl:pl-3 rtl:pr-9 py-2.5 text-xs font-semibold bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl text-slate-900 dark:text-white"
@@ -391,7 +422,7 @@ export default function LoginScreen({
 
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block">
-                  {isRtl ? 'رقم الهاتف' : 'Phone Number'} *
+                  {text.phone} *
                 </label>
                 <div className="relative">
                   <Phone className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -411,7 +442,7 @@ export default function LoginScreen({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block">
-                  {isRtl ? 'البريد الإلكتروني' : 'Email Address'} *
+                  {text.email} *
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -428,7 +459,7 @@ export default function LoginScreen({
 
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block">
-                  {isRtl ? 'المدينة' : 'City'} *
+                  {text.city} *
                 </label>
                 <div className="relative">
                   <MapPin className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -465,7 +496,7 @@ export default function LoginScreen({
                     type="button"
                     onClick={() => setShowRegPassword(prev => !prev)}
                     className="absolute right-3 rtl:right-auto rtl:left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 transition p-0.5 cursor-pointer"
-                    aria-label={showRegPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showRegPassword ? text.hidePassword : text.showPassword}
                   >
                     {showRegPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -502,7 +533,7 @@ export default function LoginScreen({
                     type="button"
                     onClick={() => setShowRegConfirmPassword(prev => !prev)}
                     className="absolute right-3 rtl:right-auto rtl:left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 transition p-0.5 cursor-pointer"
-                    aria-label={showRegConfirmPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showRegConfirmPassword ? text.hidePassword : text.showPassword}
                   >
                     {showRegConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -524,12 +555,12 @@ export default function LoginScreen({
             {/* Date of Birth Picker */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block">
-                {isRtl ? 'تاريخ الميلاد' : 'Date of Birth'} *
+                {text.dateOfBirth} *
               </label>
               <DatePicker
                 value={regDob}
                 onChange={setRegDob}
-                placeholder={isRtl ? 'اختر تاريخ الميلاد' : 'Select date of birth'}
+                placeholder={text.selectDob}
                 className="w-full"
               />
             </div>
@@ -537,7 +568,7 @@ export default function LoginScreen({
             {/* Transmission Selector */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block">
-                {isRtl ? 'نوع ناقل الحركة (الغيير)' : 'Transmission Type'}
+                {text.transmission}
               </label>
               <div className="grid grid-cols-2 gap-2 p-1 bg-slate-50 dark:bg-zinc-950 rounded-2xl border border-slate-200/60 dark:border-zinc-800">
                 <button
@@ -549,7 +580,7 @@ export default function LoginScreen({
                       : 'text-slate-600 dark:text-zinc-400'
                   }`}
                 >
-                  {isRtl ? 'عادي (Manual)' : 'Manual'}
+                  {text.manual}
                 </button>
                 <button
                   type="button"
@@ -560,7 +591,7 @@ export default function LoginScreen({
                       : 'text-slate-600 dark:text-zinc-400'
                   }`}
                 >
-                  {isRtl ? 'أوتوماتيك (Automatic)' : 'Automatic'}
+                  {text.automatic}
                 </button>
               </div>
             </div>
@@ -570,10 +601,10 @@ export default function LoginScreen({
               <div className="flex items-center justify-between">
                 <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-zinc-300 flex items-center gap-2">
                   <Package className="w-4 h-4 text-blue-500" />
-                  {isRtl ? 'اختر باقة القيادة المطلوبة' : 'Select Your Driving Package'}
+                  {text.selectPackage}
                 </label>
                 <span className="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 rounded-full border border-blue-200/50 dark:border-blue-900/50">
-                  {packages.length} {isRtl ? 'باقات متاحة' : 'packages available'}
+                  {packages.length} {text.packagesAvailable}
                 </span>
               </div>
 
@@ -614,7 +645,7 @@ export default function LoginScreen({
                 className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
               />
               <span className="text-xs text-slate-600 dark:text-zinc-400">
-                {isRtl ? 'أوافق على الشروط والأحكام وسياسة الخصوصية للمدرسة' : 'I agree to the school terms, conditions and privacy policy'}
+                {text.terms}
               </span>
             </label>
 
@@ -623,7 +654,7 @@ export default function LoginScreen({
               type="submit"
               className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs sm:text-sm transition-all shadow-md shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
             >
-              <span>{isRtl ? 'إنشاء الحساب الآن' : 'Complete Registration'}</span>
+              <span>{text.completeRegistration}</span>
               <ArrowIcon className="h-4 w-4" />
             </button>
 
