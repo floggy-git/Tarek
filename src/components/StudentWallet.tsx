@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { TRANSLATIONS, Language, WalletTransaction, SchoolSettings, getSchoolName } from '../types';
 import { getLocalTxDesc } from '../utils/translationHelper';
-import { isRecordForStudent } from '../utils/identity';
+import { isRecordForStudent } from '../utils/identity';\nimport { generateInvoicePDF } from '../utils/arabicPdfHelper';
 
 interface StudentWalletProps {
   lang: Language;
@@ -67,7 +67,7 @@ function StudentWalletComponent({ lang, t, transactions, currentUser, schoolSett
   }, [chronologicalTx]);
 
   // Professional premium digital invoice generator
-  const triggerDownloadInvoice = (invoiceId: string, item: WalletTransaction) => {
+  const triggerDownloadInvoice = async (invoiceId: string, item: WalletTransaction) => {
     const { prev, post } = runningBalances.get(item.id) || { prev: 0, post: item.amount };
     
     // Load school settings dynamically from prop or fallback to localStorage

@@ -2198,7 +2198,7 @@ function TrainerDashboardComponent({
   }, [selectedReportStudent, lang]);
 
   // Action handlers
-  const handleSendDetailedInvoice = (e: React.FormEvent) => {
+  const handleSendDetailedInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedInvoiceLessonIds.length === 0 && !customAdjustmentPrice) {
       alert(lang === 'ar' ? "يرجى اختيار درس واحد على الأقل أو إضافة رسوم تعديل مخصصة لإصدار الفاتورة!" : "Please select at least one lesson or supply custom adjustments to generate the invoice!");
@@ -2322,6 +2322,42 @@ function TrainerDashboardComponent({
     if (sheetsConfig.spreadsheetId && sheetsConfig.accessToken) {
       writeLessonsToSheet(sheetsConfig.spreadsheetId, updatedLessons, sheetsConfig.accessToken).catch(e => console.warn(e));
       writeWalletToSheet(sheetsConfig.spreadsheetId, [newTx, ...transactions], sheetsConfig.accessToken).catch(e => console.warn(e));
+    }
+
+    // Attach the same generated PDF used by the download action to the invoice email.
+    try {
+      if (!matchedInvoiceStudent?.email) throw new Error('Student email is missing; invoice was created but no email was sent.');
+      const { generateInvoicePDF } = await import('../utils/arabicPdfHelper');
+      const invoiceDoc = await generateInvoicePDF({
+        invoiceId: draftInvoiceId,
+        studentName: selectedInvoiceStudent,
+        studentEmail: matchedInvoiceStudent.email,
+        date: new Date().toISOString().split('T')[0],
+        billedLessons,
+        adjustmentLabel: customAdjustmentLabel,
+        adjustmentPrice: adjustmentVal,
+        subtotal: finalSubtotal,
+        vatRate: selectedVatRate,
+        vatAmount,
+        grandTotal,
+        paymentMethod: invoicePaymentMethod,
+        paymentStatus: invoicePaymentStatus
+      }, lang, schoolSettings);
+      const dataUri = invoiceDoc.output('datauristring');
+      await sendAppEmail(selectedInvoiceStudent, 'invoice', {
+        recipientEmail: matchedInvoiceStudent.email,
+        email: matchedInvoiceStudent.email,
+        invoiceId: draftInvoiceId,
+        grandTotal,
+        subtotal: finalSubtotal,
+        vatRate: selectedVatRate,
+        vatAmount,
+        lang,
+        schoolName: schoolSettings?.name,
+        description: customAdjustmentLabel || 'Driving lessons'
+      }, dataUri.split(',')[1]);
+    } catch (emailErr) {
+      console.warn('Invoice PDF email delivery failed:', emailErr);
     }
 
     setInvoiceDispatchedOverlay(true);
