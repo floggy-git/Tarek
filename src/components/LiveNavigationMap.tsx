@@ -130,6 +130,7 @@ function formatDuration(sec: number): string {
 }
 
 // Standard OSM tiles: no API credential is required for interactive map viewing.
+// Keep the licence attribution visible in the map control.
 function getCleanUberMapStyle() {
   return {
     version: 8 as const,
