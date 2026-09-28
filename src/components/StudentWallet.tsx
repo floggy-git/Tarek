@@ -5,7 +5,8 @@ import {
 } from 'lucide-react';
 import { TRANSLATIONS, Language, WalletTransaction, SchoolSettings, getSchoolName } from '../types';
 import { getLocalTxDesc } from '../utils/translationHelper';
-import { isRecordForStudent } from '../utils/identity';\nimport { generateInvoicePDF } from '../utils/arabicPdfHelper';
+import { isRecordForStudent } from '../utils/identity';
+import { generateInvoicePDF } from '../utils/arabicPdfHelper';
 
 interface StudentWalletProps {
   lang: Language;
