@@ -1510,7 +1510,7 @@ function StudentLessonsComponent({
                       evalRating > 0 || 
                       Boolean(lessonItem.performanceEvaluation) || 
                       Boolean(lessonItem.instructorNotes) || 
-                      Boolean(lessonItem.lessonNotes)
+                      Boolean(lessonItem.trainerNotes)
                     );
 
                     if (!hasEvaluation) return null;
@@ -1544,18 +1544,6 @@ function StudentLessonsComponent({
                             </span>
                           )}
                         </div>
-
-                        {/* Topics Covered */}
-                        {lessonItem.lessonNotes && (
-                          <div className="space-y-0.5">
-                            <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
-                              {lang === 'ar' ? 'مواضيع الحصة:' : lang === 'nl' ? 'Onderwerpen:' : 'Topics Covered:'}
-                            </p>
-                            <p className="text-xs font-bold text-slate-800 dark:text-zinc-200">
-                              {lessonItem.lessonNotes}
-                            </p>
-                          </div>
-                        )}
 
                         {/* Instructor Feedback / Notes */}
                         {(lessonItem.instructorNotes || lessonItem.trainerNotes) && (
