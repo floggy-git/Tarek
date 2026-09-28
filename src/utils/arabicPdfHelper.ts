@@ -5,51 +5,22 @@ import * as reshaperNamespace from 'arabic-persian-reshaper';
 import reshaperDefault from 'arabic-persian-reshaper';
 import { Lesson, WalletTransaction, Assessment, Language } from '../types';
 
-/**
- * Shapes Arabic text and reverses Arabic runs so they render correctly Right-to-Left
- * in jsPDF (which renders characters Left-to-Right).
- * It preserves Latin text, numbers, and punctuation in their correct order.
- */
+/** Shape Arabic glyphs and reverse Arabic runs for jsPDF's LTR text engine. */
 export function prepareArabicForJsPDF(text: string): string {
   if (!text) return '';
   try {
-    const shaper = (reshaperNamespace as any).ArabicShaper || 
-                   (reshaperDefault as any)?.ArabicShaper || 
-                   (reshaperNamespace as any).default?.ArabicShaper;
-    
-    if (!shaper || typeof shaper.convertArabic !== 'function') {
-      console.warn("ArabicShaper.convertArabic is not available");
-      return text;
-    }
-    
-    // 1. Shape the Arabic text using arabic-persian-reshaper
+    const shaper = (reshaperNamespace as any).ArabicShaper || (reshaperDefault as any)?.ArabicShaper || (reshaperNamespace as any).default?.ArabicShaper;
+    if (!shaper || typeof shaper.convertArabic !== 'function') return text;
     const shaped = shaper.convertArabic(text);
-
-    // 2. Identify runs of Arabic characters and reverse them
-    // Range includes standard Arabic, Arabic Presentation Forms A and B, Persian, etc.
     const arabicRegex = /[\u0600-\u06FF\uFE70-\uFEFC\uFB50-\uFDFD]+/g;
-
-    let result = '';
-    let lastIndex = 0;
-    let match;
-
+    let result = ''; let lastIndex = 0; let match: RegExpExecArray | null;
     while ((match = arabicRegex.exec(shaped)) !== null) {
-      // Add the non-Arabic part before the match
       result += shaped.substring(lastIndex, match.index);
-
-      // Reverse the Arabic character run
-      const reversedArabic = match[0].split('').reverse().join('');
-      result += reversedArabic;
-
+      result += match[0].split('').reverse().join('');
       lastIndex = arabicRegex.lastIndex;
     }
-
-    result += shaped.substring(lastIndex);
-    return result;
-  } catch (err) {
-    console.warn("Failed to shape Arabic text:", err);
-    return text;
-  }
+    return result + shaped.substring(lastIndex);
+  } catch { return text; }
 }
 
 // Global cache to avoid fetching fonts multiple times
@@ -62,6 +33,8 @@ const fetchFontAsBase64 = async (url: string): Promise<string> => {
     throw new Error(`Failed to fetch font from ${url}`);
   }
   const buffer = await response.arrayBuffer();
+  const signature = new DataView(buffer).getUint32(0);
+  if (buffer.byteLength < 1000 || (signature !== 0x00010000 && signature !== 0x4f54544f)) throw new Error('Invalid PDF font file');
   
   // Safe base64 conversion that won't exceed call stack size
   let binary = '';
@@ -80,7 +53,7 @@ export async function embedFonts(doc: jsPDF): Promise<void> {
   // 1. Load Cairo/Arabic font
   if (!cachedCairoBase64) {
     const cairoUrls = [
-      '/fonts/Cairo-Regular.ttf', // Local pre-downloaded font
+      '/Tarek/fonts/Cairo-Regular.ttf', // Local pre-downloaded font
       'https://cdn.jsdelivr.net/gh/googlefonts/cairo@master/fonts/ttf/Cairo-Regular.ttf',
       'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/almarai/Almarai-Regular.ttf' // Bulletproof fallback
     ];
@@ -97,7 +70,7 @@ export async function embedFonts(doc: jsPDF): Promise<void> {
   // 2. Load Inter/Latin font
   if (!cachedInterBase64) {
     const interUrls = [
-      '/fonts/Inter-Regular.ttf', // Local pre-downloaded font
+      '/Tarek/fonts/Inter-Regular.ttf', // Local pre-downloaded font
       'https://cdn.jsdelivr.net/gh/rsms/inter@v3.19.3/docs/font-files/Inter-Regular.ttf',
       'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/roboto/static/Roboto-Regular.ttf' // Bulletproof fallback
     ];
@@ -111,6 +84,7 @@ export async function embedFonts(doc: jsPDF): Promise<void> {
     }
   }
 
+  if (!cachedCairoBase64 || !cachedInterBase64) throw new Error('PDF fonts could not be loaded. Please retry.');
   try {
     if (cachedCairoBase64) {
       doc.addFileToVFS('Cairo-Regular.ttf', cachedCairoBase64);
@@ -123,7 +97,7 @@ export async function embedFonts(doc: jsPDF): Promise<void> {
       doc.addFont('Inter-Regular.ttf', 'Inter', 'bold');
     }
   } catch (err) {
-    console.error("Font embedding failed, falling back to system fonts:", err);
+    throw new Error("PDF font embedding failed");
   }
 }
 
@@ -192,7 +166,7 @@ export async function generateSelectableDossierPDF(
       highway: 'القيادة على الطرق السريعة والتجاوز',
       maneuvers: 'المناورات الخاصة والاصطفاف',
       theory: 'الوعي بقوانين السير وتوقع المخاطر',
-      notesHeader: 'ملاحظات وتوجيهات الكابتن سمير الفيلالي:',
+      notesHeader: 'ملاحظات وتوجيهات المدرب:',
       signatureSection: 'التوقيع والاعتماد',
       instructorSig: 'توقيع المدرب المسؤول',
       studentSig: 'توقيع الطالب المتدرب',
@@ -226,7 +200,7 @@ export async function generateSelectableDossierPDF(
       highway: 'Highway Merging & Speed Lane Control',
       maneuvers: 'Special Maneuvers & Precise Parking',
       theory: 'Traffic Laws & Road Risk Anticipation',
-      notesHeader: 'Instructor Samir El-Filali Final Feedback:',
+      notesHeader: 'Instructor Feedback:',
       signatureSection: 'Signatures & Verification',
       instructorSig: 'Instructor Signature',
       studentSig: 'Candidate Signature',
@@ -282,8 +256,8 @@ export async function generateSelectableDossierPDF(
 
   // Safe text drawing helper with RTL alignment and shaping
   const drawText = (txt: string, x: number, y: number, align: 'left' | 'right' | 'center' = 'left') => {
-    const formatted = isRtl ? prepareArabicForJsPDF(txt) : txt;
-    doc.text(formatted, x, y, { align: isRtl ? (align === 'left' ? 'right' : align === 'right' ? 'left' : 'center') : align });
+    const value = isRtl ? prepareArabicForJsPDF(String(txt ?? '')) : String(txt ?? '');
+    doc.text(value, isRtl ? 210 - x : x, y, { align: isRtl ? (align === 'left' ? 'right' : align === 'right' ? 'left' : 'center') : align });
   };
 
   // PAGE 1: COVER PAGE AND ASSESSMENTS
@@ -548,6 +522,15 @@ export async function generateInvoicePDF(
   lang: Language,
   schoolSettings?: any
 ): Promise<jsPDF> {
+  invoice = { ...invoice,
+    invoiceId: invoice.invoiceId || invoice.invoiceNumber || invoice.id || '',
+    date: invoice.date || invoice.invoiceDate || '',
+    paymentStatus: invoice.paymentStatus || invoice.status || 'unpaid',
+    grandTotal: invoice.grandTotal ?? invoice.totalAmount ?? 0,
+    vatRate: invoice.vatRate ?? 0,
+    vatAmount: invoice.vatAmount ?? 0,
+    subtotal: invoice.subtotal ?? ((invoice.grandTotal ?? invoice.totalAmount ?? 0) - (invoice.vatAmount ?? 0)),
+  };
   // Initialize jsPDF document (A4 portrait)
   const { jsPDF: JsPDFClass } = await import('jspdf');
   const doc = new JsPDFClass({
@@ -657,7 +640,7 @@ export async function generateInvoicePDF(
   const labels = tMap[lang] || tMap['en'];
 
   const drawText = (txt: string, x: number, y: number, align: 'left' | 'right' | 'center' = 'left') => {
-    const formatted = isRtl ? prepareArabicForJsPDF(txt) : txt;
+    const formatted = isRtl ? prepareArabicForJsPDF(String(txt ?? '')) : String(txt ?? '');
     doc.text(formatted, x, y, { align: isRtl ? (align === 'left' ? 'right' : align === 'right' ? 'left' : 'center') : align });
   };
 
@@ -672,8 +655,8 @@ export async function generateInvoicePDF(
   if (sLogo) {
     try {
       doc.setFillColor(255, 255, 255);
-      doc.roundedRect(15, 6, 23, 23, 2, 2, 'F');
-      doc.addImage(sLogo, 'PNG', 16, 7, 21, 21);
+      doc.roundedRect(isRtl ? 107 : 15, 6, 23, 23, 2, 2, 'F');
+      doc.addImage(sLogo, 'PNG', isRtl ? 108 : 16, 7, 21, 21);
     } catch (err) {
       console.warn("Failed to embed school logo in PDF invoice:", err);
     }
@@ -683,24 +666,24 @@ export async function generateInvoicePDF(
   doc.setTextColor(255, 255, 255);
   doc.setFont(primaryFont, 'bold');
   doc.setFontSize(14);
-  const schoolNameX = sLogo ? 43 : 15;
-  drawText(sName, schoolNameX, 16, 'left');
+  const schoolNameX = isRtl ? 195 : (sLogo ? 43 : 15);
+  drawText(sName, schoolNameX, 16, isRtl ? 'right' : 'left');
 
   doc.setFont(primaryFont, 'normal');
   doc.setFontSize(9.5);
   doc.setTextColor(156, 163, 175);
-  drawText(sWebsite, schoolNameX, 25, 'left');
+  drawText(sWebsite, schoolNameX, 25, isRtl ? 'right' : 'left');
 
   // Invoice Title and ID on the right
   doc.setTextColor(255, 255, 255);
   doc.setFont(primaryFont, 'bold');
   doc.setFontSize(18);
-  drawText(labels.title, 195, 16, 'right');
+  drawText(labels.title, isRtl ? 15 : 195, 16, isRtl ? 'left' : 'right');
 
   doc.setFont(primaryFont, 'normal');
   doc.setFontSize(10);
   doc.setTextColor(217, 119, 6); // Golden Amber color for Invoice No
-  drawText(`${labels.invoiceNo}: ${invoice.invoiceId}`, 195, 25, 'right');
+  drawText(`${labels.invoiceNo}: ${invoice.invoiceId}`, isRtl ? 15 : 195, 25, isRtl ? 'left' : 'right');
 
   // Reset text color
   doc.setTextColor(15, 23, 42);
@@ -727,8 +710,8 @@ export async function generateInvoicePDF(
   const schoolX = isRtl ? colRightEdgeX : col1X;
   const schoolAlign = isRtl ? 'right' : 'left';
 
-  const studentX = isRtl ? col1X : col2X;
-  const studentAlign = isRtl ? 'left' : 'left';
+  const studentX = isRtl ? 95 : col2X;
+  const studentAlign = isRtl ? 'right' : 'left';
 
   // Draw From (School Info) Column
   doc.setFont(primaryFont, 'bold');
@@ -825,33 +808,38 @@ export async function generateInvoicePDF(
   doc.setTextColor(15, 23, 42);
   doc.setFontSize(9.5);
 
-  // Render Billed Lessons
-  const lessons: Lesson[] = invoice.billedLessons || [];
-  lessons.forEach((les) => {
-    const descText = `${labels.lessonBilled} (${les.date} ${les.time})`;
-    drawText(descText, descColX, tableY + 6, descColAlign);
-    drawText(`${les.duration} ${labels.hours}`, qtyColX, tableY + 6, qtyColAlign);
-    
-    // Base unit price
-    const unitPriceVal = les.duration > 0 ? (les.price / les.duration) : les.price;
-    drawText(`€${unitPriceVal.toFixed(2)}`, priceColX, tableY + 6, priceColAlign);
-    drawText(`€${les.price.toFixed(2)}`, totalColX, tableY + 6, totalColAlign);
-
-    doc.line(15, tableY + 9, 195, tableY + 9);
-    tableY += 9;
+  const items = invoice.items || (invoice.billedLessons || []).map((les: Lesson) => ({
+    description: `${labels.lessonBilled} (${les.date} ${les.time})`,
+    hours: les.duration || 1, rate: les.price / (les.duration || 1), amount: les.price
+  }));
+  const rows = [...items];
+  if (invoice.adjustmentPrice) rows.push({ description: invoice.adjustmentLabel || labels.extraAdjustment, hours: 1, rate: invoice.adjustmentPrice, amount: invoice.adjustmentPrice });
+  const nextPage = () => {
+    doc.addPage(); tableY = 20;
+    doc.setFontSize(9);
+    doc.setFillColor(241, 245, 249); doc.rect(15, tableY, 180, 8, 'F');
+    drawText(labels.description, descColX, tableY + 5.5, descColAlign);
+    drawText(labels.qty, qtyColX, tableY + 5.5, qtyColAlign);
+    drawText(labels.unitPrice, priceColX, tableY + 5.5, priceColAlign);
+    drawText(labels.total, totalColX, tableY + 5.5, totalColAlign);
+    tableY += 8; doc.setFontSize(9.5);
+  };
+  rows.forEach((item: any) => {
+    const lines: string[] = doc.splitTextToSize(String(item.description || ''), 85);
+    for (let offset = 0; offset < lines.length; offset += 35) {
+      const chunk = lines.slice(offset, offset + 35);
+      const height = Math.max(9, chunk.length * 5 + 4);
+      if (tableY + height > 265) nextPage();
+      chunk.forEach((line, i) => drawText(line, descColX, tableY + 6 + i * 5, descColAlign));
+      if (offset === 0) {
+        drawText(String(item.hours ?? 1), qtyColX, tableY + 6, qtyColAlign);
+        drawText(`€${Number(item.rate ?? item.amount).toFixed(2)}`, priceColX, tableY + 6, priceColAlign);
+        drawText(`€${Number(item.amount).toFixed(2)}`, totalColX, tableY + 6, totalColAlign);
+      }
+      tableY += height; doc.line(15, tableY, 195, tableY);
+    }
   });
-
-  // Render Custom adjustment if present
-  if (invoice.adjustmentLabel && invoice.adjustmentPrice) {
-    const adjLabel = invoice.adjustmentLabel || labels.extraAdjustment;
-    drawText(adjLabel, descColX, tableY + 6, descColAlign);
-    drawText(`1`, qtyColX, tableY + 6, qtyColAlign);
-    drawText(`€${invoice.adjustmentPrice.toFixed(2)}`, priceColX, tableY + 6, priceColAlign);
-    drawText(`€${invoice.adjustmentPrice.toFixed(2)}`, totalColX, tableY + 6, totalColAlign);
-
-    doc.line(15, tableY + 9, 195, tableY + 9);
-    tableY += 9;
-  }
+  if (tableY + 46 > 270) { doc.addPage(); tableY = 20; }
 
   // TOTALS BLOCK (Dynamic alignment based on RTL)
   const totalsY = tableY + 6;

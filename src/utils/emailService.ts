@@ -56,6 +56,7 @@ export interface EmailDetails {
   transmissionType?: string;
   vehicleModel?: string;
   icsContent?: string;
+  recipientEmail?: string;
 }
 
 /**
@@ -69,7 +70,7 @@ export async function sendAppEmail(
   pdfBase64?: string
 ) {
   // Use the user's actual email for an immersive, fully-functional experience
-  const recipientEmail = "floggyc77@gmail.com";
+  const recipientEmail = details.recipientEmail || details.email || "floggyc77@gmail.com";
   const subject = getEmailSubject(type, details);
   const html = getEmailHtml(toName, type, details);
 

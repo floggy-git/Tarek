@@ -6,6 +6,7 @@ import {
 import { TRANSLATIONS, Language, WalletTransaction, SchoolSettings, getSchoolName } from '../types';
 import { getLocalTxDesc } from '../utils/translationHelper';
 import { isRecordForStudent } from '../utils/identity';
+import { generateInvoicePDF } from '../utils/arabicPdfHelper';
 
 interface StudentWalletProps {
   lang: Language;
@@ -67,7 +68,7 @@ function StudentWalletComponent({ lang, t, transactions, currentUser, schoolSett
   }, [chronologicalTx]);
 
   // Professional premium digital invoice generator
-  const triggerDownloadInvoice = (invoiceId: string, item: WalletTransaction) => {
+  const triggerDownloadInvoice = async (invoiceId: string, item: WalletTransaction) => {
     const { prev, post } = runningBalances.get(item.id) || { prev: 0, post: item.amount };
     
     // Load school settings dynamically from prop or fallback to localStorage
@@ -98,6 +99,22 @@ function StudentWalletComponent({ lang, t, transactions, currentUser, schoolSett
     const displayBtw = schoolBtw || (isAr ? '[الرقم الضريبي غير محدد]' : isNl ? '[BTW-nummer niet geconfigureerd in Instellingen]' : '[BTW not configured in Settings]');
     const displayEmail = schoolEmail || (isAr ? '[البريد الإلكتروني غير محدد]' : isNl ? '[E-mailadres niet geconfigureerd in Instellingen]' : '[Email not configured in Settings]');
     const displayPhone = schoolPhone || (isAr ? '[رقم الهاتف غير محدد]' : isNl ? '[Telefoonnummer niet geconfigureerd in Instellingen]' : '[Phone not configured in Settings]');
+
+    // Download the same real PDF format used by the administration invoice flow.
+    const pdf = await generateInvoicePDF({
+      invoiceId,
+      studentName,
+      date: item.date,
+      items: [{ description: getLocalTxDesc(item, lang), hours: 1, rate: item.amount, amount: item.amount }],
+      subtotal: item.amount,
+      vatRate: 0,
+      vatAmount: 0,
+      grandTotal: item.amount,
+      paymentStatus: 'paid',
+      paymentMethod: item.description
+    }, lang, savedSettings);
+    pdf.save(`Invoice-${invoiceId}.pdf`);
+    return;
 
     const labelInvoice = isAr ? 'فاتورة ضريبية رسمية' : isNl ? 'Officiële Factuur' : 'Official Tax Invoice';
     const labelPaidStatus = isAr ? 'مدفوعة بالكامل' : isNl ? 'Volledig Betaald' : 'Paid In Full';
