@@ -1296,19 +1296,24 @@ async function startServer() {
     * Trainer Name: ${l.trainerName || 'Instructeur'}
     * Pickup Location: ${l.pickupLocation || 'Main Location'}
     * Price: €${l.price || 0}`;
-      }).join('\n\n') || "  No upcoming lessons scheduled";
+      }).join('
+
+') || "  No upcoming lessons scheduled";
 
       const completedLessonsStr = completed.map((l: any, idx: number) => {
         return `  - Completed Lesson ${idx + 1}: Date: ${l.date}, Time: ${l.time}, Duration: ${l.duration || 1} hour(s), Trainer: ${l.trainerName || 'Instructeur'}, Notes: ${l.trainerNotes || l.lessonNotes || 'Good progress'}`;
-      }).join('\n') || "  No completed lessons yet";
+      }).join('
+') || "  No completed lessons yet";
 
       const transactionsStr = transactions.slice(0, 5).map((t: any) => {
         return `  - Type: ${t.type}, Amount: €${t.amount}, Date: ${t.date}, Description: ${t.description}`;
-      }).join('\n') || "  No transactions yet";
+      }).join('
+') || "  No transactions yet";
 
       const examsStr = examHistory.map((e: any, idx: number) => {
         return `  - Mock Exam ${idx + 1}: Date: ${e.timestamp || 'N/A'}, Difficulty: ${e.difficulty || 'N/A'}, Score: ${e.score || 0}/${e.total || 0}, Passed: ${e.isPassed ? 'Yes' : 'No'}`;
-      }).join('\n') || "  No mock exams taken yet";
+      }).join('
+') || "  No mock exams taken yet";
 
       studentSummary = `
 CURRENT LOGGED-IN STUDENT INFO (Real-time App Data):
@@ -1386,7 +1391,9 @@ ${transactionsStr}
       } else if (currentWarnings === 1) {
         const suspendedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
         return res.json({
-          reply: `${refusalMsg}\n\n${detectedLang === 'ar' ? '⚠️ تحذير ثانٍ: تم تعليق استخدام المساعد الذكي لمدة 24 ساعة.' : '⚠️ 2nd warning: AI Assistant access suspended for 24 hours.'}`,
+          reply: `${refusalMsg}
+
+${detectedLang === 'ar' ? '⚠️ تحذير ثانٍ: تم تعليق استخدام المساعد الذكي لمدة 24 ساعة.' : '⚠️ 2nd warning: AI Assistant access suspended for 24 hours.'}`,
           isOffTopic: true,
           isWarning: true,
           warningCount: 2,
@@ -1397,7 +1404,9 @@ ${transactionsStr}
       } else {
         const suspendedUntil = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
         return res.json({
-          reply: `${refusalMsg}\n\n${detectedLang === 'ar' ? '🚫 تم تجميد المساعد الذكي لمدة 48 ساعة لتكرار الأسئلة المخالفة.' : '🚫 AI Assistant blocked for 48 hours due to repeated policy violations.'}`,
+          reply: `${refusalMsg}
+
+${detectedLang === 'ar' ? '🚫 تم تجميد المساعد الذكي لمدة 48 ساعة لتكرار الأسئلة المخالفة.' : '🚫 AI Assistant blocked for 48 hours due to repeated policy violations.'}`,
           isOffTopic: true,
           isWarning: true,
           warningCount: 3,
@@ -1551,9 +1560,14 @@ ${studentSummary}`;
       // Inject Grounded Knowledge Retrieval Context if relevant and standalone
       let userPrompt = userText;
       if (retrieval.contextSummary && contents.length === 0) {
-        userPrompt = `[Authoritative Dutch Traffic Knowledge Context:\n${retrieval.contextSummary}]\n\n${userText}`;
+        userPrompt = `[Authoritative Dutch Traffic Knowledge Context:
+${retrieval.contextSummary}]
+
+${userText}`;
       } else if (retrieval.isInsufficientKnowledge && contents.length === 0) {
-        userPrompt = `[Context Note: Rely on sound official Dutch Category B driving principles (RVV 1990 & CBR Standards).]\n\n${userText}`;
+        userPrompt = `[Context Note: Rely on sound official Dutch Category B driving principles (RVV 1990 & CBR Standards).]
+
+${userText}`;
       }
 
       currentUserParts.push({ text: userPrompt });
@@ -2461,7 +2475,9 @@ ${studentSummary}`;
       recentSyncDeltas.shift();
     }
 
-    const payload = `data: ${JSON.stringify(delta)}\n\n`;
+    const payload = `data: ${JSON.stringify(delta)}
+
+`;
     let deliveredCount = 0;
 
     sseClients.forEach((client, connectionId) => {
@@ -2498,7 +2514,9 @@ ${studentSummary}`;
 
   // Periodic heartbeat every 25 seconds to keep SSE streams alive through all proxies
   setInterval(() => {
-    const heartbeat = `:heartbeat\n\n`;
+    const heartbeat = `:heartbeat
+
+`;
     sseClients.forEach((client, connectionId) => {
       try {
         client.res.write(heartbeat);
@@ -2523,7 +2541,9 @@ ${studentSummary}`;
       'X-Accel-Buffering': 'no'
     });
 
-    res.write(`:connected\n\n`);
+    res.write(`:connected
+
+`);
 
     const clientObj: SSEClient = {
       id: connectionId,

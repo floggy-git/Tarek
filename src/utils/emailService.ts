@@ -55,7 +55,9 @@ export interface EmailDetails {
   address?: string;
   transmissionType?: string;
   vehicleModel?: string;
-  icsContent?: string;\n  recipientEmail?: string;
+  icsContent?: string;
+  recipientEmail?: string;
+  pdfFileName?: string;
 }
 
 /**
@@ -81,7 +83,8 @@ export async function sendAppEmail(
       type,
       studentName: toName,
       metadata: details,
-      pdfBase64
+      pdfBase64,
+      pdfFileName: details.pdfFileName
     });
 
     const encodedBody = new TextEncoder().encode(payload);
