@@ -129,20 +129,17 @@ function formatDuration(sec: number): string {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
-// Clean Voyager map style for stable legibility
+// Standard OSM tiles: no API credential is required for interactive map viewing.
 function getCleanUberMapStyle() {
   return {
     version: 8 as const,
     sources: {
       'clean-navigation-tiles': {
         type: 'raster' as const,
-        tiles: [
-          'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-          'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-          'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-        ],
+        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
         tileSize: 256,
-        attribution: '&copy; OpenStreetMap'
+        maxzoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>'
       }
     },
     layers: [
@@ -442,9 +439,10 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
       style: getCleanUberMapStyle() as any,
       center: [initLng, initLat],
       zoom: validPassedPoints.length > 0 ? 16.5 : 15,
+      maxZoom: 19,
       pitch: 0,
       bearing: 0,
-      attributionControl: false,
+      attributionControl: { compact: false },
     });
 
     mapInstanceRef.current = map;
