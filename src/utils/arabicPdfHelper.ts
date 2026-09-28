@@ -80,7 +80,7 @@ export async function embedFonts(doc: jsPDF): Promise<void> {
   // 1. Load Cairo/Arabic font
   if (!cachedCairoBase64) {
     const cairoUrls = [
-      '/fonts/Cairo-Regular.ttf', // Local pre-downloaded font
+      '/Tarek/fonts/Cairo-Regular.ttf', // Local pre-downloaded font
       'https://cdn.jsdelivr.net/gh/googlefonts/cairo@master/fonts/ttf/Cairo-Regular.ttf',
       'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/almarai/Almarai-Regular.ttf' // Bulletproof fallback
     ];
@@ -97,7 +97,7 @@ export async function embedFonts(doc: jsPDF): Promise<void> {
   // 2. Load Inter/Latin font
   if (!cachedInterBase64) {
     const interUrls = [
-      '/fonts/Inter-Regular.ttf', // Local pre-downloaded font
+      '/Tarek/fonts/Inter-Regular.ttf', // Local pre-downloaded font
       'https://cdn.jsdelivr.net/gh/rsms/inter@v3.19.3/docs/font-files/Inter-Regular.ttf',
       'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/roboto/static/Roboto-Regular.ttf' // Bulletproof fallback
     ];
@@ -548,6 +548,16 @@ export async function generateInvoicePDF(
   lang: Language,
   schoolSettings?: any
 ): Promise<jsPDF> {
+  invoice = { ...invoice,
+    invoiceId: invoice.invoiceId || invoice.invoiceNumber || invoice.id || '',
+    date: invoice.date || invoice.invoiceDate || '',
+    paymentStatus: invoice.paymentStatus || invoice.status || 'unpaid',
+    grandTotal: invoice.grandTotal ?? invoice.totalAmount ?? 0,
+    vatRate: invoice.vatRate ?? 0,
+    vatAmount: invoice.vatAmount ?? 0,
+    subtotal: invoice.subtotal ?? ((invoice.grandTotal ?? invoice.totalAmount ?? 0) - (invoice.vatAmount ?? 0)),
+  };
+
   // Initialize jsPDF document (A4 portrait)
   const { jsPDF: JsPDFClass } = await import('jspdf');
   const doc = new JsPDFClass({
