@@ -1109,7 +1109,7 @@ export default function App() {
     transactions.forEach(tx => {
       const prevTx = prevTransactions.find(t => t.id === tx.id);
       if (!prevTx) {
-        if (tx.type === 'deposit') {
+        if (tx.type === 'deposit' && !tx.invoiceId) {
           const msg = lang === 'ar'
             ? `💳 تم استلام دفعة جديدة بقيمة €${tx.amount} لـ ${tx.description}`
             : lang === 'nl'

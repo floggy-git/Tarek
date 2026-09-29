@@ -2216,6 +2216,15 @@ function TrainerDashboardComponent({
     // Create wallet transaction
     const matchedInvoiceStudent = students.find(s => s.name === selectedInvoiceStudent);
     const invoiceStudentId = matchedInvoiceStudent?.id || matchedInvoiceStudent?.studentId;
+    const previewClient = getStudentDbInfo(selectedInvoiceStudent);
+    const invoiceParty = {
+      studentId: invoiceStudentId || previewClient.id,
+      studentEmail: matchedInvoiceStudent?.email || previewClient.email,
+      studentPhone: matchedInvoiceStudent?.phone || previewClient.phone,
+      studentCity: matchedInvoiceStudent?.city || previewClient.city,
+      studentPackage: matchedInvoiceStudent?.currentPackage || previewClient.package,
+      trainerName: schoolSettings?.instructorName || "Samir El-Filali",
+    };
     const newTx: WalletTransaction = {
       id: `TX-${Date.now().toString().slice(-6)}`,
       studentId: invoiceStudentId,
@@ -2251,6 +2260,7 @@ function TrainerDashboardComponent({
     setBilledLessonIds([...billedLessonIds, ...selectedInvoiceLessonIds]);
     
     setLatestIssuedInvoice({
+      ...invoiceParty,
       invoiceId: draftInvoiceId,
       studentName: selectedInvoiceStudent,
       billedLessons: billedLessons,
@@ -2330,6 +2340,7 @@ function TrainerDashboardComponent({
       if (!matchedInvoiceStudent?.email) throw new Error('Student email is missing; invoice was created but no email was sent.');
       const { generateInvoicePDF } = await import('../utils/arabicPdfHelper');
       const invoiceDoc = await generateInvoicePDF({
+        ...invoiceParty,
         invoiceId: draftInvoiceId,
         studentName: selectedInvoiceStudent,
         studentEmail: matchedInvoiceStudent.email,

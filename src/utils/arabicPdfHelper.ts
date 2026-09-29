@@ -587,7 +587,7 @@ export async function generateInvoicePDF(
   const sName = schoolSettings?.name || "Driving School";
   const sEmail = schoolSettings?.email || "info@drivingschool.nl";
   const sPhone = schoolSettings?.phone || "+31 6 1234 5678";
-  const sAddress = schoolSettings?.address || "Netherlands";
+  const sAddress = [schoolSettings?.address, schoolSettings?.postalCode, schoolSettings?.city].filter(Boolean).join(', ');
   const sWebsite = schoolSettings?.website || "www.drivingschool.nl";
   const sKvk = schoolSettings?.kvk || "";
   const sBtw = schoolSettings?.btw || "";
@@ -600,6 +600,7 @@ export async function generateInvoicePDF(
       invoiceNo: 'رقم الفاتورة',
       date: 'التاريخ',
       studentName: 'اسم الطالب',
+      trainer: 'المدرب', city: 'المدينة', package: 'الباقة', studentId: 'رقم الطالب', bank: 'الحساب البنكي',
       paymentMethod: 'طريقة الدفع',
       paymentStatus: 'حالة الدفع',
       description: 'البيان / الوصف',
@@ -625,6 +626,7 @@ export async function generateInvoicePDF(
       invoiceNo: 'Invoice No',
       date: 'Date',
       studentName: 'Candidate Name',
+      trainer: 'Instructor', city: 'City', package: 'Package', studentId: 'Student ID', bank: 'Bank account',
       paymentMethod: 'Payment Method',
       paymentStatus: 'Payment Status',
       description: 'Description',
@@ -650,6 +652,7 @@ export async function generateInvoicePDF(
       invoiceNo: 'Factuurnummer',
       date: 'Datum',
       studentName: 'Naam Kandidaat',
+      trainer: 'Instructeur', city: 'Woonplaats', package: 'Pakket', studentId: 'Leerlingnummer', bank: 'Bankrekening',
       paymentMethod: 'Betaalmethode',
       paymentStatus: 'Betalingsstatus',
       description: 'Omschrijving',
@@ -709,7 +712,7 @@ export async function generateInvoicePDF(
   drawText(sName, schoolNameX, 16, 'left');
 
   doc.setFont(primaryFont, 'normal');
-  doc.setFontSize(9.5);
+  doc.setFontSize(11);
   doc.setTextColor(156, 163, 175);
   drawText(sWebsite, schoolNameX, 25, 'left');
 
@@ -749,8 +752,8 @@ export async function generateInvoicePDF(
   const schoolX = isRtl ? colRightEdgeX : col1X;
   const schoolAlign = isRtl ? 'right' : 'left';
 
-  const studentX = isRtl ? col1X : col2X;
-  const studentAlign = isRtl ? 'left' : 'left';
+  const studentX = isRtl ? 95 : col2X;
+  const studentAlign = isRtl ? 'right' : 'left';
 
   // Draw From (School Info) Column
   doc.setFont(primaryFont, 'bold');
@@ -788,6 +791,14 @@ export async function generateInvoicePDF(
     schoolY += 6;
   }
 
+  if (invoice.trainerName || schoolSettings?.instructorName) {
+    doc.setTextColor(100, 116, 139);
+    drawText(labels.trainer, schoolX, schoolY + 3, schoolAlign);
+    doc.setTextColor(15, 23, 42);
+    drawText(invoice.trainerName || schoolSettings.instructorName, schoolX, schoolY + 9, schoolAlign);
+    schoolY += 16;
+  }
+
   // Draw To (Student/Invoice Info) Column
   doc.setFont(primaryFont, 'bold');
   doc.setTextColor(100, 116, 139); // Slate-500
@@ -802,14 +813,31 @@ export async function generateInvoicePDF(
   doc.setFont(primaryFont, 'normal');
   studentY += 6;
 
+  // Keep contact information on separate lines for reliable Arabic/Latin layout.
+  for (const value of [invoice.studentEmail, invoice.studentPhone]) {
+    if (!value) continue;
+    doc.setFont(primaryFont, 'normal');
+    doc.setFontSize(10);
+    const lines = doc.splitTextToSize(String(value), 80);
+    for (const line of lines) { drawText(line, studentX, studentY, studentAlign); studentY += 5; }
+  }
+  for (const [caption, value] of [[labels.studentId, invoice.studentId], [labels.city, invoice.studentCity], [labels.package, invoice.studentPackage]]) {
+    if (!value) continue;
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    drawText(caption, studentX, studentY + 1, studentAlign);
+    studentY += 6;
+    doc.setFontSize(11);
+    doc.setTextColor(15, 23, 42);
+    const lines = doc.splitTextToSize(String(value), 80);
+    for (const line of lines) { drawText(line, studentX, studentY, studentAlign); studentY += 5; }
+    studentY += 2;
+  }
+  doc.setFontSize(10);
   drawText(`${labels.date}: ${invoice.date}`, studentX, studentY, studentAlign);
   studentY += 6;
 
-  drawText(`${labels.paymentMethod}: ${methodLabel}`, studentX, studentY, studentAlign);
-  studentY += 6;
 
-  drawText(`${labels.paymentStatus}: ${statusLabel}`, studentX, studentY, studentAlign);
-  studentY += 6;
 
   // Let table start below the longest block of metadata
   let tableY = Math.max(schoolY, studentY) + 6;
@@ -825,14 +853,14 @@ export async function generateInvoicePDF(
   const descColX = isRtl ? 190 : 20;
   const descColAlign = isRtl ? 'right' : 'left';
 
-  const qtyColX = isRtl ? 90 : 120;
+  const qtyColX = isRtl ? 100 : 110;
   const qtyColAlign = isRtl ? 'right' : 'left';
 
-  const priceColX = isRtl ? 55 : 145;
-  const priceColAlign = isRtl ? 'right' : 'left';
+  const priceColX = isRtl ? 75 : 155;
+  const priceColAlign = 'right';
 
-  const totalColX = isRtl ? 20 : 175;
-  const totalColAlign = isRtl ? 'right' : 'left';
+  const totalColX = isRtl ? 40 : 190;
+  const totalColAlign = 'right';
   
   // Table headers
   drawText(labels.description, descColX, tableY + 5.5, descColAlign);
@@ -845,49 +873,44 @@ export async function generateInvoicePDF(
   
   tableY += 8;
   doc.setTextColor(15, 23, 42);
-  doc.setFontSize(9.5);
+  doc.setFontSize(11);
 
-  // Render Billed Lessons
+  const amount = (value: unknown) => `€${(Number(value) || 0).toFixed(2)}`;
+  const drawItem = (description: string, quantity: string, unitPrice: number, total: number) => {
+    doc.setFontSize(10);
+    const lines: string[] = doc.splitTextToSize(description, 82);
+    const height = Math.max(12, lines.length * 5 + 5);
+    if (tableY + height > 255) {
+      doc.addPage(); tableY = 28;
+      doc.setFontSize(12); drawText(`${labels.title} - ${invoice.invoiceId}`, 105, 16, 'center');
+      doc.setFontSize(10);
+    }
+    lines.forEach((line, index) => drawText(line, descColX, tableY + 6 + index * 5, descColAlign));
+    drawText(quantity, qtyColX, tableY + 6, qtyColAlign);
+    drawText(amount(unitPrice), priceColX, tableY + 6, priceColAlign);
+    drawText(amount(total), totalColX, tableY + 6, totalColAlign);
+    doc.line(15, tableY + height, 195, tableY + height);
+    tableY += height;
+  };
   const lessons: Lesson[] = invoice.billedLessons || [];
-  lessons.forEach((les) => {
-    const descText = `${labels.lessonBilled} (${les.date} ${les.time})`;
-    drawText(descText, descColX, tableY + 6, descColAlign);
-    drawText(`${les.duration} ${labels.hours}`, qtyColX, tableY + 6, qtyColAlign);
-    
-    // Base unit price
-    const unitPriceVal = les.duration > 0 ? (les.price / les.duration) : les.price;
-    drawText(`€${unitPriceVal.toFixed(2)}`, priceColX, tableY + 6, priceColAlign);
-    drawText(`€${les.price.toFixed(2)}`, totalColX, tableY + 6, totalColAlign);
-
-    doc.line(15, tableY + 9, 195, tableY + 9);
-    tableY += 9;
+  lessons.forEach(les => {
+    const description = [labels.lessonBilled, `${les.date}  ${les.time || ''}`, les.pickupLocation].filter(Boolean).join('\n');
+    drawItem(description, `${les.duration}`, les.duration > 0 ? les.price / les.duration : les.price, les.price);
   });
-
-  if (!lessons.length && invoice.description) {
-    drawText(String(invoice.description), descColX, tableY + 6, descColAlign);
-    drawText('1', qtyColX, tableY + 6, qtyColAlign);
-    drawText(`€${Number(invoice.subtotal).toFixed(2)}`, totalColX, tableY + 6, totalColAlign);
-    tableY += 10;
+  if (!lessons.length && invoice.description && !invoice.adjustmentPrice) {
+    drawItem(String(invoice.description), '1', Number(invoice.subtotal), Number(invoice.subtotal));
   }
-
-  // Render Custom adjustment if present
-  if (invoice.adjustmentLabel && invoice.adjustmentPrice) {
-    const adjLabel = invoice.adjustmentLabel || labels.extraAdjustment;
-    drawText(adjLabel, descColX, tableY + 6, descColAlign);
-    drawText(`1`, qtyColX, tableY + 6, qtyColAlign);
-    drawText(`€${invoice.adjustmentPrice.toFixed(2)}`, priceColX, tableY + 6, priceColAlign);
-    drawText(`€${invoice.adjustmentPrice.toFixed(2)}`, totalColX, tableY + 6, totalColAlign);
-
-    doc.line(15, tableY + 9, 195, tableY + 9);
-    tableY += 9;
+  if (invoice.adjustmentPrice) {
+    drawItem(invoice.adjustmentLabel || labels.extraAdjustment, '1', Number(invoice.adjustmentPrice), Number(invoice.adjustmentPrice));
   }
 
   // TOTALS BLOCK (Dynamic alignment based on RTL)
-  const totalsY = tableY + 6;
+  if (tableY > 184) { doc.addPage(); tableY = 20; }
+  const totalsY = tableY + 8;
   doc.setFontSize(10);
 
-  const totalsBoxX = isRtl ? 15 : 110;
-  const totalsBoxW = 85;
+  const totalsBoxX = isRtl ? 15 : 95;
+  const totalsBoxW = 100;
 
   const totalsLabelX = isRtl ? (totalsBoxX + totalsBoxW - 5) : (totalsBoxX + 5);
   const totalsLabelAlign = isRtl ? 'right' : 'left';
@@ -897,29 +920,51 @@ export async function generateInvoicePDF(
   
   // Draw light background for totals
   doc.setFillColor(248, 250, 252);
-  doc.rect(totalsBoxX, totalsY, totalsBoxW, 34, 'F');
+  doc.rect(totalsBoxX, totalsY, totalsBoxW, 40, 'F');
   doc.setDrawColor(226, 232, 240);
-  doc.rect(totalsBoxX, totalsY, totalsBoxW, 34, 'D');
+  doc.rect(totalsBoxX, totalsY, totalsBoxW, 40, 'D');
 
   // Subtotal
   drawText(labels.subtotal, totalsLabelX, totalsY + 6, totalsLabelAlign);
   drawText(`€${(invoice.subtotal ?? 0).toFixed(2)}`, totalsValueX, totalsY + 6, totalsValueAlign);
 
   // VAT
-  const vatLabelStr = `${labels.vat} (${invoice.vatRate}%)`;
+  const vatLabelStr = labels.vat;
   drawText(vatLabelStr, totalsLabelX, totalsY + 14, totalsLabelAlign);
+  doc.setFontSize(9);
+  drawText(`${invoice.vatRate}%`, totalsLabelX, totalsY + 20, totalsLabelAlign);
+  doc.setFontSize(11);
   drawText(`€${(invoice.vatAmount ?? 0).toFixed(2)}`, totalsValueX, totalsY + 14, totalsValueAlign);
 
   // Divider
   const lineStartX = totalsBoxX + 5;
   const lineEndX = totalsBoxX + totalsBoxW - 5;
-  doc.line(lineStartX, totalsY + 20, lineEndX, totalsY + 20);
+  doc.line(lineStartX, totalsY + 24, lineEndX, totalsY + 24);
 
   // Grand Total
   doc.setFont(primaryFont, 'bold');
-  drawText(labels.grandTotal, totalsLabelX, totalsY + 27, totalsLabelAlign);
-  drawText(`€${(invoice.grandTotal ?? 0).toFixed(2)}`, totalsValueX, totalsY + 27, totalsValueAlign);
+  drawText(labels.grandTotal, totalsLabelX, totalsY + 33, totalsLabelAlign);
+  drawText(`€${(invoice.grandTotal ?? 0).toFixed(2)}`, totalsValueX, totalsY + 33, totalsValueAlign);
   doc.setFont(primaryFont, 'normal');
+
+  // Payment summary follows the receipt template; never mixes account numbers with RTL labels.
+  const paymentY = totalsY + 50;
+  doc.setDrawColor(226, 232, 240);
+  doc.line(15, paymentY - 3, 195, paymentY - 3);
+  doc.setFontSize(10);
+  doc.setTextColor(100, 116, 139);
+  drawText(labels.paymentMethod, isRtl ? 195 : 15, paymentY + 4, isRtl ? 'right' : 'left');
+  drawText(labels.paymentStatus, isRtl ? 95 : 115, paymentY + 4, isRtl ? 'right' : 'left');
+  doc.setFontSize(12);
+  doc.setTextColor(15, 23, 42);
+  drawText(methodLabel, isRtl ? 195 : 15, paymentY + 12, isRtl ? 'right' : 'left');
+  doc.setTextColor(invoice.paymentStatus === 'paid' ? 5 : 190, invoice.paymentStatus === 'paid' ? 150 : 50, invoice.paymentStatus === 'paid' ? 105 : 50);
+  drawText(statusLabel, isRtl ? 95 : 115, paymentY + 12, isRtl ? 'right' : 'left');
+  if (schoolSettings?.iban) {
+    doc.setTextColor(100, 116, 139); doc.setFontSize(9);
+    drawText(labels.bank, 105, paymentY + 23, 'center');
+    drawText(String(schoolSettings.iban), 105, paymentY + 29, 'center');
+  }
 
   // FOOTER BLOCK
   doc.setFontSize(9);
