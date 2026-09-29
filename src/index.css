@@ -517,28 +517,22 @@
 
 
 
-/* Keep neutral surfaces; use the active theme for visible outer edge shadows. */
+/* Neutral card depth and clear edges in both appearance modes. */
 .app-record-card {
-  --card-edge-color: var(--color-primary, #2563eb);
   background-color: #ffffff;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--card-edge-color) 28%, transparent),
-    0 6px 20px 2px color-mix(in srgb, var(--card-edge-color) 40%, transparent),
-    0 3px 8px rgba(15, 23, 42, .12);
+  border-color: #dbe1e8;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, .10), 0 1px 3px rgba(15, 23, 42, .06);
 }
 .app-record-card:hover {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--card-edge-color) 38%, transparent),
-    0 8px 24px 3px color-mix(in srgb, var(--card-edge-color) 48%, transparent),
-    0 4px 10px rgba(15, 23, 42, .14);
+  border-color: #cbd3de;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, .13), 0 1px 4px rgba(15, 23, 42, .06);
 }
 .dark .app-record-card {
-  --card-edge-color: color-mix(in srgb, var(--color-primary, #2563eb) 70%, white);
-  background-color: #18181b;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--card-edge-color) 48%, transparent),
-    0 0 18px 2px color-mix(in srgb, var(--card-edge-color) 35%, transparent),
-    0 8px 20px rgba(0, 0, 0, .45);
+  background-color: #222228;
+  border-color: #41414a;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .28), 0 1px 3px rgba(0, 0, 0, .18);
 }
 .dark .app-record-card:hover {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--card-edge-color) 58%, transparent),
-    0 0 22px 3px color-mix(in srgb, var(--card-edge-color) 43%, transparent),
-    0 10px 24px rgba(0, 0, 0, .5);
+  border-color: #52525b;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .34), 0 1px 4px rgba(0, 0, 0, .18);
 }
