@@ -194,6 +194,12 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
   const [liveCoords, setLiveCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [hasStartPoint, setHasStartPoint] = useState<boolean>(false);
 
+  const trailRef = useRef<GPSPoint[]>([]);
+  const followRef = useRef(isAutoFollow);
+  followRef.current = isAutoFollow;
+  const labelsRef = useRef(t);
+  labelsRef.current = t;
+
   // Reference for stable callback
   const onLocationUpdateRef = useRef(onLocationUpdate);
   useEffect(() => {
@@ -215,7 +221,7 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
     const startDiv = document.createElement('div');
     startDiv.className = 'live-start-point-marker';
     startDiv.style.cssText = `
-      position: relative;
+      position: absolute;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -240,7 +246,7 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
       white-space: nowrap;
       letter-spacing: 0.02em;
     `;
-    startPill.textContent = t.startPoint;
+    startPill.textContent = labelsRef.current.startPoint;
     startDiv.appendChild(startPill);
 
     // Green circular marker dot with white border & outer ring
@@ -282,6 +288,7 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
     const marker = new maplibregl.Marker({
       element: startDiv,
       anchor: 'bottom',
+      offset: [0, 11],
       rotationAlignment: 'viewport'
     })
       .setLngLat([lng, lat])
@@ -289,7 +296,7 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
 
     startMarkerRef.current = marker;
     return marker;
-  }, [t.startPoint]);
+  }, []);
 
   // Create or retrieve persistent high-contrast BLUE LIVE LOCATION MARKER
   const ensureVehicleMarker = useCallback((map: maplibregl.Map, initLng: number, initLat: number) => {
@@ -307,7 +314,7 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
     const markerOuterDiv = document.createElement('div');
     markerOuterDiv.className = 'live-blue-location-marker-outer';
     markerOuterDiv.style.cssText = `
-      position: relative;
+      position: absolute;
       width: 52px;
       height: 52px;
       display: flex;
@@ -377,14 +384,7 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
   const updateRouteLine = useCallback((map: maplibregl.Map, routeCoords: [number, number][]) => {
     const source = map.getSource('active-route-source') as maplibregl.GeoJSONSource;
     if (source) {
-      source.setData({
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'LineString',
-          coordinates: routeCoords
-        }
-      });
+      source.setData({ type: 'FeatureCollection', features: routeCoords.length < 2 ? [] : [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: routeCoords } }] });
     }
   }, []);
 
@@ -452,18 +452,11 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
       setIsMapReady(true);
 
       // Route Polyline Source & Layer
-      const coordinates = validPassedPoints.map(p => [p.lng, p.lat] as [number, number]);
+      const coordinates = (trailRef.current.length ? trailRef.current : validPassedPoints).map(p => [p.lng, p.lat] as [number, number]);
       if (!map.getSource('active-route-source')) {
         map.addSource('active-route-source', {
           type: 'geojson',
-          data: {
-            type: 'Feature',
-            properties: {},
-            geometry: {
-              type: 'LineString',
-              coordinates: coordinates
-            }
-          }
+          data: { type: 'FeatureCollection', features: coordinates.length < 2 ? [] : [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates } }] }
         });
 
         // Route casing (dark blue outline for contrast)
@@ -517,7 +510,11 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
       }
     });
 
+    const resizeObserver = new ResizeObserver(() => map.resize());
+    resizeObserver.observe(containerRef.current);
     return () => {
+      resizeObserver.disconnect();
+      setIsMapReady(false);
       if (startMarkerRef.current) {
         try {
           startMarkerRef.current.remove();
@@ -557,7 +554,9 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
       return;
     }
 
-    // Reset session tracking flags on start
+    // Reset once per tracking session, never when panning or changing language.
+    trailRef.current = [];
+    if (mapInstanceRef.current) updateRouteLine(mapInstanceRef.current, []);
     hasFirstFixRef.current = false;
     startPointRef.current = null;
     lastLoggedPointRef.current = null;
@@ -574,7 +573,7 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
 
     if (!('geolocation' in navigator)) {
       setGpsStatus('error');
-      setGpsErrorMsg(t.gpsUnavailable);
+      setGpsErrorMsg(labelsRef.current.gpsUnavailable);
       return;
     }
 
@@ -596,7 +595,7 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
       }
 
       // Filter out extreme inaccurate anomalies (> 150 meters)
-      if (typeof accuracy === 'number' && accuracy > 150) {
+      if (typeof accuracy === 'number' && accuracy > 50) {
         setGpsAccuracy(accuracy);
         return;
       }
@@ -604,7 +603,7 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
       setGpsAccuracy(accuracy ?? null);
       setGpsStatus('active');
       setGpsErrorMsg(null);
-      setLiveCoords({ lat: latitude, lng: longitude });
+
 
       const prev = lastLoggedPointRef.current;
       let calculatedHeading = typeof heading === 'number' && !isNaN(heading) && heading >= 0 ? heading : 0;
@@ -616,13 +615,14 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
         distMeters = calculateHaversineDistance(prev.lat, prev.lng, latitude, longitude) * 1000;
 
         // Discard physically impossible GPS jumps (> 300 meters in a single watch update)
-        if (distMeters > 300 && (accuracy || 0) > 30) {
-          return;
-        }
+        const seconds = (pos.timestamp - (prev.timestamp || 0)) / 1000;
+        if (seconds <= 0 || (seconds < 30 && distMeters > 55 * seconds + (accuracy || 0))) return;
+        // Ignore stationary jitter; preserve actual travel instead of moving the marker alone.
+        if (distMeters < Math.max(2, Math.min(5, (accuracy || 0) * 0.25))) return;
 
         // Derive heading if not reported by hardware and moved >= 2 meters
         if (distMeters >= 2) {
-          if (!heading || heading < 0) {
+          if (heading == null || !Number.isFinite(heading) || heading < 0) {
             calculatedHeading = calculateBearing(prev.lat, prev.lng, latitude, longitude);
           }
         } else {
@@ -650,6 +650,8 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
         accuracy: Math.round(accuracy || 0)
       };
 
+      setLiveCoords({ lat: latitude, lng: longitude });
+
       // Set and permanently retain START_POINT on FIRST valid GPS fix
       if (!startPointRef.current) {
         startPointRef.current = newPoint;
@@ -662,6 +664,8 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
       // Only add to route trail if moved at least 2 meters or if it's the very first point
       if (!prev || distMeters >= 2) {
         lastLoggedPointRef.current = newPoint;
+        trailRef.current.push(newPoint);
+        if (mapInstanceRef.current) updateRouteLine(mapInstanceRef.current, trailRef.current.map(p => [p.lng, p.lat]));
         if (onLocationUpdateRef.current) {
           onLocationUpdateRef.current(newPoint);
         }
@@ -693,7 +697,7 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
         if (!hasFirstFixRef.current) {
           hasFirstFixRef.current = true;
           map.jumpTo({ center: [longitude, latitude], zoom: 17 });
-        } else if (isAutoFollow) {
+        } else if (followRef.current) {
           map.easeTo({
             center: [longitude, latitude],
             zoom: Math.max(map.getZoom(), 16.5),
@@ -708,10 +712,10 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
       console.warn("Live Geolocation Watcher Notice:", err.message);
       if (err.code === err.PERMISSION_DENIED) {
         setGpsStatus('error');
-        setGpsErrorMsg(t.permissionDenied);
+        setGpsErrorMsg(labelsRef.current.permissionDenied);
       } else if (err.code === err.POSITION_UNAVAILABLE) {
         setGpsStatus('error');
-        setGpsErrorMsg(t.gpsUnavailable);
+        setGpsErrorMsg(labelsRef.current.gpsUnavailable);
       } else if (err.code === err.TIMEOUT) {
         // Keep searching silently
         setGpsStatus('searching');
@@ -724,7 +728,7 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
     } catch (e) {
       console.warn("Geolocation watchPosition threw:", e);
       setGpsStatus('error');
-      setGpsErrorMsg(t.gpsUnavailable);
+      setGpsErrorMsg(labelsRef.current.gpsUnavailable);
     }
 
     return () => {
@@ -733,7 +737,7 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
         watchIdRef.current = null;
       }
     };
-  }, [isTracking, ensureVehicleMarker, ensureStartMarker, isAutoFollow, t.gpsUnavailable, t.permissionDenied]);
+  }, [isTracking, ensureVehicleMarker, ensureStartMarker, updateRouteLine]);
 
   // 3. Update Map Route Polyline when `points` prop changes (from history or live feed)
   useEffect(() => {
@@ -741,7 +745,17 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
     const map = mapInstanceRef.current;
 
     const validPts = points.filter(p => isValidCoords(p.lat, p.lng));
-    if (validPts.length === 0) return;
+    if (isTracking) return; // Live trail is updated directly by the single GPS watcher.
+    if (validPts.length === 0) {
+      updateRouteLine(map, []);
+      startMarkerRef.current?.remove();
+      startPointRef.current = null;
+      setHasStartPoint(false);
+      return;
+    }
+    startPointRef.current = validPts[0];
+    ensureStartMarker(map, validPts[0].lng, validPts[0].lat);
+    setHasStartPoint(true);
 
     const coords = validPts.map(p => [p.lng, p.lat] as [number, number]);
     updateRouteLine(map, coords);

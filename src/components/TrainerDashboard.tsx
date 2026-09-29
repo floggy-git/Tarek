@@ -1,3 +1,4 @@
+import { downloadPdf } from '../utils/downloadPdf';
 import React, { useState, useEffect } from 'react';
 import L from 'leaflet';
 import { createPortal } from 'react-dom';
@@ -853,7 +854,7 @@ const CompletedLessonCardItem: React.FC<CompletedLessonCardItemProps> = React.me
 
   return (
     <div 
-      className="p-5 md:p-6 bg-white dark:bg-zinc-900 border border-[#e6ecf2] dark:border-zinc-800 rounded-[22px] shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_24px_-8px_rgba(31,78,148,0.12)] transition-all duration-300 flex flex-col justify-between space-y-4"
+      className="app-record-card p-5 md:p-6 bg-white dark:bg-zinc-900 border border-[#e6ecf2] dark:border-zinc-800 rounded-[22px] shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_24px_-8px_rgba(31,78,148,0.12)] transition-all duration-300 flex flex-col justify-between space-y-4"
     >
       {/* 1. Header: Completed Check, Badges, Monospace ID & Price */}
       <div className="flex justify-between items-start gap-3">
@@ -3443,7 +3444,7 @@ function TrainerDashboardComponent({
                   </p>
                 ) : (
                   homeStats.upcomingOrActiveLessons.map(item => (
-                    <div key={item.id} className="p-4 bg-slate-50 dark:bg-zinc-950 rounded-2xl border border-slate-105 dark:border-zinc-900 w-full space-y-3">
+                    <div key={item.id} className="app-record-card p-4 bg-slate-50 dark:bg-zinc-950 rounded-2xl border border-slate-105 dark:border-zinc-900 w-full space-y-3">
                       <div className="flex justify-between items-start">
                         <div>
                           <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold ${
@@ -4058,7 +4059,7 @@ function TrainerDashboardComponent({
               return (
                 <div 
                   key={student.name}
-                  className="p-4 bg-white dark:bg-zinc-900 border border-blue-100/80 dark:border-zinc-800 rounded-2xl shadow-sm flex flex-col justify-between space-y-3 hover:border-blue-300/80 dark:hover:border-zinc-700 hover:shadow-md transition duration-200"
+                  className="app-record-card p-4 bg-white dark:bg-zinc-900 border border-blue-100/80 dark:border-zinc-800 rounded-2xl shadow-sm flex flex-col justify-between space-y-3 hover:border-blue-300/80 dark:hover:border-zinc-700 hover:shadow-md transition duration-200"
                 >
                   <div className="space-y-3">
                     {/* Header: Avatar, Large Name, ID, Email, Edit */}
@@ -4361,16 +4362,10 @@ function TrainerDashboardComponent({
 
                 <div className="flex gap-2.5 pt-1">
                   <button
-                    onClick={async () => {
-                      try {
-                        const { generateInvoicePDF } = await import('../utils/arabicPdfHelper');
-                        const doc = await generateInvoicePDF(latestIssuedInvoice, lang, schoolSettings);
-                        doc.save(`invoice_${latestIssuedInvoice.invoiceId || 'draft'}.pdf`);
-                      } catch (err) {
-                        console.error("Failed to generate and download invoice PDF:", err);
-                        alert(lang === 'ar' ? 'حدث خطأ أثناء تحميل ملف الـ PDF' : 'An error occurred while generating the PDF.');
-                      }
-                    }}
+                    onClick={() => downloadPdf(async () => {
+                      const { generateInvoicePDF } = await import('../utils/arabicPdfHelper');
+                      return generateInvoicePDF(latestIssuedInvoice, lang, schoolSettings);
+                    }, `invoice_${latestIssuedInvoice.invoiceId || 'draft'}.pdf`, lang)}
                     className="flex-1 h-9 bg-white hover:bg-slate-50 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Download className="h-3.5 w-3.5" />

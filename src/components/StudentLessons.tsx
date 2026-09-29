@@ -1329,7 +1329,7 @@ function StudentLessonsComponent({
               filteredLessons.map(lessonItem => (
                 <div 
                   key={lessonItem.id} 
-                  className="p-5 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800/80 rounded-2xl shadow-xs space-y-4 hover:translate-y-[-1px] transition"
+                  className="app-record-card p-5 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800/80 rounded-2xl shadow-xs space-y-4 hover:translate-y-[-1px] transition"
                 >
                   <div className="flex justify-between items-start">
                     <div>
