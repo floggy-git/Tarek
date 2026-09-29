@@ -519,10 +519,13 @@
 
 /* Subtle separation for lesson and student cards, using the selected theme. */
 .app-record-card {
+  background-color: color-mix(in srgb, var(--color-primary, #2563eb) 7%, white);
+  border-color: rgba(var(--color-primary-rgb, 37, 99, 235), .22);
   box-shadow: 0 3px 12px rgba(var(--color-primary-rgb, 37, 99, 235), .10), 0 1px 3px rgba(15, 23, 42, .07);
 }
 .app-record-card:hover { box-shadow: 0 5px 16px rgba(var(--color-primary-rgb, 37, 99, 235), .16); }
 .dark .app-record-card {
+  background-color: color-mix(in srgb, var(--color-primary, #2563eb) 13%, #18181b);
   border-color: color-mix(in srgb, var(--color-primary, #2563eb) 28%, #3f3f46);
   box-shadow: 0 4px 14px rgba(0, 0, 0, .25), 0 0 0 1px rgba(var(--color-primary-rgb, 37, 99, 235), .10);
 }
