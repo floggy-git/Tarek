@@ -62,6 +62,9 @@ const fetchFontAsBase64 = async (url: string): Promise<string> => {
     throw new Error(`Failed to fetch font from ${url}`);
   }
   const buffer = await response.arrayBuffer();
+  if (buffer.byteLength < 1000) throw new Error('Invalid PDF font file');
+  const signature = new DataView(buffer).getUint32(0);
+  if (signature !== 0x00010000 && signature !== 0x4f54544f) throw new Error('Invalid PDF font format');
   
   // Safe base64 conversion that won't exceed call stack size
   let binary = '';
@@ -80,7 +83,7 @@ export async function embedFonts(doc: jsPDF): Promise<void> {
   // 1. Load Cairo/Arabic font
   if (!cachedCairoBase64) {
     const cairoUrls = [
-      '/Tarek/fonts/Cairo-Regular.ttf', // Local pre-downloaded font
+      `${import.meta.env.BASE_URL}fonts/Cairo-Regular.ttf?v=2`, // Local pre-downloaded font
       'https://cdn.jsdelivr.net/gh/googlefonts/cairo@master/fonts/ttf/Cairo-Regular.ttf',
       'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/almarai/Almarai-Regular.ttf' // Bulletproof fallback
     ];
@@ -97,7 +100,7 @@ export async function embedFonts(doc: jsPDF): Promise<void> {
   // 2. Load Inter/Latin font
   if (!cachedInterBase64) {
     const interUrls = [
-      '/Tarek/fonts/Inter-Regular.ttf', // Local pre-downloaded font
+      `${import.meta.env.BASE_URL}fonts/Inter-Regular.ttf?v=2`, // Local pre-downloaded font
       'https://cdn.jsdelivr.net/gh/rsms/inter@v3.19.3/docs/font-files/Inter-Regular.ttf',
       'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/roboto/static/Roboto-Regular.ttf' // Bulletproof fallback
     ];
@@ -111,6 +114,7 @@ export async function embedFonts(doc: jsPDF): Promise<void> {
     }
   }
 
+  if (!cachedCairoBase64 || !cachedInterBase64) throw new Error('PDF fonts could not be loaded. Please retry.');
   try {
     if (cachedCairoBase64) {
       doc.addFileToVFS('Cairo-Regular.ttf', cachedCairoBase64);
@@ -123,7 +127,7 @@ export async function embedFonts(doc: jsPDF): Promise<void> {
       doc.addFont('Inter-Regular.ttf', 'Inter', 'bold');
     }
   } catch (err) {
-    console.error("Font embedding failed, falling back to system fonts:", err);
+    throw new Error("PDF font embedding failed. Please retry.");
   }
 }
 
@@ -282,8 +286,12 @@ export async function generateSelectableDossierPDF(
 
   // Safe text drawing helper with RTL alignment and shaping
   const drawText = (txt: string, x: number, y: number, align: 'left' | 'right' | 'center' = 'left') => {
-    const formatted = isRtl ? prepareArabicForJsPDF(txt) : txt;
-    doc.text(formatted, x, y, { align: isRtl ? (align === 'left' ? 'right' : align === 'right' ? 'left' : 'center') : align });
+    const value = String(txt ?? '');
+    const previousFont = doc.getFont();
+    if (/[\u0600-\u06ff]/.test(value)) doc.setFont('Cairo', previousFont.fontStyle);
+    // jsPDF shapes Arabic and applies bidi; coordinates already account for RTL.
+    doc.text(value, x, y, { align });
+    doc.setFont(previousFont.fontName, previousFont.fontStyle);
   };
 
   // PAGE 1: COVER PAGE AND ASSESSMENTS
@@ -667,8 +675,12 @@ export async function generateInvoicePDF(
   const labels = tMap[lang] || tMap['en'];
 
   const drawText = (txt: string, x: number, y: number, align: 'left' | 'right' | 'center' = 'left') => {
-    const formatted = isRtl ? prepareArabicForJsPDF(txt) : txt;
-    doc.text(formatted, x, y, { align: isRtl ? (align === 'left' ? 'right' : align === 'right' ? 'left' : 'center') : align });
+    const value = String(txt ?? '');
+    const previousFont = doc.getFont();
+    if (/[\u0600-\u06ff]/.test(value)) doc.setFont('Cairo', previousFont.fontStyle);
+    // jsPDF shapes Arabic and applies bidi; coordinates already account for RTL.
+    doc.text(value, x, y, { align });
+    doc.setFont(previousFont.fontName, previousFont.fontStyle);
   };
 
   // HEADER BLOCK
@@ -850,6 +862,13 @@ export async function generateInvoicePDF(
     doc.line(15, tableY + 9, 195, tableY + 9);
     tableY += 9;
   });
+
+  if (!lessons.length && invoice.description) {
+    drawText(String(invoice.description), descColX, tableY + 6, descColAlign);
+    drawText('1', qtyColX, tableY + 6, qtyColAlign);
+    drawText(`€${Number(invoice.subtotal).toFixed(2)}`, totalColX, tableY + 6, totalColAlign);
+    tableY += 10;
+  }
 
   // Render Custom adjustment if present
   if (invoice.adjustmentLabel && invoice.adjustmentPrice) {
