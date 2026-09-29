@@ -517,15 +517,13 @@
 
 
 
-/* Subtle separation for lesson and student cards, using the selected theme. */
+/* Theme-colored outer shadows; card surfaces retain their original colors. */
 .app-record-card {
-  background-color: color-mix(in srgb, var(--color-primary, #2563eb) 7%, white);
-  border-color: rgba(var(--color-primary-rgb, 37, 99, 235), .22);
-  box-shadow: 0 3px 12px rgba(var(--color-primary-rgb, 37, 99, 235), .10), 0 1px 3px rgba(15, 23, 42, .07);
+  box-shadow: 0 3px 14px rgba(var(--color-primary-rgb, 37, 99, 235), .18), 0 1px 4px rgba(15, 23, 42, .06);
 }
-.app-record-card:hover { box-shadow: 0 5px 16px rgba(var(--color-primary-rgb, 37, 99, 235), .16); }
+.app-record-card:hover {
+  box-shadow: 0 5px 18px rgba(var(--color-primary-rgb, 37, 99, 235), .23), 0 1px 4px rgba(15, 23, 42, .06);
+}
 .dark .app-record-card {
-  background-color: color-mix(in srgb, var(--color-primary, #2563eb) 13%, #18181b);
-  border-color: color-mix(in srgb, var(--color-primary, #2563eb) 28%, #3f3f46);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .25), 0 0 0 1px rgba(var(--color-primary-rgb, 37, 99, 235), .10);
+  box-shadow: 0 3px 16px rgba(var(--color-primary-rgb, 37, 99, 235), .22), 0 4px 10px rgba(0, 0, 0, .22);
 }
