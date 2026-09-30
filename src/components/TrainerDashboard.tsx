@@ -33,6 +33,7 @@ import { writeLessonsToSheet, writeWalletToSheet } from '../services/googleSheet
 const ExamTracker = React.lazy(() => import('./ExamTracker'));
 const DossierA4Pages = React.lazy(() => import('./DossierA4Pages').then(m => ({ default: m.DossierA4Pages })));
 const LiveNavigationMap = React.lazy(() => import('./LiveNavigationMap'));
+const RouteReplayMap = React.lazy(() => import('./RouteReplayMap'));
 const CancelLessonModal = React.lazy(() => import('./CancelLessonModal'));
 const CompleteLessonModal = React.lazy(() => import('./CompleteLessonModal'));
 const SchoolConfigPanel = React.lazy(() => import('./SchoolConfigPanel').then(m => ({ default: m.SchoolConfigPanel })));
@@ -819,7 +820,7 @@ interface CompletedLessonCardItemProps {
   lang: string;
   isMapOpen: boolean;
   onToggleMap: (id: string) => void;
-  onOpenGoogleMaps: (item: Lesson, e: React.MouseEvent) => void;
+  onOpenRoute: (item: Lesson, e: React.MouseEvent) => void;
   onSendReminder: (item: Lesson) => void;
 }
 
@@ -828,7 +829,7 @@ const CompletedLessonCardItem: React.FC<CompletedLessonCardItemProps> = React.me
   lang,
   isMapOpen,
   onToggleMap,
-  onOpenGoogleMaps,
+  onOpenRoute,
   onSendReminder
 }) => {
   const hasRoute = !!(item.routePoints && item.routePoints.length > 0);
@@ -1020,16 +1021,16 @@ const CompletedLessonCardItem: React.FC<CompletedLessonCardItemProps> = React.me
           )}
 
           <div className="flex gap-2">
-            {/* Primary Action Button: View Google Maps Route - ONLY if route exists */}
+            {/* Follow the recorded route within the app, with live GPS progress. */}
             {hasRoute && (
               <>
                 <button
                   type="button"
-                  onClick={(e) => onOpenGoogleMaps(item, e)}
+                  onClick={(e) => onOpenRoute(item, e)}
                   className="flex-1 py-2.5 bg-[#1f4e94] hover:bg-[#183e78] text-white text-xs font-bold rounded-[12px] cursor-pointer transition flex items-center justify-center gap-2 shadow-xs hover:shadow-sm"
                 >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  <span>{lang === 'ar' ? 'عرض المسار على Google Maps' : 'View Google Maps Route'}</span>
+                  <Navigation className="h-3.5 w-3.5" />
+                  <span>{lang === 'ar' ? 'اتّبع المسار المسجل' : lang === 'nl' ? 'Volg de opgenomen route' : 'Follow recorded route'}</span>
                 </button>
 
                 {/* Secondary Action: Map Toggle Button */}
@@ -1852,6 +1853,7 @@ function TrainerDashboardComponent({
   const [isLoadingSheets, setIsLoadingSheets] = useState<boolean>(false);
   const [sheetsLoadSuccess, setSheetsLoadSuccess] = useState<boolean | null>(null);
   const [activeMapPreviewId, setActiveMapPreviewId] = useState<string | null>(null);
+  const [replayLesson, setReplayLesson] = useState<Lesson | null>(null);
 
 
   // Active Driving Lesson GPS Tracking states
@@ -1922,7 +1924,7 @@ function TrainerDashboardComponent({
             trainerNotes: b.trainerNotes || b.feedback || localLesson?.trainerNotes || "",
             lessonNotes: b.lessonNotes || localLesson?.lessonNotes || "",
             instructorNotes: b.instructorNotes || localLesson?.instructorNotes || "",
-            routePoints: b.routePoints || localLesson?.routePoints,
+            routePoints: Array.isArray(b.routePoints) && b.routePoints.length ? b.routePoints : localLesson?.routePoints,
             distanceKm: b.distanceKm || localLesson?.distanceKm,
             elapsedTime: b.elapsedTime || localLesson?.elapsedTime
           };
@@ -1954,38 +1956,10 @@ function TrainerDashboardComponent({
     triggerSheetsLoad();
   }, []);
 
-  const handleOpenGoogleMaps = React.useCallback((item: Lesson, e: React.MouseEvent) => {
+  const handleOpenRoute = React.useCallback((item: Lesson, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-
-    const points = item.routePoints || [];
-    const validPoints = points.filter(p => typeof p?.lat === 'number' && typeof p?.lng === 'number' && !isNaN(p.lat) && !isNaN(p.lng));
-
-    if (validPoints.length > 0) {
-      // Generate Google Maps Directions URL
-      const origin = validPoints[0];
-      const destination = validPoints[validPoints.length - 1];
-      let waypointsParam = '';
-      if (validPoints.length > 2) {
-        const intermediate = validPoints.slice(1, -1);
-        const step = Math.max(1, Math.floor(intermediate.length / 8));
-        const downsampled = [];
-        for (let i = 0; i < intermediate.length; i += step) {
-          downsampled.push(intermediate[i]);
-          if (downsampled.length >= 8) break;
-        }
-        waypointsParam = downsampled.map(p => `${p.lat},${p.lng}`).join('|');
-      }
-
-      const url = `https://www.google.com/maps/dir/?api=1&origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}${waypointsParam ? `&waypoints=${encodeURIComponent(waypointsParam)}` : ''}&travelmode=driving`;
-      window.open(url, '_blank', 'noopener,noreferrer');
-    } else if (item.pickupLocation) {
-      const searchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.pickupLocation)}`;
-      window.open(searchUrl, '_blank', 'noopener,noreferrer');
-    } else {
-      const defaultUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Maastricht, Netherlands')}`;
-      window.open(defaultUrl, '_blank', 'noopener,noreferrer');
-    }
+    if (item.routePoints?.length > 1) setReplayLesson(item);
   }, []);
 
   const activeMapRef = React.useRef<any>(null);
@@ -4034,7 +4008,7 @@ function TrainerDashboardComponent({
                   lang={lang}
                   isMapOpen={activeMapPreviewId === item.id}
                   onToggleMap={handleToggleMapPreview}
-                  onOpenGoogleMaps={handleOpenGoogleMaps}
+                  onOpenRoute={handleOpenRoute}
                   onSendReminder={handleSendReminderForLesson}
                 />
               ))
@@ -8251,6 +8225,11 @@ function TrainerDashboardComponent({
       </div>
 
       {/* Modern Cancel Driving Lesson Modal */}
+      {replayLesson?.routePoints && createPortal(
+        <React.Suspense fallback={<div className="fixed inset-0 z-[100] bg-slate-950 text-white flex items-center justify-center">Loading route…</div>}>
+          <RouteReplayMap points={replayLesson.routePoints} lang={lang} onClose={() => setReplayLesson(null)} />
+        </React.Suspense>, document.body
+      )}
       <React.Suspense fallback={null}>
         <CancelLessonModal
           isOpen={!!cancellingLesson}

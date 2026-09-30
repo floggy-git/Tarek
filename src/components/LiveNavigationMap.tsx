@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Zap, Clock, Activity, SignalHigh, Car, Navigation, AlertTriangle, Crosshair, CheckCircle2 } from 'lucide-react';
+import { matchRoadRoute, nearestForwardSegment, type RoutePoint } from '../utils/routeGeometry';
 
 export interface GPSPoint {
   lat: number;
@@ -131,7 +132,7 @@ function formatDuration(sec: number): string {
 
 // Standard OSM tiles: no API credential is required for interactive map viewing.
 // Keep the licence attribution visible in the map control.
-function getCleanUberMapStyle() {
+export function getCleanUberMapStyle() {
   return {
     version: 8 as const,
     sources: {
@@ -195,6 +196,12 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
   const [hasStartPoint, setHasStartPoint] = useState<boolean>(false);
 
   const trailRef = useRef<GPSPoint[]>([]);
+  const passedPointsRef = useRef(points);
+  passedPointsRef.current = points;
+  const matchedRef = useRef<RoutePoint[]>([]);
+  const matchingRef = useRef(false);
+  const lastMatchAtRef = useRef(0);
+  const trackingSessionRef = useRef(0);
   const followRef = useRef(isAutoFollow);
   followRef.current = isAutoFollow;
   const labelsRef = useRef(t);
@@ -437,9 +444,9 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: getCleanUberMapStyle() as any,
+      style: 'https://tiles.openfreemap.org/styles/positron',
       center: [initLng, initLat],
-      zoom: validPassedPoints.length > 0 ? 16.5 : 15,
+      zoom: validPassedPoints.length > 0 ? 15.5 : 15,
       maxZoom: 19,
       pitch: 0,
       bearing: 0,
@@ -555,12 +562,15 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
     }
 
     // Reset once per tracking session, never when panning or changing language.
-    trailRef.current = [];
-    if (mapInstanceRef.current) updateRouteLine(mapInstanceRef.current, []);
+    const session = ++trackingSessionRef.current;
+    trailRef.current = [...passedPointsRef.current];
+    matchedRef.current = [];
+    lastMatchAtRef.current = 0;
+    if (mapInstanceRef.current) updateRouteLine(mapInstanceRef.current, trailRef.current.map(p => [p.lng, p.lat]));
     hasFirstFixRef.current = false;
-    startPointRef.current = null;
-    lastLoggedPointRef.current = null;
-    setHasStartPoint(false);
+    startPointRef.current = trailRef.current[0] || null;
+    lastLoggedPointRef.current = trailRef.current[trailRef.current.length - 1] || null;
+    setHasStartPoint(Boolean(startPointRef.current));
 
     if (startMarkerRef.current) {
       try {
@@ -665,9 +675,20 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
       if (!prev || distMeters >= 2) {
         lastLoggedPointRef.current = newPoint;
         trailRef.current.push(newPoint);
-        if (mapInstanceRef.current) updateRouteLine(mapInstanceRef.current, trailRef.current.map(p => [p.lng, p.lat]));
+        if (mapInstanceRef.current) updateRouteLine(mapInstanceRef.current, (matchedRef.current.length > 1 ? [...matchedRef.current, ...trailRef.current.slice(-2)] : trailRef.current).map(p => [p.lng, p.lat]));
         if (onLocationUpdateRef.current) {
           onLocationUpdateRef.current(newPoint);
+        }
+        if (trailRef.current.length >= 3 && !matchingRef.current && Date.now() - lastMatchAtRef.current > 10000) {
+          matchingRef.current = true;
+          lastMatchAtRef.current = Date.now();
+          const snapshot = [...trailRef.current];
+          matchRoadRoute(snapshot).then(matched => {
+            if (!matched || trackingSessionRef.current !== session || !startPointRef.current) return;
+            matchedRef.current = matched;
+            const map = mapInstanceRef.current;
+            if (map?.isStyleLoaded()) updateRouteLine(map, [...matched, ...trailRef.current.slice(snapshot.length)].map(p => [p.lng, p.lat]));
+          }).catch(() => {}).finally(() => { matchingRef.current = false; });
         }
       }
 
@@ -681,8 +702,10 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
         }
 
         // Update LIVE BLUE LOCATION marker
-        const marker = ensureVehicleMarker(map, longitude, latitude);
-        marker.setLngLat([longitude, latitude]);
+        const snap = matchedRef.current.length > 1 ? nearestForwardSegment(matchedRef.current, newPoint) : null;
+        const display = snap && snap.distance < Math.min(25, Math.max(12, accuracy || 0)) ? snap.point : newPoint;
+        const marker = ensureVehicleMarker(map, display.lng, display.lat);
+        marker.setLngLat([display.lng, display.lat]);
 
         // Rotate inner heading element with shortest angular path
         if (vehicleRotateElementRef.current) {
@@ -696,11 +719,11 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
         // Camera follow (Google Maps navigation style)
         if (!hasFirstFixRef.current) {
           hasFirstFixRef.current = true;
-          map.jumpTo({ center: [longitude, latitude], zoom: 17 });
+          map.jumpTo({ center: [display.lng, display.lat], zoom: 16 });
         } else if (followRef.current) {
           map.easeTo({
-            center: [longitude, latitude],
-            zoom: Math.max(map.getZoom(), 16.5),
+            center: [display.lng, display.lat],
+            zoom: Math.max(map.getZoom(), 15.5),
             duration: 450,
             animate: true
           });
@@ -732,6 +755,7 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
     }
 
     return () => {
+      trackingSessionRef.current++;
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
@@ -759,6 +783,10 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
 
     const coords = validPts.map(p => [p.lng, p.lat] as [number, number]);
     updateRouteLine(map, coords);
+    const controller = new AbortController();
+    if (validPts.length > 2) matchRoadRoute(validPts, controller.signal).then(matched => {
+      if (matched && mapInstanceRef.current === map) updateRouteLine(map, matched.map(p => [p.lng, p.lat]));
+    }).catch(() => {});
 
     // Keep start marker at first point
     if (validPts.length > 0 && !startPointRef.current) {
@@ -787,6 +815,7 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
         map.setCenter([latest.lng, latest.lat]);
       }
     }
+    return () => controller.abort();
   }, [points, isMapReady, isTracking, ensureVehicleMarker, ensureStartMarker, updateRouteLine]);
 
   // Status computation
