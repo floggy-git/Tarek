@@ -1,3 +1,5 @@
+import { encodeRoute, decodeRoute } from '../utils/routeStorage';
+
 /**
  * Google Sheets Operational Data Service
  * Provides centralized, validated synchronization for:
@@ -264,6 +266,9 @@ export async function syncLessonsFromSheet(
     const calEventIdx = headers.findIndex((h: string) => h.includes('calendar') || h.includes('event id') || h.includes('calendareventid'));
     const notesIdx = headers.findIndex((h: string) => h.includes('notes') || h.includes('notities'));
     const ratingIdx = headers.findIndex((h: string) => h.includes('rating') || h.includes('score'));
+    const routeIdx = headers.indexOf('route points');
+    const distanceIdx = headers.indexOf('distance km');
+    const elapsedIdx = headers.indexOf('elapsed time');
 
     const lessons: Lesson[] = [];
 
@@ -310,7 +315,10 @@ export async function syncLessonsFromSheet(
         calendarEventId,
         calendarStatus: calendarEventId ? 'synced' : undefined,
         instructorNotes,
-        performanceRating
+        performanceRating,
+        routePoints: decodeRoute(row[routeIdx]),
+        distanceKm: Number(row[distanceIdx]) || undefined,
+        elapsedTime: String(row[elapsedIdx] ?? '') || undefined
       });
     }
 
@@ -341,7 +349,10 @@ export async function writeLessonsToSheet(
       'Status',
       'Calendar Event ID',
       'Instructor Notes',
-      'Rating'
+      'Rating',
+      'Route Points',
+      'Distance Km',
+      'Elapsed Time'
     ];
 
     const rows: any[][] = [headers];
@@ -359,11 +370,14 @@ export async function writeLessonsToSheet(
         l.status,
         l.calendarEventId || '',
         l.instructorNotes || l.trainerNotes || '',
-        l.performanceRating || ''
+        l.performanceRating || '',
+        encodeRoute(l.routePoints),
+        l.distanceKm ?? '',
+        l.elapsedTime || ''
       ]);
     }
 
-    const range = encodeURIComponent(`Lessons!A1:M${rows.length}`);
+    const range = encodeURIComponent(`Lessons!A1:P${rows.length}`);
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`;
     await callSheetsApi(url, 'PUT', { values: rows }, accessToken);
 
@@ -1938,6 +1952,3 @@ export async function buildNativeGoogleSheetsDashboard(
     return { success: false, error: err.message, timestamp: new Date().toISOString() };
   }
 }
-
-
-

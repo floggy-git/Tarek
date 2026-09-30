@@ -2,6 +2,7 @@ import { DrivePackage, StudentRecord, AuditLogEntry, Lesson, HelpFaqItem } from 
 import { getStudentId } from './studentPhoto';
 import bcrypt from 'bcryptjs';
 import { safeSetItem } from './safeStorage';
+import { encodeRoute, decodeRoute } from './routeStorage';
 
 /**
  * Utility functions for syncing package data directly with Google Sheets.
@@ -486,7 +487,10 @@ export function parseSheetRowsToLessons(rows: any[][]): Lesson[] {
       status: (String(row[positions[9]] ?? '').trim().toLowerCase() || 'upcoming') as any,
       calendarEventId: String(row[positions[10]] ?? '').trim() || undefined,
       instructorNotes: String(row[positions[11]] ?? '').trim() || undefined,
-      performanceRating: row[positions[12]] !== undefined && row[positions[12]] !== '' ? Number(row[positions[12]]) : undefined
+      performanceRating: row[positions[12]] !== undefined && row[positions[12]] !== '' ? Number(row[positions[12]]) : undefined,
+      routePoints: decodeRoute(row[idx('route points')]),
+      distanceKm: Number(row[idx('distance km')]) || undefined,
+      elapsedTime: String(row[idx('elapsed time')] ?? '') || undefined
     } as Lesson);
   }
   return parsed;
@@ -496,7 +500,7 @@ export function parseSheetRowsToLessons(rows: any[][]): Lesson[] {
  * Converts Lesson array into sheet rows format.
  */
 export function convertLessonsToSheetRows(lessons: Lesson[]): any[][] {
-  const headers = ['Lesson ID','Student ID','Student Name','Trainer Name','Date','Time','Duration (h)','Price (€)','Pickup Location','Status','Calendar Event ID','Instructor Notes','Rating'];
+  const headers = ['Lesson ID','Student ID','Student Name','Trainer Name','Date','Time','Duration (h)','Price (€)','Pickup Location','Status','Calendar Event ID','Instructor Notes','Rating','Route Points','Distance Km','Elapsed Time'];
   const rows: any[][] = [headers];
   for (const l of lessons) {
     if (isDemoLesson(l)) continue;
@@ -507,7 +511,8 @@ export function convertLessonsToSheetRows(lessons: Lesson[]): any[][] {
       Number(l.duration || 1), Number(l.price || 0), sanitizeSpreadsheetCell(l.pickupLocation || ''),
       sanitizeSpreadsheetCell(l.status || 'upcoming'), sanitizeSpreadsheetCell((l as any).calendarEventId || ''),
       sanitizeSpreadsheetCell(l.instructorNotes || (l as any).trainerNotes || ''),
-      l.performanceRating !== undefined && l.performanceRating !== null ? Number(l.performanceRating) : ''
+      l.performanceRating !== undefined && l.performanceRating !== null ? Number(l.performanceRating) : '',
+      encodeRoute(l.routePoints), l.distanceKm ?? '', sanitizeSpreadsheetCell(l.elapsedTime || '')
     ]);
   }
   return rows;
@@ -523,7 +528,7 @@ export async function loadLessonsFromGoogleSheet(config: GoogleSheetsConfig): Pr
     throw new Error("Spreadsheet ID is required to fetch from Google Sheets.");
   }
 
-  const range = `Lessons!A1:M500`;
+  const range = `Lessons!A1:P500`;
   let url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
 
   const headers: HeadersInit = {};
@@ -562,7 +567,7 @@ export async function writeLessonsToGoogleSheet(config: GoogleSheetsConfig, less
     throw new Error("Google OAuth Write Scopes require a valid Google OAuth Access Token.");
   }
 
-  const range = `Lessons!A1:M500`;
+  const range = `Lessons!A1:P500`;
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
 
   const rows = convertLessonsToSheetRows(lessons);
@@ -1957,6 +1962,4 @@ export async function writeHelpItemsToGoogleSheet(config: GoogleSheetsConfig, it
     throw new Error(`Google Sheets Help Write Error: ${response.status} ${response.statusText} - ${errorDetails}`);
   }
 }
-
-
 
