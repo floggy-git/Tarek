@@ -706,13 +706,17 @@ const CardMapPreview: React.FC<CardMapPreviewProps> = React.memo(({ points, less
       mapInstanceRef.current = map;
 
       const isDark = document.documentElement.classList.contains('dark');
-      const tileUrl = isDark 
-        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' 
-        : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+      // Carto's public Voyager endpoint now returns an API-key placeholder.
+      // OSM tiles keep the small preview coloured and reliable without changing
+      // the lesson route data or the tracking workflow.
+      const tileUrl = isDark
+        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
       L.tileLayer(tileUrl, { 
         maxZoom: 19,
-        subdomains: 'abcd'
+        subdomains: 'abcd',
+        attribution: '&copy; OpenStreetMap contributors'
       }).addTo(map);
 
       if (validPoints.length > 0) {
