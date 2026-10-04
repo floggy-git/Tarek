@@ -1963,8 +1963,42 @@ function TrainerDashboardComponent({
   const handleOpenRoute = React.useCallback((item: Lesson, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (item.routePoints?.length > 1) setReplayLesson(item);
-  }, []);
+    const points = (item.routePoints || [])
+      .map((point) => ({ lat: Number(point.lat), lng: Number(point.lng) }))
+      .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng));
+
+    if (points.length < 2) {
+      window.alert(lang === 'ar'
+        ? 'لا توجد نقاط كافية لرسم المسار. أعد التتبع حتى يتم حفظ نقطتين GPS على الأقل.'
+        : lang === 'nl'
+          ? 'Er zijn te weinig GPS-punten om een route te tonen. Neem de les opnieuw op.'
+          : 'There are not enough GPS points to draw this route. Record at least two points.');
+      return;
+    }
+
+    // Open the real recorded route in Google Maps. Keep the URL small by
+    // sampling intermediate GPS points as waypoints; Google then snaps the
+    // displayed route to the road network and provides normal navigation.
+    const origin = `${points[0].lat},${points[0].lng}`;
+    const destination = `${points[points.length - 1].lat},${points[points.length - 1].lng}`;
+    const middle = points.slice(1, -1);
+    const maxWaypoints = 18;
+    const step = Math.max(1, Math.ceil(middle.length / maxWaypoints));
+    const waypoints = middle
+      .filter((_, index) => index % step === 0)
+      .slice(0, maxWaypoints)
+      .map((point) => `${point.lat},${point.lng}`)
+      .join('|');
+    const params = new URLSearchParams({
+      api: '1',
+      origin,
+      destination,
+      travelmode: 'driving',
+      dir_action: 'preview'
+    });
+    if (waypoints) params.set('waypoints', waypoints);
+    window.open(`https://www.google.com/maps/dir/?${params.toString()}`, '_blank', 'noopener,noreferrer');
+  }, [lang]);
 
   const activeMapRef = React.useRef<any>(null);
   const activePolylineRef = React.useRef<any>(null);

@@ -523,6 +523,13 @@ function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps)
               });
             }}
           />
+          {trackingMode === 'review' && reviewRoute && reviewRoute.points.length < 2 && (
+            <div className="absolute inset-x-4 top-4 z-20 rounded-2xl border border-amber-200 bg-white/95 px-4 py-3 text-center text-xs font-bold text-amber-800 shadow-lg dark:border-amber-900/60 dark:bg-zinc-900/95 dark:text-amber-200">
+              {lang === 'ar'
+                ? 'هذا السجل يحتوي على نقطة GPS واحدة فقط؛ لا يمكن رسم خط قبل حفظ نقطتين على الأقل.'
+                : 'This record contains one GPS point; at least two points are needed to draw a route.'}
+            </div>
+          )}
         </div>
 
         {/* Recorded Exams History Archive */}

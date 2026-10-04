@@ -559,8 +559,11 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
         return;
       }
 
-      // Filter out extreme inaccurate anomalies (> 150 meters)
-      if (typeof accuracy === 'number' && accuracy > 50) {
+      // Keep the first usable phone fix even when the handset reports a
+      // temporarily wide accuracy radius. Dropping every fix above 50 m
+      // made the blue marker stay at the default centre on mobile devices.
+      // Very poor fixes are still ignored once a reliable point exists.
+      if (typeof accuracy === 'number' && accuracy > 150 && lastLoggedPointRef.current) {
         setGpsAccuracy(accuracy);
         return;
       }
