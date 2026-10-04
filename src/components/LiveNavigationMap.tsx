@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as maplibregl from 'maplibre-gl';
+import '../utils/maplibreSetup';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Zap, Clock, Activity, SignalHigh, Car, Navigation, AlertTriangle, Crosshair, CheckCircle2 } from 'lucide-react';
 import { matchRoadRoute, nearestForwardSegment, type RoutePoint } from '../utils/routeGeometry';
@@ -130,32 +131,6 @@ function formatDuration(sec: number): string {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
-// Standard OSM tiles: no API credential is required for interactive map viewing.
-// Keep the licence attribution visible in the map control.
-export function getCleanUberMapStyle() {
-  return {
-    version: 8 as const,
-    sources: {
-      'clean-navigation-tiles': {
-        type: 'raster' as const,
-        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-        tileSize: 256,
-        maxzoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>'
-      }
-    },
-    layers: [
-      {
-        id: 'clean-navigation-layer',
-        type: 'raster' as const,
-        source: 'clean-navigation-tiles',
-        minzoom: 0,
-        maxzoom: 20
-      }
-    ]
-  };
-}
-
 export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
   points = [],
   isTracking,
@@ -193,7 +168,6 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
   const [isAutoFollow, setIsAutoFollow] = useState<boolean>(true);
   const [isMapReady, setIsMapReady] = useState<boolean>(false);
   const [liveCoords, setLiveCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [hasStartPoint, setHasStartPoint] = useState<boolean>(false);
 
   const trailRef = useRef<GPSPoint[]>([]);
   const passedPointsRef = useRef(points);
@@ -238,25 +212,7 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
       filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.35));
     `;
 
-    // Localized Start badge pill
-    const startPill = document.createElement('div');
-    startPill.style.cssText = `
-      padding: 2px 7px;
-      background: #16a34a;
-      color: #ffffff;
-      font-size: 10px;
-      font-weight: 800;
-      border-radius: 9999px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-      border: 1.5px solid #ffffff;
-      margin-bottom: 2px;
-      white-space: nowrap;
-      letter-spacing: 0.02em;
-    `;
-    startPill.textContent = labelsRef.current.startPoint;
-    startDiv.appendChild(startPill);
-
-    // Green circular marker dot with white border & outer ring
+    // A small, neutral start marker keeps the route unobstructed.
     const dotContainer = document.createElement('div');
     dotContainer.style.cssText = `
       position: relative;
@@ -273,8 +229,8 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
       width: 22px;
       height: 22px;
       border-radius: 50%;
-      background: rgba(22, 163, 74, 0.25);
-      border: 1px solid rgba(22, 163, 74, 0.5);
+      background: rgba(71, 85, 105, 0.15);
+      border: 1px solid rgba(71, 85, 105, 0.3);
     `;
     dotContainer.appendChild(haloRing);
 
@@ -283,7 +239,7 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
       width: 14px;
       height: 14px;
       border-radius: 50%;
-      background: #16a34a;
+      background: #475569;
       border: 2.5px solid #ffffff;
       box-shadow: 0 2px 6px rgba(0,0,0,0.35);
       z-index: 2;
@@ -294,8 +250,7 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
 
     const marker = new maplibregl.Marker({
       element: startDiv,
-      anchor: 'bottom',
-      offset: [0, 11],
+      anchor: 'center',
       rotationAlignment: 'viewport'
     })
       .setLngLat([lng, lat])
@@ -503,7 +458,6 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
       if (validPassedPoints.length > 0) {
         ensureStartMarker(map, validPassedPoints[0].lng, validPassedPoints[0].lat);
         startPointRef.current = validPassedPoints[0];
-        setHasStartPoint(true);
       }
 
       // Initialize live location marker
@@ -570,7 +524,6 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
     hasFirstFixRef.current = false;
     startPointRef.current = trailRef.current[0] || null;
     lastLoggedPointRef.current = trailRef.current[trailRef.current.length - 1] || null;
-    setHasStartPoint(Boolean(startPointRef.current));
 
     if (startMarkerRef.current) {
       try {
@@ -665,7 +618,6 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
       // Set and permanently retain START_POINT on FIRST valid GPS fix
       if (!startPointRef.current) {
         startPointRef.current = newPoint;
-        setHasStartPoint(true);
         if (mapInstanceRef.current) {
           ensureStartMarker(mapInstanceRef.current, longitude, latitude);
         }
@@ -774,12 +726,10 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
       updateRouteLine(map, []);
       startMarkerRef.current?.remove();
       startPointRef.current = null;
-      setHasStartPoint(false);
       return;
     }
     startPointRef.current = validPts[0];
     ensureStartMarker(map, validPts[0].lng, validPts[0].lat);
-    setHasStartPoint(true);
 
     const coords = validPts.map(p => [p.lng, p.lat] as [number, number]);
     updateRouteLine(map, coords);
@@ -792,7 +742,6 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
     if (validPts.length > 0 && !startPointRef.current) {
       startPointRef.current = validPts[0];
       ensureStartMarker(map, validPts[0].lng, validPts[0].lat);
-      setHasStartPoint(true);
     }
 
     // If not tracking (e.g. reviewing historical route), position marker at latest point
@@ -819,8 +768,6 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
   }, [points, isMapReady, isTracking, ensureVehicleMarker, ensureStartMarker, updateRouteLine]);
 
   // Status computation
-  const isGpsWeak = gpsAccuracy !== null && gpsAccuracy > 45;
-  const isPreLessonStandby = !isTracking && points.length === 0;
 
   return (
     <div 
@@ -831,53 +778,10 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
       {/* Map Canvas Container */}
       <div ref={containerRef} className="w-full h-full z-0 bg-slate-200 dark:bg-slate-900" />
 
-      {/* 1. TOP STATUS BADGE & MARKER LEGEND */}
-      <div className="absolute top-4 inset-x-4 z-20 flex flex-col items-center gap-2 pointer-events-none">
-        {isPreLessonStandby && (
-          <div className="pointer-events-auto flex items-center gap-2.5 px-4 py-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md">
-            <div className="w-5 h-5 rounded-full bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-              <Car className="h-3 w-3" />
-            </div>
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-100 tracking-wide">
-              {t.waitingForLesson}
-            </span>
-          </div>
-        )}
-
-        {isTracking && gpsStatus === 'active' && !gpsErrorMsg && (
-          <div className="flex flex-col items-center gap-1.5 pointer-events-auto">
-            <div className="flex items-center gap-2 px-3.5 py-1.5 bg-emerald-600/95 text-white backdrop-blur-md rounded-full shadow-lg text-xs font-bold animate-in fade-in slide-in-from-top-2 duration-300">
-              <span className="flex h-2.5 w-2.5 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
-              </span>
-              <span>{t.trackingActive}</span>
-              {gpsAccuracy !== null && (
-                <span className="text-[10px] bg-emerald-700/80 px-2 py-0.5 rounded-full font-mono font-medium">
-                  ±{Math.round(gpsAccuracy)}{t.meters}
-                </span>
-              )}
-            </div>
-
-            {/* Marker Legend Pill: Start Point vs Current Position */}
-            {hasStartPoint && (
-              <div className="flex items-center gap-3 px-3 py-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-full border border-slate-200/80 dark:border-slate-800/80 shadow-xs text-[11px] font-semibold text-slate-700 dark:text-slate-200">
-                <div className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-600 border border-white shadow-xs"></span>
-                  <span>{t.startPoint}</span>
-                </div>
-                <span className="text-slate-300 dark:text-slate-700">|</span>
-                <div className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-blue-600 border border-white shadow-xs"></span>
-                  <span>{t.currentLocation}</span>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
+      {/* Only show a temporary notice while acquiring GPS. */}
+      <div className="absolute top-3 inset-x-3 z-20 flex justify-center pointer-events-none">
         {isTracking && gpsStatus === 'searching' && (
-          <div className="pointer-events-auto flex items-center gap-2 px-3.5 py-1.5 bg-blue-600/95 text-white backdrop-blur-md rounded-full shadow-md text-xs font-medium animate-pulse">
+          <div className="pointer-events-auto flex items-center gap-2 px-3.5 py-1.5 bg-white/90 dark:bg-slate-900/90 text-slate-600 dark:text-slate-300 rounded-lg shadow-sm text-[11px] font-medium">
             <SignalHigh className="h-3.5 w-3.5 animate-spin" style={{ animationDuration: '3s' }} />
             <span>{t.waitingForGPS}</span>
           </div>

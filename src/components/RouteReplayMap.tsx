@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
+import '../utils/maplibreSetup';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { distanceMeters, matchRoadRoute, nearestForwardSegment, remainingMeters, type RoutePoint } from '../utils/routeGeometry';
 
