@@ -399,7 +399,9 @@ export const LiveNavigationMap: React.FC<LiveNavigationMapProps> = ({
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: 'https://tiles.openfreemap.org/styles/positron',
+      // Bright keeps roads and route geometry readable on phones while staying
+      // lightweight. Positron was too washed out for active lesson tracking.
+      style: 'https://tiles.openfreemap.org/styles/bright',
       center: [initLng, initLat],
       zoom: validPassedPoints.length > 0 ? 15.5 : 15,
       maxZoom: 19,

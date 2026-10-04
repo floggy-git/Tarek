@@ -47,7 +47,7 @@ export default function RouteReplayMap({ points, lang, onClose }: { points: Rout
 
   useEffect(() => {
     if (!holder.current || !route.length) return;
-    const map = new maplibregl.Map({ container: holder.current, style: 'https://tiles.openfreemap.org/styles/positron', center: [route[0].lng, route[0].lat], zoom: 15.5, maxZoom: 18, attributionControl: { compact: false } });
+    const map = new maplibregl.Map({ container: holder.current, style: 'https://tiles.openfreemap.org/styles/bright', center: [route[0].lng, route[0].lat], zoom: 15.5, maxZoom: 18, attributionControl: { compact: false } });
     mapRef.current = map;
     map.on('load', () => {
       map.addSource('replay', { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: route.map(p => [p.lng, p.lat]) } } });
@@ -96,11 +96,11 @@ export default function RouteReplayMap({ points, lang, onClose }: { points: Rout
     return () => navigator.geolocation.clearWatch(watch);
   }, [lang, t, points]);
 
-  return <div className="fixed inset-0 z-[100] bg-slate-950/90 flex flex-col" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-    <header className="flex items-center justify-between gap-3 p-3 bg-slate-950 text-white"><strong>{t.title}</strong><button type="button" onClick={onClose} className="rounded-lg bg-slate-800 px-4 py-2">{t.close}</button></header>
-    <div className="relative flex-1 min-h-0"><div ref={holder} className="absolute inset-0" />
-      <div className="absolute top-3 inset-x-3 z-10 flex justify-center pointer-events-none"><div className="max-w-md rounded-2xl bg-white/95 text-slate-900 p-4 shadow-xl text-center font-bold">{error || hint}<div className="text-sm text-blue-700 mt-1">{t.remaining}: {remaining >= 1000 ? `${(remaining / 1000).toFixed(1)} km` : `${remaining} m`}</div>{!matched && <div className="text-[11px] font-normal text-amber-800 mt-1">{t.raw}</div>}</div></div>
-      <div className="absolute bottom-8 inset-x-3 z-10 flex justify-center gap-2"><button type="button" className="bg-white text-slate-900 px-4 py-3 rounded-xl shadow-lg font-semibold" onClick={() => { setFollow(true); if (position) mapRef.current?.easeTo({ center: [position.lng, position.lat], zoom: 16 }); }}>{t.center}</button><a className="bg-blue-600 text-white px-4 py-3 rounded-xl shadow-lg font-semibold" href={`https://www.google.com/maps/dir/?api=1&destination=${points[0].lat},${points[0].lng}&travelmode=driving&dir_action=navigate`} target="_blank" rel="noopener noreferrer">{t.toStart}</a></div>
+  return <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <header className="flex items-center justify-between gap-3 p-3 bg-slate-950/95 text-white shadow-lg"><strong>{t.title}</strong><button type="button" onClick={onClose} className="rounded-lg bg-slate-800 px-4 py-2">{t.close}</button></header>
+    <div className="relative flex-1 min-h-0"><div ref={holder} className="absolute inset-0 bg-slate-200" />
+      <div className="absolute top-3 inset-x-3 z-10 flex justify-center pointer-events-none"><div className="max-w-md rounded-2xl bg-white/95 text-slate-900 p-3 shadow-xl text-center font-bold">{error || hint}{(remaining > 0 || position) && <div className="text-sm text-blue-700 mt-1">{t.remaining}: {remaining >= 1000 ? `${(remaining / 1000).toFixed(1)} km` : `${remaining} m`}</div>}</div></div>
+      <div className="absolute bottom-5 inset-x-3 z-10 flex justify-center gap-2"><button type="button" className="bg-white text-slate-900 px-4 py-3 rounded-xl shadow-lg font-semibold" onClick={() => { setFollow(true); if (position) mapRef.current?.easeTo({ center: [position.lng, position.lat], zoom: 16 }); }}>{t.center}</button><a className="bg-blue-600 text-white px-4 py-3 rounded-xl shadow-lg font-semibold" href={`https://www.google.com/maps/dir/?api=1&destination=${points[0].lat},${points[0].lng}&travelmode=driving&dir_action=navigate`} target="_blank" rel="noopener noreferrer">{t.toStart}</a></div>
     </div>
   </div>;
 }
