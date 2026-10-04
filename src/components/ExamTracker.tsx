@@ -507,7 +507,7 @@ function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps)
         </div>
 
         {/* Real Dynamic Live Navigation Map Frame */}
-        <div className="h-[460px] lg:h-[480px] rounded-3xl overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-lg relative bg-slate-100 dark:bg-slate-900 z-10">
+        <div id="exam-route-map" className="h-[460px] lg:h-[480px] rounded-3xl overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-lg relative bg-slate-100 dark:bg-slate-900 z-10">
           <LiveNavigationMap 
             points={
               trackingMode === 'tracking' 
@@ -605,6 +605,9 @@ function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps)
                   onClick={() => {
                     setReviewRoute(route);
                     setTrackingMode('review');
+                    window.setTimeout(() => {
+                      document.getElementById('exam-route-map')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 50);
                   }}
                   className={`w-full py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition ${
                     reviewRoute?.id === route.id
