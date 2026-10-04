@@ -16,7 +16,7 @@ import { syncEngine, SyncDelta } from './utils/syncEngine';
 import { isRecordForStudent, studentNamesMatch } from './utils/identity';
 import { getUnreadNotificationCount, markAllNotificationsAsRead } from './utils/notificationStore';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth as firebaseAuth } from './services/googleAuthService';
+import { auth as firebaseAuth, googleStudentSignIn } from './services/googleAuthService';
 
 // Import our custom sub-app workspaces
 import Header from './components/Header';
@@ -1310,6 +1310,41 @@ export default function App() {
     setActiveTab('home');
   };
 
+  const handleGoogleStudentLogin = async () => {
+    if (loginRole !== 'student') return;
+    try {
+      const googleUser = await googleStudentSignIn();
+      const email = String(googleUser.email || '').trim().toLowerCase();
+      if (!email) throw new Error('Google account has no email');
+      const matchedStudent = students.find(s => String(s.email || '').trim().toLowerCase() === email);
+      if (!matchedStudent) throw new Error('Student is not registered');
+      const rawPkg = matchedStudent.packageName || matchedStudent.packageSelection || matchedStudent.currentPackage || '';
+      const pkg = packages.find(p => p.id === matchedStudent.packageId || p.name === rawPkg || p.title === rawPkg);
+      const matchHours = rawPkg.match(/(\d+)\s*(?:hours|hour|h|ساعة|uur)/i);
+      const hours = Number(matchedStudent.packageHours ?? matchedStudent.targetHours ?? pkg?.hours ?? (matchHours ? parseInt(matchHours[1], 10) : 0));
+      const name = matchedStudent.packageName || matchedStudent.currentPackage || matchedStudent.packageSelection || pkg?.name || (lang === 'ar' ? 'بلا باقة' : lang === 'nl' ? 'Geen Pakket' : 'No Package');
+      setStudents(prev => [...prev.filter(s => s.id !== matchedStudent.id), matchedStudent]);
+      setCurrentUser({
+        id: matchedStudent.studentId || matchedStudent.id,
+        studentId: matchedStudent.studentId || matchedStudent.id,
+        name: matchedStudent.name,
+        email: matchedStudent.email,
+        phone: matchedStudent.phone || '',
+        role: 'student', lang,
+        packageId: matchedStudent.packageId || pkg?.id,
+        packageName: name, packageSelection: name, currentPackage: name,
+        packageHours: hours, targetHours: hours,
+        packagePrice: Number(matchedStudent.packagePrice ?? pkg?.price ?? 0),
+        dob: matchedStudent.dob || '', city: matchedStudent.city || '',
+        transmissionType: 'manual', notificationsEnabled: matchedStudent.notificationsEnabled !== false
+      });
+      setActiveTab('home');
+    } catch (error) {
+      await firebaseAuth.signOut();
+      alert(lang === 'ar' ? 'حساب Google غير مرتبط بملف طالب نشط. استخدم البريد المسجل لدى المدرسة أو سجّل حساباً جديداً.' : lang === 'nl' ? 'Dit Google-account is niet gekoppeld aan een actieve leerling. Gebruik het geregistreerde e-mailadres.' : 'This Google account is not linked to an active student record. Use the email registered with the school.');
+    }
+  };
+
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regName.trim() || !regEmail.trim() || !regPhone.trim()) {
@@ -1959,6 +1994,7 @@ export default function App() {
                 loginPassword={loginPassword}
                 setLoginPassword={setLoginPassword}
                 handleManualLogin={handleManualLogin}
+                handleGoogleStudentLogin={handleGoogleStudentLogin}
                 handleDemoLogin={handleDemoLogin}
                 handleRegisterSubmit={handleRegisterSubmit}
                 regName={regName}
