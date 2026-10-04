@@ -14,6 +14,11 @@ provider.setCustomParameters({
   prompt: 'consent'
 });
 
+// Student sign-in uses Google only as an identity provider. It deliberately
+// requests no Sheets/Drive scopes and is kept separate from the admin OAuth flow.
+const studentProvider = new GoogleAuthProvider();
+studentProvider.setCustomParameters({ prompt: 'select_account' });
+
 let isSigningIn = false;
 let cachedAccessToken: string | null = null;
 
@@ -71,6 +76,11 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
   } finally {
     isSigningIn = false;
   }
+};
+
+export const googleStudentSignIn = async (): Promise<User> => {
+  const result = await signInWithPopup(auth, studentProvider);
+  return result.user;
 };
 
 export const getAccessToken = async (): Promise<string | null> => cachedAccessToken;
