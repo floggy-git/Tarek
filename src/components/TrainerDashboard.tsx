@@ -1994,7 +1994,9 @@ function TrainerDashboardComponent({
       origin,
       destination,
       travelmode: 'driving',
-      dir_action: 'preview'
+      // Start Google Maps navigation so the trainer gets the live blue
+      // position marker while following the recorded waypoints.
+      dir_action: 'navigate'
     });
     if (waypoints) params.set('waypoints', waypoints);
     window.open(`https://www.google.com/maps/dir/?${params.toString()}`, '_blank', 'noopener,noreferrer');
