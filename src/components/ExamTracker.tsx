@@ -418,7 +418,7 @@ function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps)
 
             <button
               onClick={saveTrackedRoute}
-              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/10 cursor-pointer"
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
             >
               <Square className="h-3.5 w-3.5 fill-white" />
               {lang === 'ar' ? 'إيقاف التتبع وحفظ المسار' : 'Stop Tracking & Save Route'}
