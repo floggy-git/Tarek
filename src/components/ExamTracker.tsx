@@ -219,6 +219,17 @@ function ExamTrackerComponent({ lang, lessons, onRouteSaved }: ExamTrackerProps)
       simIntervalRef.current = null;
     }
 
+    // A single GPS fix is a location pin, not a route. Do not archive it as
+    // a lesson path because it cannot be rendered or opened in Google Maps.
+    if (!isDemoMode && currentPoints.length < 2) {
+      alert(lang === 'ar'
+        ? 'لم تُحفظ الرحلة: نحتاج إلى نقطتي GPS على الأقل لرسم المسار. حرّك المركبة قليلاً ثم أوقف التتبع.'
+        : lang === 'nl'
+          ? 'De route is niet opgeslagen: er zijn minstens twee GPS-punten nodig. Rijd nog even door en stop daarna.'
+          : 'The route was not saved: at least two GPS points are required. Continue driving briefly, then stop tracking.');
+      return;
+    }
+
     let finalPoints = currentPoints;
     let finalDuration = duration;
 
