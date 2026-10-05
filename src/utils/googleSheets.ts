@@ -1,3 +1,4 @@
+import { sheetReadUrl, sheetReadResponse } from './sheetReadUrl';
 import { DrivePackage, StudentRecord, AuditLogEntry, Lesson, HelpFaqItem } from '../types';
 import { normalizeDrivingCategory } from './companyCategoryAccess';
 import { getStudentId } from './studentPhoto';
@@ -239,13 +240,13 @@ export async function loadPackagesFromGoogleSheet(config: GoogleSheetsConfig): P
     throw new Error("Either Google OAuth Access Token or API Key is required.");
   }
 
-  const response = await fetch(url, { headers });
+  const response = await fetch(sheetReadUrl(url), { headers });
   if (!response.ok) {
     const errorDetails = await response.text();
     throw new Error(`Google Sheets API Error: ${response.status} ${response.statusText} - ${errorDetails}`);
   }
 
-  const data = await response.json();
+  const data = sheetReadResponse(await response.json());
   if (!data.values || data.values.length === 0) {
     throw new Error(`No data found in sheet tab "${sheetName}". Please ensure headers are set up.`);
   }
@@ -416,13 +417,13 @@ export async function loadStudentsFromGoogleSheet(config: GoogleSheetsConfig): P
     throw new Error("Either Google OAuth Access Token or API Key is required.");
   }
 
-  const response = await fetch(url, { headers });
+  const response = await fetch(sheetReadUrl(url), { headers });
   if (!response.ok) {
     const errorDetails = await response.text();
     throw new Error(`Google Sheets API Error: ${response.status} ${response.statusText} - ${errorDetails}`);
   }
 
-  const data = await response.json();
+  const data = sheetReadResponse(await response.json());
   if (!data.values || data.values.length === 0) {
     return [];
   }
@@ -546,13 +547,13 @@ export async function loadLessonsFromGoogleSheet(config: GoogleSheetsConfig): Pr
     throw new Error("Either Google OAuth Access Token or API Key is required.");
   }
 
-  const response = await fetch(url, { headers });
+  const response = await fetch(sheetReadUrl(url), { headers });
   if (!response.ok) {
     const errorDetails = await response.text();
     throw new Error(`Google Sheets API Error for Lessons: ${response.status} ${response.statusText} - ${errorDetails}`);
   }
 
-  const data = await response.json();
+  const data = sheetReadResponse(await response.json());
   if (!data.values || data.values.length === 0) {
     return [];
   }
@@ -736,13 +737,13 @@ export async function loadSchoolSettingsFromGoogleSheet(config: GoogleSheetsConf
     throw new Error("Either Google OAuth Access Token or API Key is required.");
   }
 
-  const response = await fetch(url, { headers });
+  const response = await fetch(sheetReadUrl(url), { headers });
   if (!response.ok) {
     const errorDetails = await response.text();
     throw new Error(`Google Sheets API Error for SchoolSettings: ${response.status} ${response.statusText} - ${errorDetails}`);
   }
 
-  const data = await response.json();
+  const data = sheetReadResponse(await response.json());
   if (!data.values || data.values.length === 0) {
     return {};
   }
@@ -937,13 +938,13 @@ export async function loadMediaVideosFromGoogleSheet(config: GoogleSheetsConfig)
     throw new Error("Either Google OAuth Access Token or API Key is required.");
   }
 
-  const response = await fetch(url, { headers });
+  const response = await fetch(sheetReadUrl(url), { headers });
   if (!response.ok) {
     const errorDetails = await response.text();
     throw new Error(`Google Sheets API Error for MediaLibrary: ${response.status} ${response.statusText} - ${errorDetails}`);
   }
 
-  const data = await response.json();
+  const data = sheetReadResponse(await response.json());
   if (!data.values || data.values.length === 0) {
     return [];
   }
@@ -1167,7 +1168,7 @@ export async function ensureAuditLogsSheetExists(config: GoogleSheetsConfig): Pr
     throw new Error(`Failed to fetch spreadsheet metadata: ${response.statusText}`);
   }
 
-  const data = await response.json();
+  const data = sheetReadResponse(await response.json());
   const sheets = data.sheets || [];
   const auditLogsSheetExists = sheets.some((sheet: any) => sheet?.properties?.title === 'AuditLogs');
 
@@ -1317,7 +1318,7 @@ export async function patchStudentInGoogleSheet(
   try {
     // 1. Fetch current Student IDs to find exact row index
     const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Students!A:A`;
-    const res = await fetch(readUrl, {
+    const res = await fetch(sheetReadUrl(readUrl), {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     });
     if (!res.ok) return false;
@@ -1390,7 +1391,7 @@ export async function patchSettingInGoogleSheet(
 
   try {
     const readUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/SchoolSettings!A:A`;
-    const res = await fetch(readUrl, {
+    const res = await fetch(sheetReadUrl(readUrl), {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     });
     if (!res.ok) return false;
@@ -1872,9 +1873,9 @@ export async function loadHelpItemsFromGoogleSheet(config: GoogleSheetsConfig): 
         return getDefaultHelpFaqItems();
       }
 
-      const response = await fetch(url, { headers });
+      const response = await fetch(sheetReadUrl(url), { headers });
       if (response.ok) {
-        const data = await response.json();
+        const data = sheetReadResponse(await response.json());
         if (data.values && data.values.length > 1) {
           const parsed = parseSheetRowsToHelpItems(data.values);
           if (parsed.length > 0) {

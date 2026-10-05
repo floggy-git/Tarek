@@ -17,7 +17,7 @@ export function parseCompanyCategoryRows(rows: unknown[][]): CategorySubscriptio
 // Read-only by design: ordinary app settings saves must not grant company add-ons.
 export async function loadCompanyCategorySubscriptions(config: GoogleSheetsConfig, signal?: AbortSignal): Promise<CategorySubscription[]> {
   const headers: HeadersInit = {};
-  const query = new URLSearchParams();
+  const query = new URLSearchParams({ valueRenderOption: 'UNFORMATTED_VALUE', dateTimeRenderOption: 'FORMATTED_STRING' });
   if (config.accessToken) headers.Authorization = `Bearer ${config.accessToken}`;
   else if (config.apiKey) query.set('key', config.apiKey);
   else {
