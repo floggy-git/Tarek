@@ -1,4 +1,4 @@
-import { sheetReadUrl } from '../utils/sheetReadUrl';
+import { sheetReadUrl, sheetReadResponse } from '../utils/sheetReadUrl';
 import { encodeRoute, decodeRoute } from '../utils/routeStorage';
 import { normalizeDrivingCategory } from '../utils/companyCategoryAccess';
 
@@ -98,7 +98,8 @@ async function callSheetsApi(
     throw new Error(`Sheets API ${method} ${response.status}: ${response.statusText} - ${errorText}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  return method === 'GET' ? sheetReadResponse(data) : data;
 }
 
 /**

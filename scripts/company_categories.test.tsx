@@ -77,7 +77,9 @@ test('Apps Script rejects inactive categories before any booking side effects', 
 
 
 test('localized header display does not change the API schema or date strings', async () => {
-  const { sheetReadUrl } = await import('../src/utils/sheetReadUrl');
+  const { sheetReadUrl, sheetReadResponse } = await import('../src/utils/sheetReadUrl');
+  assert.deepEqual(sheetReadResponse({values:[[0,false,'2026-10-05','Name']]}).values, [['0','false','2026-10-05','Name']]);
+  assert.equal(sheetReadResponse({valueRanges:[{values:[[0]]}]}).valueRanges[0].values[0][0], '0');
   const url = new URL(sheetReadUrl('https://sheets.googleapis.com/v4/spreadsheets/example/values/Students!A1:L100?key=public-key'));
   assert.equal(url.searchParams.get('valueRenderOption'),'UNFORMATTED_VALUE');
   assert.equal(url.searchParams.get('dateTimeRenderOption'),'FORMATTED_STRING');
