@@ -1,4 +1,6 @@
-import { isDrivingCategoryEnabled } from '../utils/companyCategoryAccess';
+import { CategorySelect } from '../categories/CategorySelect';
+import type { DrivingCategory } from '../categories';
+import { getEnabledDrivingCategories, normalizeDrivingCategory, categoryHourlyRate, isDrivingCategoryEnabled } from '../utils/companyCategoryAccess';
 import React, { useState } from 'react';
 import { 
   LogIn, 
@@ -131,6 +133,26 @@ export default function LoginScreen({
   getSchoolName,
   PackageCard: PassedPackageCard
 }: LoginScreenProps) {
+  const [registrationCategory, setRegistrationCategory] = useState<DrivingCategory>('B');
+  const enabledCategories = getEnabledDrivingCategories(schoolSettings);
+  const selectedCategory = enabledCategories.includes(registrationCategory) ? registrationCategory : 'B';
+  const visiblePackages = packages.filter(pkg => pkg.isActive !== false &&
+    isDrivingCategoryEnabled(schoolSettings, pkg.category) && normalizeDrivingCategory(pkg.category) === selectedCategory);
+  const selectCategory = (value: DrivingCategory | '') => {
+    const category = value || 'B';
+    setRegistrationCategory(category);
+    const first = packages.find(pkg => pkg.isActive !== false && normalizeDrivingCategory(pkg.category) === category);
+    setRegPackageId(first?.id || '');
+    setRegPackage(first?.name || first?.title || '');
+  };
+  const submitRegistration = (event: React.FormEvent) => {
+    if (!visiblePackages.some(pkg => pkg.id === regPackageId)) {
+      event.preventDefault();
+      alert(lang === 'ar' ? 'اختر باقة متاحة لهذه الفئة أولاً.' : lang === 'nl' ? 'Kies eerst een beschikbaar pakket voor deze categorie.' : 'Please choose an available package for this category.');
+      return;
+    }
+    handleRegisterSubmit(event);
+  };
   const isRtl = lang === 'ar';
   const isNl = lang === 'nl';
   const ArrowIcon = isRtl ? ArrowLeft : ArrowRight;
@@ -420,7 +442,7 @@ export default function LoginScreen({
 
         {/* REGISTER FORM */}
         {authTab === 'register' && (
-          <form onSubmit={handleRegisterSubmit} className="space-y-4">
+          <form onSubmit={submitRegistration} className="space-y-4">
             
             {/* Full Name & Phone */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -617,6 +639,9 @@ export default function LoginScreen({
               </div>
             </div>
 
+            <CategorySelect value={selectedCategory} onChange={selectCategory}
+              categories={enabledCategories} lang={lang} showSingle />
+
             {/* Premium Interactive Package Selection Cards */}
             <div className="space-y-3 pt-3">
               <div className="flex items-center justify-between">
@@ -625,18 +650,20 @@ export default function LoginScreen({
                   {text.selectPackage}
                 </label>
                 <span className="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 rounded-full border border-blue-200/50 dark:border-blue-900/50">
-                  {packages.length} {text.packagesAvailable}
+                  {visiblePackages.length} {text.packagesAvailable}
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-1">
-                {packages
-                  .filter(pkg => pkg.isActive !== false && isDrivingCategoryEnabled(schoolSettings, pkg.category))
+              {visiblePackages.length === 0 && <p className="rounded-xl border border-slate-200 dark:border-zinc-700 p-4 text-sm text-slate-600 dark:text-zinc-300">
+                {isRtl ? 'لم تُضف باقات لهذه الفئة بعد. تواصل مع المدرسة.' : isNl ? 'Er zijn nog geen pakketten voor deze categorie. Neem contact op met de rijschool.' : 'No packages have been added for this category yet. Contact the school.'}
+              </p>}
+              <div className="grid auto-rows-fr items-stretch grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-1">
+                {visiblePackages
                   .map(pkg => {
                     const isSelected = regPackageId === pkg.id;
                     const CardComp = PassedPackageCard || PackageCard;
                     return (
-                      <div key={pkg.id} className="cursor-pointer">
+                      <div key={pkg.id} className="flex h-full min-w-0 cursor-pointer">
                         <CardComp
                           pkg={pkg}
                           lang={lang}
@@ -648,7 +675,7 @@ export default function LoginScreen({
                             }
                           }}
                           isNoPackage={pkg.id === 'no-package'}
-                          hourlyRate={lessonHourlyRate}
+                          hourlyRate={categoryHourlyRate(schoolSettings, selectedCategory, lessonHourlyRate)}
                         />
                       </div>
                     );

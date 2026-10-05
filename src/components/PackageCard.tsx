@@ -143,7 +143,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({
     }
 
     if (isSelected) {
-      baseTheme.card += ` ring-4 ${baseTheme.ringColor} scale-[1.02] -translate-y-1`;
+      baseTheme.card += ` ring-4 ${baseTheme.ringColor}`;
     }
 
     return baseTheme;
@@ -173,7 +173,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({
   return (
     <div
       onClick={onSelect}
-      className={`relative rounded-3xl transition-all duration-300 select-none flex flex-col justify-between overflow-hidden group p-6 ${
+      className={`relative rounded-3xl transition-all duration-300 select-none h-full w-full flex flex-col overflow-hidden group p-6 ${
         onSelect ? 'cursor-pointer' : ''
       } ${theme.card}`}
     >
@@ -193,7 +193,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({
           )}
 
           {/* Title */}
-          <h4 className={`text-xl font-black tracking-tight mt-2 ${isDarkCard ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+          <h4 className={`text-xl leading-7 min-h-[5.25rem] font-black tracking-tight mt-2 ${isDarkCard ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
             {pkg.name} <CategoryBadge category={pkg.category} lang={lang as Language} />
           </h4>
         </div>
@@ -211,7 +211,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({
       </div>
 
       {/* Description */}
-      <p className={`relative z-10 text-xs mb-5 leading-relaxed line-clamp-2 ${
+      <p className={`relative z-10 text-xs mb-5 min-h-9 leading-relaxed line-clamp-2 ${
         isDarkCard ? 'text-slate-300' : 'text-slate-500 dark:text-slate-400'
       }`}>
         {pkg.description}
