@@ -1,4 +1,5 @@
 import { encodeRoute, decodeRoute } from '../utils/routeStorage';
+import { normalizeDrivingCategory } from '../utils/companyCategoryAccess';
 
 /**
  * Google Sheets Operational Data Service
@@ -303,6 +304,7 @@ export async function syncLessonsFromSheet(
 
       lessons.push({
         id,
+        category: normalizeDrivingCategory(row[headers.indexOf('category')]),
         studentId,
         studentName,
         trainerName,
@@ -352,7 +354,8 @@ export async function writeLessonsToSheet(
       'Rating',
       'Route Points',
       'Distance Km',
-      'Elapsed Time'
+      'Elapsed Time',
+      'Category'
     ];
 
     const rows: any[][] = [headers];
@@ -373,11 +376,12 @@ export async function writeLessonsToSheet(
         l.performanceRating || '',
         encodeRoute(l.routePoints),
         l.distanceKm ?? '',
-        l.elapsedTime || ''
+        l.elapsedTime || '',
+        l.category || 'B'
       ]);
     }
 
-    const range = encodeURIComponent(`Lessons!A1:P${rows.length}`);
+    const range = encodeURIComponent(`Lessons!A1:Q${rows.length}`);
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`;
     await callSheetsApi(url, 'PUT', { values: rows }, accessToken);
 
@@ -889,7 +893,7 @@ export async function syncPackagesFromSheet(
 ): Promise<SheetSyncResult<DrivePackage[]>> {
   try {
     if (!spreadsheetId) throw new Error('Spreadsheet ID is required.');
-    const range = encodeURIComponent('Packages!A1:M100');
+    const range = encodeURIComponent('Packages!A1:N100');
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`;
     const data = await callSheetsApi(url, 'GET', undefined, accessToken);
 
@@ -953,6 +957,7 @@ export async function syncPackagesFromSheet(
 
       packages.push({
         id,
+        category: normalizeDrivingCategory(row[headers.indexOf('category')]),
         name,
         description,
         hours,
@@ -999,7 +1004,8 @@ export async function writePackagesToSheet(
       'colorTheme',
       'displayOrder',
       'isActive',
-      'features'
+      'features',
+      'category'
     ];
 
     const rows: any[][] = [headers];
@@ -1019,11 +1025,12 @@ export async function writePackagesToSheet(
         pkg.colorTheme || 'classic-blue',
         pkg.displayOrder,
         pkg.isActive ? 'TRUE' : 'FALSE',
-        pkg.features ? pkg.features.join(' | ') : ''
+        pkg.features ? pkg.features.join(' | ') : '',
+        pkg.category || 'B'
       ]);
     }
 
-    const range = encodeURIComponent(`Packages!A1:M${rows.length}`);
+    const range = encodeURIComponent(`Packages!A1:N${rows.length}`);
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`;
     await callSheetsApi(url, 'PUT', { values: rows }, accessToken);
 
@@ -1248,7 +1255,7 @@ export async function initializeSpreadsheetTabsAndHeaders(
     { range: 'Wallet!A1:I1', values: [walletHeaders] },
     { range: 'Invoices!A1:J1', values: [invoicesHeaders] },
     { range: 'Notifications!A1:I1', values: [notificationsHeaders] },
-    { range: 'Packages!A1:M4', values: officialPackagesRows },
+    { range: 'Packages!A1:N4', values: officialPackagesRows },
     { range: 'Help & Support!A1:J1', values: [helpHeaders] },
     { range: 'SchoolSettings!A1:AR1', values: [schoolSettingsHeaders] },
     { range: 'AuditLogs!A1:G1', values: [auditLogsHeaders] }
@@ -1275,7 +1282,7 @@ export async function initializeSpreadsheetTabsAndHeaders(
     'Wallet!A1:I1',
     'Invoices!A1:J1',
     'Notifications!A1:I1',
-    'Packages!A1:M4',
+    'Packages!A1:N4',
     'Help & Support!A1:J1',
     'SchoolSettings!A1:AR1'
   ];

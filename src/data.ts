@@ -52,6 +52,11 @@ export const DEFAULT_SCHOOL_SETTINGS: SchoolSettings = {
   minAdvanceNoticeHours: 12,
   cancellationDeadlineHours: 24,
 
+  // The commercial app starts with Auto / category B. Additional CBR
+  // categories are activated per company from Google Sheets after payment.
+  enabledCategories: ['B'],
+  categorySubscriptions: [{ category: 'B', status: 'active' }],
+
   smtpHost: "smtp.gmail.com",
   smtpPort: "587",
   smtpUser: "notifications@drivingschool.nl",
@@ -367,6 +372,7 @@ export const MOCK_TRAINER_SCHEDULE: TrainerSchedule = {
 export const INITIAL_PACKAGES: DrivePackage[] = [
   {
     id: "PKG-000001",
+    category: 'B',
     name: "Starter Core Pack",
     description: "Basic theory app & standard lessons. Ideal for beginners starting their driving journey.",
     hours: 10,
@@ -385,6 +391,7 @@ export const INITIAL_PACKAGES: DrivePackage[] = [
   },
   {
     id: "PKG-000002",
+    category: 'B',
     name: "Optimal Progress Pack",
     description: "Mock test & TTT interim test included, perfect for passing on your first attempt.",
     hours: 20,
@@ -406,6 +413,7 @@ export const INITIAL_PACKAGES: DrivePackage[] = [
   },
   {
     id: "PKG-000003",
+    category: 'B',
     name: "Complete Guarantee Pack",
     description: "Full exam protection, priority instructor booking, and comprehensive CBR exam fee coverage.",
     hours: 40,
@@ -425,4 +433,3 @@ export const INITIAL_PACKAGES: DrivePackage[] = [
     ]
   }
 ];
-

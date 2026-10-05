@@ -1,4 +1,5 @@
 import { DrivePackage, StudentRecord, AuditLogEntry, Lesson, HelpFaqItem } from '../types';
+import { normalizeDrivingCategory } from './companyCategoryAccess';
 import { getStudentId } from './studentPhoto';
 import bcrypt from 'bcryptjs';
 import { safeSetItem } from './safeStorage';
@@ -122,6 +123,7 @@ export function parseSheetRowsToPackages(rows: any[][]): DrivePackage[] {
   const orderIdx = headers.indexOf('displayorder');
   const activeIdx = headers.indexOf('isactive');
   const featuresIdx = headers.indexOf('features');
+  const categoryIdx = headers.indexOf('category');
 
   const parsedPackages: DrivePackage[] = [];
 
@@ -163,6 +165,7 @@ export function parseSheetRowsToPackages(rows: any[][]): DrivePackage[] {
 
     parsedPackages.push({
       id,
+      category: normalizeDrivingCategory(categoryIdx !== -1 ? row[categoryIdx] : 'B'),
       name,
       description,
       hours,
@@ -185,7 +188,7 @@ export function parseSheetRowsToPackages(rows: any[][]): DrivePackage[] {
  * Converts DrivePackage array into sheets grid format (rows) for writing.
  */
 export function convertPackagesToSheetRows(packages: DrivePackage[]): any[][] {
-  const headers = ['id', 'name', 'description', 'hours', 'price', 'discountPrice', 'badge', 'popular', 'recommended', 'colorTheme', 'displayOrder', 'isActive', 'features'];
+  const headers = ['id', 'name', 'description', 'hours', 'price', 'discountPrice', 'badge', 'popular', 'recommended', 'colorTheme', 'displayOrder', 'isActive', 'features', 'category'];
   const rows: any[][] = [headers];
 
   // Sort by display order
@@ -205,7 +208,8 @@ export function convertPackagesToSheetRows(packages: DrivePackage[]): any[][] {
       pkg.colorTheme || 'blue',
       pkg.displayOrder,
       pkg.isActive ? 'TRUE' : 'FALSE',
-      pkg.features ? pkg.features.join(' | ') : ''
+      pkg.features ? pkg.features.join(' | ') : '',
+      pkg.category || 'B'
     ]);
   }
 
@@ -223,7 +227,7 @@ export async function loadPackagesFromGoogleSheet(config: GoogleSheetsConfig): P
     throw new Error("Spreadsheet ID is required to fetch from Google Sheets.");
   }
 
-  const range = `${sheetName || 'Packages'}!A1:M100`;
+  const range = `${sheetName || 'Packages'}!A1:N100`;
   let url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
   
   const headers: HeadersInit = {};
@@ -264,7 +268,7 @@ export async function writePackagesToGoogleSheet(config: GoogleSheetsConfig, pac
   }
 
   const rows = convertPackagesToSheetRows(packages);
-  const range = `${sheetName || 'Packages'}!A1:M${rows.length}`;
+  const range = `${sheetName || 'Packages'}!A1:N${rows.length}`;
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
 
   const response = await fetch(url, {
@@ -478,6 +482,7 @@ export function parseSheetRowsToLessons(rows: any[][]): Lesson[] {
     if (!id || !studentId || !studentName) continue;
     parsed.push({
       id, studentId, studentName,
+      category: normalizeDrivingCategory(idx('category') !== -1 ? row[idx('category')] : 'B'),
       trainerName: String(row[positions[3]] ?? '').trim(),
       date: String(row[positions[4]] ?? '').trim(),
       time: String(row[positions[5]] ?? '').trim(),
@@ -500,7 +505,7 @@ export function parseSheetRowsToLessons(rows: any[][]): Lesson[] {
  * Converts Lesson array into sheet rows format.
  */
 export function convertLessonsToSheetRows(lessons: Lesson[]): any[][] {
-  const headers = ['Lesson ID','Student ID','Student Name','Trainer Name','Date','Time','Duration (h)','Price (€)','Pickup Location','Status','Calendar Event ID','Instructor Notes','Rating','Route Points','Distance Km','Elapsed Time'];
+  const headers = ['Lesson ID','Student ID','Student Name','Trainer Name','Date','Time','Duration (h)','Price (€)','Pickup Location','Status','Calendar Event ID','Instructor Notes','Rating','Route Points','Distance Km','Elapsed Time','Category'];
   const rows: any[][] = [headers];
   for (const l of lessons) {
     if (isDemoLesson(l)) continue;
@@ -512,7 +517,8 @@ export function convertLessonsToSheetRows(lessons: Lesson[]): any[][] {
       sanitizeSpreadsheetCell(l.status || 'upcoming'), sanitizeSpreadsheetCell((l as any).calendarEventId || ''),
       sanitizeSpreadsheetCell(l.instructorNotes || (l as any).trainerNotes || ''),
       l.performanceRating !== undefined && l.performanceRating !== null ? Number(l.performanceRating) : '',
-      encodeRoute(l.routePoints), l.distanceKm ?? '', sanitizeSpreadsheetCell(l.elapsedTime || '')
+      encodeRoute(l.routePoints), l.distanceKm ?? '', sanitizeSpreadsheetCell(l.elapsedTime || ''),
+      l.category || 'B'
     ]);
   }
   return rows;
@@ -528,7 +534,7 @@ export async function loadLessonsFromGoogleSheet(config: GoogleSheetsConfig): Pr
     throw new Error("Spreadsheet ID is required to fetch from Google Sheets.");
   }
 
-  const range = `Lessons!A1:P500`;
+  const range = `Lessons!A1:Q500`;
   let url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
 
   const headers: HeadersInit = {};
@@ -567,7 +573,7 @@ export async function writeLessonsToGoogleSheet(config: GoogleSheetsConfig, less
     throw new Error("Google OAuth Write Scopes require a valid Google OAuth Access Token.");
   }
 
-  const range = `Lessons!A1:P500`;
+  const range = `Lessons!A1:Q500`;
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
 
   const rows = convertLessonsToSheetRows(lessons);
@@ -1962,4 +1968,3 @@ export async function writeHelpItemsToGoogleSheet(config: GoogleSheetsConfig, it
     throw new Error(`Google Sheets Help Write Error: ${response.status} ${response.statusText} - ${errorDetails}`);
   }
 }
-

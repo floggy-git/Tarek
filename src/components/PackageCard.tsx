@@ -1,3 +1,4 @@
+import { CategoryBadge } from '../categories/CategorySelect';
 import React from 'react';
 import { DrivePackage, Language } from '../types';
 import { Check, Clock } from 'lucide-react';
@@ -193,7 +194,7 @@ export const PackageCard: React.FC<PackageCardProps> = ({
 
           {/* Title */}
           <h4 className={`text-xl font-black tracking-tight mt-2 ${isDarkCard ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
-            {pkg.name}
+            {pkg.name} <CategoryBadge category={pkg.category} lang={lang as Language} />
           </h4>
         </div>
 

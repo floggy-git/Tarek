@@ -29,6 +29,9 @@ jobs:
       - name: TypeScript check
         run: npm run lint
 
+      - name: Company category regression tests
+        run: npm run test:categories
+
       - name: Static security/data gate
         run: node scripts/static_security_gate.cjs
 

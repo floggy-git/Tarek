@@ -1,3 +1,4 @@
+import { DRIVING_CATEGORIES } from '../categories';
 import type { jsPDF } from 'jspdf';
 // @ts-ignore
 import * as reshaperNamespace from 'arabic-persian-reshaper';
@@ -894,7 +895,7 @@ export async function generateInvoicePDF(
   };
   const lessons: Lesson[] = invoice.billedLessons || [];
   lessons.forEach(les => {
-    const description = [labels.lessonBilled, `${les.date}  ${les.time || ''}`, les.pickupLocation].filter(Boolean).join('\n');
+    const description = [labels.lessonBilled, les.category && les.category !== 'B' ? DRIVING_CATEGORIES[les.category]?.name[lang] : '', `${les.date}  ${les.time || ''}`, les.pickupLocation].filter(Boolean).join('\n');
     drawItem(description, `${les.duration}`, les.duration > 0 ? les.price / les.duration : les.price, les.price);
   });
   if (!lessons.length && invoice.description && !invoice.adjustmentPrice) {
