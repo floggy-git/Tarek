@@ -74,3 +74,16 @@ test('Apps Script rejects inactive categories before any booking side effects', 
   assert.equal(vm.runInContext("companyRequireCategory_('C').lessonPricePerHour",context),95);
   assert.throws(()=>vm.runInContext("companyRequireCategory_('UNKNOWN')",context),/not active/);
 });
+
+
+test('localized header display does not change the API schema or date strings', async () => {
+  const { sheetReadUrl } = await import('../src/utils/sheetReadUrl');
+  const url = new URL(sheetReadUrl('https://sheets.googleapis.com/v4/spreadsheets/example/values/Students!A1:L100?key=public-key'));
+  assert.equal(url.searchParams.get('valueRenderOption'),'UNFORMATTED_VALUE');
+  assert.equal(url.searchParams.get('dateTimeRenderOption'),'FORMATTED_STRING');
+  assert.equal(url.searchParams.get('key'),'public-key');
+  assert.match(sheetReadUrl('https://sheets.googleapis.com/v4/spreadsheets/id/values:batchGet?ranges=Students!A1:L'), /UNFORMATTED_VALUE/);
+  assert.equal(sheetReadUrl('https://www.googleapis.com/drive/v3/files/id'), 'https://www.googleapis.com/drive/v3/files/id');
+  const html=renderToStaticMarkup(<CategorySelect value="C" categories={['B','C']} onChange={()=>{}} lang="nl"/>);
+  assert.match(html, /<svg/); assert.match(html, /Vrachtauto/); assert.doesNotMatch(html, /🚗|🚚|Car \/ Auto/);
+});

@@ -1,3 +1,4 @@
+import { sheetReadUrl } from '../utils/sheetReadUrl';
 import { encodeRoute, decodeRoute } from '../utils/routeStorage';
 import { normalizeDrivingCategory } from '../utils/companyCategoryAccess';
 
@@ -86,7 +87,7 @@ async function callSheetsApi(
     'Content-Type': 'application/json'
   };
 
-  const response = await fetch(url, {
+  const response = await fetch(method === 'GET' ? sheetReadUrl(url) : url, {
     method,
     headers,
     body: sanitizedBody ? JSON.stringify(sanitizedBody) : undefined
