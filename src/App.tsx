@@ -1,3 +1,5 @@
+import { isDrivingCategoryEnabled } from './utils/companyCategoryAccess';
+import { loadCompanyCategorySubscriptions } from './categories/companyCategorySheets';
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Compass, Calendar, Wallet, User as LucideUser, Globe, Shield, Bell as LucideBell, 
@@ -11,7 +13,7 @@ import { Language, UserRole, TRANSLATIONS, Lesson, WalletTransaction, Achievemen
 import { safeSetItem } from './utils/safeStorage';
 import { pruneExpiredAiConversations } from './utils/aiCoachStorage';
 import { INITIAL_LESSONS, INITIAL_TRANSACTIONS, INITIAL_ACHIEVEMENTS, MOCK_TRAINER_SCHEDULE, INITIAL_PACKAGES, DEFAULT_SCHOOL_SETTINGS } from './data';
-import { getSheetsConfig, loadPackagesFromGoogleSheet, writePackagesToGoogleSheet, loadStudentsFromGoogleSheet, writeStudentsToGoogleSheet, loadMediaVideosFromGoogleSheet, writeMediaVideosToGoogleSheet, loadLessonsFromGoogleSheet, writeLessonsToGoogleSheet, checkGoogleDriveFileExists, loadSchoolSettingsFromGoogleSheet, writeSchoolSettingsToGoogleSheet, writeAuditLogToGoogleSheet, fetchClientIpAddress, patchStudentInGoogleSheet, patchSettingInGoogleSheet } from './utils/googleSheets';
+import { convertSchoolSettingsToSheetRows, getSheetsConfig, loadPackagesFromGoogleSheet, writePackagesToGoogleSheet, loadStudentsFromGoogleSheet, writeStudentsToGoogleSheet, loadMediaVideosFromGoogleSheet, writeMediaVideosToGoogleSheet, loadLessonsFromGoogleSheet, writeLessonsToGoogleSheet, checkGoogleDriveFileExists, loadSchoolSettingsFromGoogleSheet, writeSchoolSettingsToGoogleSheet, writeAuditLogToGoogleSheet, fetchClientIpAddress, patchStudentInGoogleSheet, patchSettingInGoogleSheet } from './utils/googleSheets';
 import { syncEngine, SyncDelta } from './utils/syncEngine';
 import { isRecordForStudent, studentNamesMatch } from './utils/identity';
 import { getUnreadNotificationCount, markAllNotificationsAsRead } from './utils/notificationStore';
@@ -452,13 +454,32 @@ export default function App() {
     try {
       const saved = localStorage.getItem('drivingschool_school_settings') || localStorage.getItem('al_andalos_school_settings');
       if (saved) {
-        return { ...DEFAULT_SCHOOL_SETTINGS, ...JSON.parse(saved) };
+        return { ...DEFAULT_SCHOOL_SETTINGS, ...JSON.parse(saved), categorySubscriptions: [{ category: 'B', status: 'active' }] };
       }
     } catch (e) {
       console.error("Error reading school settings from localStorage", e);
     }
     return DEFAULT_SCHOOL_SETTINGS;
   });
+
+  // Company entitlements are refreshed independently and never written by the app.
+  useEffect(() => {
+    const controller = new AbortController();
+    const refresh = async () => {
+      if (document.hidden) return;
+      try {
+        const categorySubscriptions = await loadCompanyCategorySubscriptions(getSheetsConfig(), controller.signal);
+        if (!controller.signal.aborted) setSchoolSettings(prev => ({ ...prev, categorySubscriptions }));
+      } catch {
+        // Default installation remains B-only until its category register can be verified.
+        if (!controller.signal.aborted) setSchoolSettings(prev => ({ ...prev, categorySubscriptions: [{ category: 'B', status: 'active' }] }));
+      }
+    };
+    void refresh();
+    const interval = window.setInterval(refresh, 60000);
+    window.addEventListener('focus', refresh);
+    return () => { controller.abort(); clearInterval(interval); window.removeEventListener('focus', refresh); };
+  }, []);
 
   const initialSchoolSettingsRef = useRef(schoolSettings);
 
@@ -796,7 +817,7 @@ export default function App() {
     if (lastSavedSchoolSettingsRef.current === schoolSettings) return;
 
     const timer = setTimeout(() => {
-      if (lastSavedSchoolSettingsRef.current && JSON.stringify(lastSavedSchoolSettingsRef.current) === JSON.stringify(schoolSettings)) {
+      if (lastSavedSchoolSettingsRef.current && JSON.stringify(convertSchoolSettingsToSheetRows(lastSavedSchoolSettingsRef.current)) === JSON.stringify(convertSchoolSettingsToSheetRows(schoolSettings))) {
         lastSavedSchoolSettingsRef.current = schoolSettings;
         return;
       }
@@ -1374,6 +1395,11 @@ export default function App() {
       return;
     }
 
+    const chosenPackage = packages.find(p => p.id === regPackageId || p.name === regPackage || p.title === regPackage);
+    if (chosenPackage && !isDrivingCategoryEnabled(schoolSettings, chosenPackage.category)) {
+      alert(lang === 'ar' ? 'هذه الباقة غير متاحة حالياً. اختر باقة أخرى.' : lang === 'nl' ? 'Dit pakket is niet meer beschikbaar. Kies een ander pakket.' : 'This package is no longer available. Choose another package.');
+      return;
+    }
     try {
       await createUserWithEmailAndPassword(firebaseAuth, regEmail.trim().toLowerCase(), regPassword.trim());
     } catch (authError) {
@@ -2152,7 +2178,7 @@ export default function App() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {packages
-                        .filter(p => p.isActive)
+                        .filter(p => p.isActive && isDrivingCategoryEnabled(schoolSettings, p.category))
                         .sort((a, b) => a.displayOrder - b.displayOrder)
                         .map(pkg => (
                           <PackageCard

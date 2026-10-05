@@ -16,7 +16,9 @@ function doGet(e) {
 
     let payload = null;
 
-    if (action === "getStudentDashboard") {
+    if (action === "getCompanyCategories") {
+      payload = apiGetCompanyCategories();
+    } else if (action === "getStudentDashboard") {
       payload = apiGetStudentDashboard(e.parameter.studentEmail || e.parameter.studentId);
     } else if (action === "getTrainerDashboard") {
       payload = apiGetTrainerDashboard(e.parameter.trainerEmail || e.parameter.trainerId);

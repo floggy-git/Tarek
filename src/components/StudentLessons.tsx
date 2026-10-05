@@ -1,3 +1,6 @@
+import { CategorySelect, CategoryBadge } from '../categories/CategorySelect';
+import { DrivingCategory } from '../categories';
+import { getEnabledDrivingCategories, isDrivingCategoryEnabled, categoryHourlyRate } from '../utils/companyCategoryAccess';
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar, Clock, Check, Plus, Landmark, Navigation, MapPin, 
@@ -165,8 +168,14 @@ function StudentLessonsComponent({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  const enabledCategories = getEnabledDrivingCategories(schoolSettings);
+  const [lessonCategory, setLessonCategory] = useState<DrivingCategory>('B');
+  useEffect(() => {
+    if (!isDrivingCategoryEnabled(schoolSettings, lessonCategory)) setLessonCategory('B');
+  }, [schoolSettings, lessonCategory]);
+
   // Constants
-  const LESSON_PRICE_PER_HOUR = Number(schoolSettings?.lessonPricePerHour ?? schedule?.lessonPricePerHour ?? 65) || 65;
+  const LESSON_PRICE_PER_HOUR = categoryHourlyRate(schoolSettings, lessonCategory, Number(schedule?.lessonPricePerHour) || 65);
   const computedPrice = Number(((Number(duration) || 1) * LESSON_PRICE_PER_HOUR).toFixed(2));
 
   // Check name similarity or exact match
@@ -598,6 +607,10 @@ function StudentLessonsComponent({
   const handleBookSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDate || !selectedTimeSlot || !pickup) return;
+    if (!isDrivingCategoryEnabled(schoolSettings, lessonCategory) || !(LESSON_PRICE_PER_HOUR > 0)) {
+      setErrorMessage(lang === 'ar' ? 'هذه الفئة غير متاحة للحجز حالياً. يرجى التواصل مع المدرسة.' : lang === 'nl' ? 'Deze categorie is momenteel niet boekbaar. Neem contact op met de rijschool.' : 'This category is not currently available for booking. Please contact the school.');
+      return;
+    }
 
     setIsSubmitting(true);
     setErrorMessage('');
@@ -701,6 +714,7 @@ function StudentLessonsComponent({
       const newLessonId = `LES-${String(Date.now()).slice(-6)}`;
       let newLesson: Lesson = {
         id: newLessonId,
+        category: lessonCategory,
         studentId: authoritativeStudentId,
         identityStatus: authoritativeStudentId ? 'canonical' : undefined,
         studentName: activeName,
@@ -761,6 +775,7 @@ function StudentLessonsComponent({
             },
             body: JSON.stringify({
               action: "createBooking",
+              category: lessonCategory,
               studentId: studentIdParam,
               trainerId: "TR-201",
               date: selectedDate,
@@ -865,6 +880,7 @@ function StudentLessonsComponent({
 
           {!bookingSuccess ? (
             <form onSubmit={handleBookSubmit} className="space-y-6">
+              <CategorySelect value={lessonCategory} onChange={value => setLessonCategory(value || 'B')} categories={enabledCategories} lang={lang} />
               {/* Active Vacation Informational Banner - Compact, elegant & positioned above calendar */}
               {isVacationModeActive(schedule?.vacationMode) && (
                 <div 
@@ -1336,6 +1352,7 @@ function StudentLessonsComponent({
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="p-1 px-2 text-[10px] font-bold rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200/60 dark:border-zinc-700/60">
                           {formatDisplayLessonNumber(lessonItem, lessons, lang)}
+                          <CategoryBadge category={lessonItem.category} lang={lang} />
                         </span>
                         <span className="p-1 px-2 text-[10px] font-bold rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400">
                           {lessonItem.duration === 1 

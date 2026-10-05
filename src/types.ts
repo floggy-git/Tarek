@@ -1,5 +1,7 @@
+import type { CategorySubscription, DrivingCategory } from './categories';
 export type Language = 'en' | 'nl' | 'ar';
 export type UserRole = 'student' | 'trainer';
+export type { CategorySubscription, DrivingCategory } from './categories';
 
 export type IdentityStatus = 
   | 'canonical'             // Verified matching valid studentId
@@ -21,6 +23,7 @@ export interface User {
 
 export interface Lesson {
   id: string; // Permanent Unique Lesson ID (e.g. LES-000001)
+  category?: DrivingCategory; // Driving category enabled for the company (B, A, AM, C, D or T)
   studentId?: string; // Permanent Student ID (e.g. ST-000001)
   identityStatus?: IdentityStatus;
   studentName: string;
@@ -70,6 +73,7 @@ export interface WalletTransaction {
   trainerId?: string; // Permanent Trainer ID (e.g. TR-000001)
   trainerName?: string;
   lessonId?: string; // Permanent Lesson ID (e.g. LES-000001)
+  category?: DrivingCategory;
   date: string;
   type: 'deposit' | 'payment' | 'adjustment';
   amount: number;
@@ -89,6 +93,7 @@ export interface InvoiceRecord {
   description: string;
   status: 'paid' | 'unpaid' | 'credited';
   lessonId?: string;
+  category?: DrivingCategory;
   driveFileId?: string;
   driveUrl?: string;
   drivePdfUrl?: string;
@@ -554,6 +559,7 @@ export const TRANSLATIONS = {
 
 export interface DrivePackage {
   id: string; // Permanent Unique Package ID (e.g. PKG-000001)
+  category?: DrivingCategory; // Defaults to B for existing packages
   name: string;
   description: string;
   hours: number;
@@ -600,6 +606,7 @@ export interface StudentRecord {
 
 export interface VehicleRecord {
   id: string; // Permanent Vehicle ID (e.g. VEH-000001)
+  category?: DrivingCategory;
   name: string;
   licensePlate: string;
   transmission: 'manual' | 'automatic';
@@ -609,6 +616,7 @@ export interface VehicleRecord {
 
 export interface TrainerRecord {
   id: string; // Permanent Trainer ID (e.g. TR-000001)
+  categories?: DrivingCategory[];
   name: string;
   email: string;
   phone: string;
@@ -703,6 +711,12 @@ export interface SchoolSettings {
   minAdvanceNoticeHours?: number; // Minimum hours required before booking a lesson
   cancellationDeadlineHours?: number; // Hours before lesson start that student can cancel online
 
+  // Company product licensing. B is always the base category; other categories
+  // are opened by the administrator after the company's subscription is paid.
+  companyLicenseId?: string;
+  enabledCategories?: DrivingCategory[] | string;
+  categorySubscriptions?: CategorySubscription[] | string;
+
   // 7. Email Settings (Placeholders for SMTP/Gmail)
   smtpHost?: string;
   smtpPort?: string;
@@ -796,6 +810,5 @@ export function isStudentAiSuspended(student?: Partial<StudentRecord> | null): S
     warningCount
   };
 }
-
 
 

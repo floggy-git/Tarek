@@ -1,3 +1,6 @@
+import { CategorySelect, CategoryBadge } from '../categories/CategorySelect';
+import { DRIVING_CATEGORIES, DrivingCategory } from '../categories';
+import { getEnabledDrivingCategories, isDrivingCategoryEnabled, normalizeDrivingCategory } from '../utils/companyCategoryAccess';
 import { downloadPdf } from '../utils/downloadPdf';
 import React, { useState, useEffect } from 'react';
 import L from 'leaflet';
@@ -924,7 +927,7 @@ const CompletedLessonCardItem: React.FC<CompletedLessonCardItemProps> = React.me
         </div>
         <div className="min-w-0">
           <h4 className="text-base font-extrabold text-[#0f172a] dark:text-white leading-tight truncate">
-            {item.studentName}
+            {item.studentName} <CategoryBadge category={item.category} lang={lang} />
           </h4>
           <p className="text-xs font-medium text-[#64748b] dark:text-zinc-400 mt-0.5">
             {lang === 'ar' ? 'المدرب:' : lang === 'nl' ? 'Instructeur:' : 'Trainer:'} {item.trainerName || 'Instructeur Samir'}
@@ -1357,6 +1360,8 @@ function TrainerDashboardComponent({
   };
   const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
   const [showPkgForm, setShowPkgForm] = useState<boolean>(false);
+  const [pkgFormCategory, setPkgFormCategory] = useState<DrivingCategory>('B');
+  const [lessonCategoryFilter, setLessonCategoryFilter] = useState<DrivingCategory | ''>('');
   const [pkgFormName, setPkgFormName] = useState<string>('');
   const [pkgFormDesc, setPkgFormDesc] = useState<string>('');
   const [pkgFormHours, setPkgFormHours] = useState<number>(10);
@@ -1916,6 +1921,7 @@ function TrainerDashboardComponent({
           const localLesson = lessons.find(l => l.id === b.bookingId);
           return {
             id: b.bookingId,
+            category: normalizeDrivingCategory(b.category || localLesson?.category),
             studentName: b.studentName,
             trainerName: b.trainerName || "Instructeur Samir",
             date: b.date ? b.date.substring(0, 10) : new Date().toISOString().split('T')[0],
@@ -2322,7 +2328,7 @@ function TrainerDashboardComponent({
           studentAddress: matchedInvoiceStudent?.city,
           date: new Date().toISOString().split('T')[0],
           items: billedLessons.map(l => ({
-            description: `Driving Lesson (${l.duration || 1}h) - ${l.date}`,
+            description: `${DRIVING_CATEGORIES[normalizeDrivingCategory(l.category)].name[lang]} (${l.duration || 1}h) - ${l.date}`,
             hours: l.duration || 1,
             rate: l.price / (l.duration || 1),
             amount: l.price
@@ -2814,12 +2820,13 @@ function TrainerDashboardComponent({
   // Package management handler operations
   const handleSavePackage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pkgFormName.trim()) return;
+    if (!pkgFormName.trim() || !isDrivingCategoryEnabled(schoolSettings, pkgFormCategory)) return;
 
     if (editingPackageId) {
       setPackages(prev => prev.map(p => p.id === editingPackageId ? {
         ...p,
         name: pkgFormName,
+        category: pkgFormCategory,
         description: pkgFormDesc,
         hours: pkgFormHours,
         price: pkgFormPrice,
@@ -2838,6 +2845,7 @@ function TrainerDashboardComponent({
       const newPkg: DrivePackage = {
         id: `PKG-${String(nextIdNum).padStart(6, '0')}`,
         name: pkgFormName,
+        category: pkgFormCategory,
         description: pkgFormDesc,
         hours: pkgFormHours,
         price: pkgFormPrice,
@@ -2854,6 +2862,7 @@ function TrainerDashboardComponent({
     }
 
     setShowPkgForm(false);
+    setPkgFormCategory('B');
     setPkgFormName('');
     setPkgFormDesc('');
     setPkgFormHours(10);
@@ -2871,6 +2880,7 @@ function TrainerDashboardComponent({
 
   const handleStartEditPackage = (pkg: DrivePackage) => {
     setEditingPackageId(pkg.id);
+    setPkgFormCategory(normalizeDrivingCategory(pkg.category));
     setPkgFormName(pkg.name);
     setPkgFormDesc(pkg.description);
     setPkgFormHours(pkg.hours);
@@ -3172,6 +3182,7 @@ function TrainerDashboardComponent({
   const completedLessonsFiltered = React.useMemo(() => {
     let list = lessons
       .filter(l => l.status === 'completed')
+      .filter(l => !lessonCategoryFilter || normalizeDrivingCategory(l.category) === lessonCategoryFilter)
       .filter(l => completedLessonStudentFilter === 'all' || l.studentName === completedLessonStudentFilter);
 
     if (completedLessonSort === 'newest') {
@@ -3184,7 +3195,7 @@ function TrainerDashboardComponent({
       list = [...list].sort((a, b) => (a.price || 0) - (b.price || 0));
     }
     return list;
-  }, [lessons, completedLessonStudentFilter, completedLessonSort]);
+  }, [lessons, completedLessonStudentFilter, completedLessonSort, lessonCategoryFilter]);
 
   // Memoized unique student filter list to avoid re-generating set on every render
   const studentFilterOptions = React.useMemo(() => {
@@ -3970,6 +3981,7 @@ function TrainerDashboardComponent({
               )}
             </div>
 
+            <CategorySelect value={lessonCategoryFilter} onChange={setLessonCategoryFilter} categories={Array.from(new Set([...getEnabledDrivingCategories(schoolSettings), ...lessons.map(l => normalizeDrivingCategory(l.category))]))} lang={lang} includeAll />
             {/* Filter and Search Bar */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-[#e6ecf2] dark:border-zinc-800">
               <div className="flex items-center gap-2 flex-1 max-w-md">
@@ -5805,6 +5817,7 @@ function TrainerDashboardComponent({
                   <button
                     onClick={() => {
                       setEditingPackageId(null);
+                      setPkgFormCategory('B');
                       setPkgFormName('');
                       setPkgFormDesc('');
                       setPkgFormHours(10);
@@ -5831,6 +5844,7 @@ function TrainerDashboardComponent({
               {/* Package Add/Edit Form */}
               {showPkgForm && (
                 <form onSubmit={handleSavePackage} className="p-6 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800/85 rounded-3xl shadow-md space-y-6">
+                  <CategorySelect value={pkgFormCategory} onChange={value => setPkgFormCategory(value || 'B')} categories={getEnabledDrivingCategories(schoolSettings)} lang={lang} />
                   <div className="flex justify-between items-center border-b border-slate-100 dark:border-zinc-800/80 pb-3">
                     <div className="flex items-center gap-2.5">
                       <h4 className="font-extrabold text-slate-800 dark:text-white text-sm">

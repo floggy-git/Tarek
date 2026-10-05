@@ -229,6 +229,10 @@ function controlCenterInstructorRows_(settings) {
 
 function controlCenterSaveRecord(section, data) {
   if (!data || typeof data !== 'object') throw new Error('Record data is required.');
+  if ((section === 'packages' && !data.id) || (section === 'lessons' && !data['Lesson ID'] && !data.id)) {
+    var category = companyRequireCategory_(data.Category || data.category);
+    data[section === 'packages' ? 'category' : 'Category'] = category.category;
+  }
   if (section === 'settings') return controlCenterSaveSettings_(data);
   if (section === 'instructors' || section === 'trainers') return controlCenterSaveGeneric_('trainers', data);
   if (section === 'trainerSchedule') return controlCenterSaveTrainerSchedule_(data);
