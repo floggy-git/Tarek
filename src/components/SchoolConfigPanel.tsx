@@ -1279,4 +1279,3 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
   );
 };
 export default SchoolConfigPanel;
-
