@@ -117,7 +117,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
           {[
             { id: 'info', icon: Building, labelEn: 'School Information', labelNl: 'School Informatie', labelAr: 'معلومات المدرسة' },
             { id: 'business', icon: DollarSign, labelEn: 'Business Information', labelNl: 'Bedrijfsinstellingen', labelAr: 'إعدادات العمل والدروس' },
-            { id: 'email', icon: Mail, labelEn: 'Email Settings', labelNl: 'E-mail Instellingen', labelAr: 'إعدادات البريد' },
+            { id: 'email', icon: Mail, labelEn: 'Email Settings', labelNl: 'E-mailinstellingen', labelAr: 'إعدادات البريد' },
             { id: 'branding', icon: Palette, labelEn: 'Branding & Theme', labelNl: 'Branding & Thema', labelAr: 'الهوية البصرية والسمات' },
             { id: 'social', icon: Globe, labelEn: 'Social & Legal', labelNl: 'Sociale Media & Links', labelAr: 'التواصل والقوانين' },
             { id: 'ai', icon: Bot, labelEn: 'AI Settings', labelNl: 'AI Instellingen', labelAr: 'إعدادات الذكاء الاصطناعي' },
@@ -671,88 +671,11 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
                 <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 <div>
                   <h4 className="font-extrabold text-slate-800 dark:text-white text-sm">
-                    {lang === 'ar' ? 'إعدادات البريد الإلكتروني والإشعارات' : lang === 'nl' ? 'E-mail Instellingen' : 'Email & Notification Settings'}
+                    {lang === 'ar' ? 'البريد والرسائل التلقائية' : lang === 'nl' ? 'E-mail en automatische berichten' : 'Email and automatic messages'}
                   </h4>
                   <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium">
-                    {lang === 'ar' ? 'إعداد إعدادات البريد الإلكتروني للمدرسة والإشعارات التلقائية.' : lang === 'nl' ? 'Configureer de e-mailinstellingen en automatische meldingen van je rijschool.' : 'Configure your school’s email settings and automatic notifications.'}
+                    {lang === 'ar' ? 'اختر الاسم الظاهر في رسائلك، وبريد الرد، والرسائل التي تريد إرسالها للطلاب.' : lang === 'nl' ? 'Kies je afzendernaam, het adres voor antwoorden en welke berichten je leerlingen ontvangen.' : 'Choose your sender name, reply address and the messages your students receive.'}
                   </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Server Details Grid */}
-            <div className="bg-slate-50/70 dark:bg-zinc-950/50 p-4 rounded-2xl border border-slate-200/60 dark:border-zinc-800/60 space-y-4">
-              <h5 className="text-xs font-black text-slate-700 dark:text-zinc-200 uppercase tracking-wider flex items-center gap-2">
-                <Server className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                {lang === 'ar' ? 'خادم البريد الصادر (SMTP)' : lang === 'nl' ? 'Uitgaande E-mailserver (SMTP)' : 'Outgoing Mail Server (SMTP)'}
-              </h5>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-semibold">
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">
-                    {lang === 'ar' ? 'عنوان الخادم (SMTP Host)' : lang === 'nl' ? 'SMTP Server Host' : 'SMTP Server Hostname'}
-                  </label>
-                  <input
-                    type="text"
-                    value={schoolSettings.smtpHost || ''}
-                    onChange={e => setSchoolSettings(prev => ({ ...prev, smtpHost: e.target.value }))}
-                    placeholder="smtp.gmail.com"
-                    className="w-full h-10 text-xs font-semibold px-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white transition-all font-mono text-left"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">
-                    {lang === 'ar' ? 'المنفذ (Port)' : lang === 'nl' ? 'Poort' : 'Port'}
-                  </label>
-                  <input
-                    type="text"
-                    value={schoolSettings.smtpPort || ''}
-                    onChange={e => setSchoolSettings(prev => ({ ...prev, smtpPort: e.target.value }))}
-                    placeholder="587"
-                    className="w-full h-10 text-xs font-semibold px-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white transition-all font-mono text-left"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">
-                    {lang === 'ar' ? 'اسم المستخدم / البريد الإلكتروني' : lang === 'nl' ? 'Gebruikersnaam / E-mailadres' : 'Username / Sender Email'}
-                  </label>
-                  <input
-                    type="text"
-                    value={schoolSettings.smtpUser || ''}
-                    onChange={e => setSchoolSettings(prev => ({ ...prev, smtpUser: e.target.value }))}
-                    placeholder="notifications@drivingschool.com"
-                    className="w-full h-10 text-xs font-semibold px-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white transition-all text-left"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">
-                    {lang === 'ar' ? 'كلمة المرور' : lang === 'nl' ? 'Wachtwoord' : 'Password'}
-                  </label>
-                  <input
-                    type="password"
-                    value={schoolSettings.smtpPass || ''}
-                    onChange={e => setSchoolSettings(prev => ({ ...prev, smtpPass: e.target.value }))}
-                    placeholder="••••••••••••••••"
-                    className="w-full h-10 text-xs font-semibold px-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white transition-all font-mono text-left"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">
-                    {lang === 'ar' ? 'تشفير الحماية' : lang === 'nl' ? 'Beveiligingsversleuteling' : 'Security Encryption'}
-                  </label>
-                  <select
-                    value={schoolSettings.smtpEncryption || 'tls'}
-                    onChange={e => setSchoolSettings(prev => ({ ...prev, smtpEncryption: e.target.value as any }))}
-                    className="w-full h-10 text-xs font-semibold px-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white transition-all"
-                  >
-                    <option value="tls">STARTTLS (Port 587)</option>
-                    <option value="ssl">SSL / TLS (Port 465)</option>
-                    <option value="none">None / Plain (Port 25)</option>
-                  </select>
                 </div>
               </div>
             </div>
@@ -761,26 +684,26 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
             <div className="bg-slate-50/70 dark:bg-zinc-950/50 p-4 rounded-2xl border border-slate-200/60 dark:border-zinc-800/60 space-y-4">
               <h5 className="text-xs font-black text-slate-700 dark:text-zinc-200 uppercase tracking-wider flex items-center gap-2">
                 <FileText className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                {lang === 'ar' ? 'هوية المرسل والتوقيع' : lang === 'nl' ? 'Afzender Identiteit & Handtekening' : 'Sender Identity & Signature'}
+                {lang === 'ar' ? 'كيف تظهر رسائلك للطلاب' : lang === 'nl' ? 'Hoe leerlingen je berichten zien' : 'How students see your emails'}
               </h5>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-semibold">
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">
-                    {lang === 'ar' ? 'اسم المرسل الظاهر' : lang === 'nl' ? 'Weergavenaam afzender' : 'Sender Display Name'}
+                    {lang === 'ar' ? 'الاسم الذي يظهر للطالب' : lang === 'nl' ? 'Naam die de leerling ziet' : 'Name shown to students'}
                   </label>
                   <input
                     type="text"
                     value={schoolSettings.smtpSenderName || ''}
                     onChange={e => setSchoolSettings(prev => ({ ...prev, smtpSenderName: e.target.value }))}
-                    placeholder="Driving School Netherlands"
+                    placeholder={schoolSettings.name || (lang === 'ar' ? 'اسم المدرسة' : lang === 'nl' ? 'Naam van je rijschool' : 'Your school name')}
                     className="w-full h-10 text-xs font-semibold px-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white transition-all"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">
-                    {lang === 'ar' ? 'بريد الرد (Reply-To)' : lang === 'nl' ? 'Antwoord-aan E-mailadres' : 'Reply-To Email Address'}
+                    {lang === 'ar' ? 'البريد الذي يستقبل ردود الطلاب' : lang === 'nl' ? 'E-mailadres voor antwoorden van leerlingen' : 'Email address for student replies'}
                   </label>
                   <input
                     type="email"
@@ -793,13 +716,13 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
 
                 <div className="md:col-span-2">
                   <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">
-                    {lang === 'ar' ? 'التوقيع الرسمي للرسائل' : lang === 'nl' ? 'Officiële E-mailhandtekening' : 'Official Email Signature'}
+                    {lang === 'ar' ? 'التوقيع أسفل الرسالة' : lang === 'nl' ? 'Handtekening onder je e-mails' : 'Signature at the end of your emails'}
                   </label>
                   <textarea
                     rows={3}
                     value={schoolSettings.emailSignature || ''}
                     onChange={e => setSchoolSettings(prev => ({ ...prev, emailSignature: e.target.value }))}
-                    placeholder="Kind regards,\nDriving School Team\nCBR Licensed Instructors"
+                    placeholder={lang === 'ar' ? 'مع أطيب التحيات،\nفريق المدرسة\nرقم الهاتف' : lang === 'nl' ? 'Met vriendelijke groet,\nHet team van je rijschool\nTelefoonnummer' : 'Kind regards,\nYour driving school team\nPhone number'}
                     className="w-full text-xs font-semibold p-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white transition-all"
                   />
                 </div>
@@ -810,13 +733,13 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
             <div className="bg-slate-50/70 dark:bg-zinc-950/50 p-4 rounded-2xl border border-slate-200/60 dark:border-zinc-800/60 space-y-4">
               <h5 className="text-xs font-black text-slate-700 dark:text-zinc-200 uppercase tracking-wider flex items-center gap-2">
                 <Bell className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                {lang === 'ar' ? 'الإشعارات البريدية التلقائية' : lang === 'nl' ? 'Automatische E-mailmeldingen' : 'Automatic Email Notifications'}
+                {lang === 'ar' ? 'الرسائل التلقائية للطلاب' : lang === 'nl' ? 'Automatische e-mails aan leerlingen' : 'Automatic emails to students'}
               </h5>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <label className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200/70 dark:border-zinc-800 cursor-pointer hover:border-blue-500/50 transition">
                   <span className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
-                    {lang === 'ar' ? 'تأكيد حجز الدروس الجديدة' : lang === 'nl' ? 'Nieuwe lesboekingsbevestigingen' : 'Lesson Booking Confirmations'}
+                    {lang === 'ar' ? 'تأكيد حجز الدرس' : lang === 'nl' ? 'Bevestiging van een geboekte les' : 'Lesson booking confirmation'}
                   </span>
                   <input
                     type="checkbox"
@@ -828,7 +751,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
 
                 <label className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200/70 dark:border-zinc-800 cursor-pointer hover:border-blue-500/50 transition">
                   <span className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
-                    {lang === 'ar' ? 'إشعارات إلغاء وإعادة جدولة الدروس' : lang === 'nl' ? 'Lesannulerings- en wijzigingsmeldingen' : 'Cancellation & Reschedule Notices'}
+                    {lang === 'ar' ? 'إلغاء الدرس أو تغيير موعده' : lang === 'nl' ? 'Les geannuleerd of verplaatst' : 'Lesson cancelled or rescheduled'}
                   </span>
                   <input
                     type="checkbox"
@@ -840,7 +763,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
 
                 <label className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200/70 dark:border-zinc-800 cursor-pointer hover:border-blue-500/50 transition">
                   <span className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
-                    {lang === 'ar' ? 'الفواتير وإيصالات الدفع' : lang === 'nl' ? 'Facturen & Betalingsbewijzen' : 'Invoices & Payment Receipts'}
+                    {lang === 'ar' ? 'الفواتير وإيصالات الدفع' : lang === 'nl' ? 'Facturen en betaalbewijzen' : 'Invoices and payment receipts'}
                   </span>
                   <input
                     type="checkbox"
@@ -852,7 +775,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
 
                 <label className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200/70 dark:border-zinc-800 cursor-pointer hover:border-blue-500/50 transition">
                   <span className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
-                    {lang === 'ar' ? 'تذكيرات مواعيد الدروس' : lang === 'nl' ? 'Lesherinneringen' : 'Upcoming Lesson Reminders'}
+                    {lang === 'ar' ? 'تذكير قبل موعد الدرس' : lang === 'nl' ? 'Herinnering aan een les' : 'Reminder before a lesson'}
                   </span>
                   <input
                     type="checkbox"
@@ -864,23 +787,103 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
               </div>
             </div>
 
-            {/* Test Connection Banner */}
+            {/* Optional connection details, kept separate from everyday email preferences. */}
+            <details className="bg-slate-50/70 dark:bg-zinc-950/50 p-4 rounded-2xl border border-slate-200/60 dark:border-zinc-800/60 space-y-4">
+              <summary className="text-xs font-bold text-slate-700 dark:text-zinc-200 cursor-pointer">
+                <Server className="inline-block h-3.5 w-3.5 text-blue-600 dark:text-blue-400 me-2" />
+                {lang === 'ar' ? 'إعدادات الاتصال المتقدمة' : lang === 'nl' ? 'Geavanceerde verbindingsinstellingen' : 'Advanced connection settings'}
+              </summary>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+                {lang === 'ar' ? 'هذه البيانات يزوّدك بها مزوّد البريد أو مسؤول الإعداد. اسم الدخول غالبًا هو بريدك الإلكتروني، وقد تحتاج كلمة مرور خاصة بالتطبيق.' : lang === 'nl' ? 'Je e-mailprovider of beheerder geeft je deze gegevens. De gebruikersnaam is meestal je e-mailadres. Soms is een apart app-wachtwoord nodig.' : 'Your email provider or administrator supplies these details. The sign-in name is usually your email address. A separate app password may be needed.'}
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-semibold">
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">
+                    {lang === 'ar' ? 'عنوان خدمة إرسال البريد' : lang === 'nl' ? 'Adres van de uitgaande mailserver' : 'Outgoing mail server address'}
+                  </label>
+                  <input
+                    type="text"
+                    value={schoolSettings.smtpHost || ''}
+                    onChange={e => setSchoolSettings(prev => ({ ...prev, smtpHost: e.target.value }))}
+                    placeholder="smtp.gmail.com"
+                    className="w-full h-10 text-xs font-semibold px-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white transition-all font-mono text-left"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">
+                    {lang === 'ar' ? 'رقم منفذ الاتصال' : lang === 'nl' ? 'Poortnummer voor de verbinding' : 'Connection port number'}
+                  </label>
+                  <input
+                    type="text"
+                    value={schoolSettings.smtpPort || ''}
+                    onChange={e => setSchoolSettings(prev => ({ ...prev, smtpPort: e.target.value }))}
+                    placeholder="587"
+                    className="w-full h-10 text-xs font-semibold px-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white transition-all font-mono text-left"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">
+                    {lang === 'ar' ? 'اسم الدخول إلى خدمة البريد' : lang === 'nl' ? 'Gebruikersnaam voor je e-maildienst' : 'Email service sign-in name'}
+                  </label>
+                  <input
+                    type="text"
+                    value={schoolSettings.smtpUser || ''}
+                    onChange={e => setSchoolSettings(prev => ({ ...prev, smtpUser: e.target.value }))}
+                    placeholder="notifications@drivingschool.com"
+                    className="w-full h-10 text-xs font-semibold px-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white transition-all text-left"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">
+                    {lang === 'ar' ? 'كلمة مرور خدمة البريد' : lang === 'nl' ? 'Wachtwoord voor je e-maildienst' : 'Email service password'}
+                  </label>
+                  <input
+                    type="password"
+                    value={schoolSettings.smtpPass || ''}
+                    onChange={e => setSchoolSettings(prev => ({ ...prev, smtpPass: e.target.value }))}
+                    placeholder="••••••••••••••••"
+                    className="w-full h-10 text-xs font-semibold px-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white transition-all font-mono text-left"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">
+                    {lang === 'ar' ? 'حماية الاتصال' : lang === 'nl' ? 'Verbindingsbeveiliging' : 'Connection security'}
+                  </label>
+                  <select
+                    value={schoolSettings.smtpEncryption || 'tls'}
+                    onChange={e => setSchoolSettings(prev => ({ ...prev, smtpEncryption: e.target.value as any }))}
+                    className="w-full h-10 text-xs font-semibold px-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white transition-all"
+                  >
+                    <option value="tls">{lang === 'ar' ? 'اتصال مشفّر (STARTTLS)' : lang === 'nl' ? 'Versleutelde verbinding (STARTTLS)' : 'Encrypted connection (STARTTLS)'}</option>
+                    <option value="ssl">{lang === 'ar' ? 'تشفير من بداية الاتصال (SSL/TLS)' : lang === 'nl' ? 'Versleuteld vanaf het begin (SSL/TLS)' : 'Encrypted from the start (SSL/TLS)'}</option>
+                    <option value="none">{lang === 'ar' ? 'بدون تشفير' : lang === 'nl' ? 'Zonder versleuteling' : 'No encryption'}</option>
+                  </select>
+                </div>
+              </div>
+            </details>
+
+            {/* Connection verification status (no test action is wired here). */}
             <div className="p-4 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-start gap-3">
                 <Send className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
                 <div>
                   <h6 className="text-xs font-extrabold text-blue-900 dark:text-blue-200">
-                    {lang === 'ar' ? 'اختبار اتصال البريد الإلكتروني' : lang === 'nl' ? 'E-mail Verbindingstest' : 'Email Connection Test'}
+                    {lang === 'ar' ? 'التحقق من خدمة البريد' : lang === 'nl' ? 'Controle van de e-mailverbinding' : 'Email connection check'}
                   </h6>
                   <p className="text-[11px] text-blue-700 dark:text-blue-300 font-medium mt-0.5">
-                    {lang === 'ar' ? 'احفظ إعدادات البريد الإلكتروني للاستخدام المستقبلي.' : lang === 'nl' ? 'Sla je e-mailinstellingen op voor toekomstig gebruik.' : 'Save your email settings for future use.'}
+                    {lang === 'ar' ? 'حفظ الإعدادات لا يختبر الاتصال ولا يرسل رسالة تجريبية.' : lang === 'nl' ? 'Instellingen opslaan test de verbinding niet en verstuurt geen testmail.' : 'Saving settings does not test the connection or send a test email.'}
                   </p>
                 </div>
               </div>
 
               <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/80 dark:bg-zinc-900/80 border border-blue-200/60 dark:border-blue-900/60 text-blue-800 dark:text-blue-200 text-[11px] font-bold shrink-0">
                 <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                <span>{lang === 'ar' ? 'خدمة البريد الإلكتروني غير متصلة حالياً.' : lang === 'nl' ? 'E-maildienst is nog niet verbonden.' : 'Email service is not connected yet.'}</span>
+                <span>{lang === 'ar' ? 'الاتصال غير مُختبَر' : lang === 'nl' ? 'Verbinding niet getest' : 'Connection not tested'}</span>
               </div>
             </div>
           </div>
@@ -1276,3 +1279,4 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
   );
 };
 export default SchoolConfigPanel;
+
