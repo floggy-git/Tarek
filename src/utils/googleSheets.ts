@@ -1,3 +1,4 @@
+import { EXTRA_SCHOOL_FIELDS, parseExtraSchoolFields, schoolSettingsCellUpdates } from './schoolSettingsFields';
 import { sheetReadUrl, sheetReadResponse } from './sheetReadUrl';
 import { DrivePackage, StudentRecord, AuditLogEntry, Lesson, HelpFaqItem } from '../types';
 import { normalizeDrivingCategory } from './companyCategoryAccess';
@@ -651,10 +652,11 @@ export function parseSheetRowsToSchoolSettings(rows: any[][]): Partial<SchoolSet
     aiApprovedSources: getVal('aiapprovedsources') || getVal('ai_approved_sources') || getVal('ai approved sources'),
     aiEnforceStrictBoundary: (getVal('aienforcestrictboundary') || getVal('ai_enforce_strict_boundary') || 'TRUE').toUpperCase() !== 'FALSE',
     notificationsEnabled: (getVal('notificationsenabled') || getVal('notifications_enabled') || getVal('notifications enabled') || getVal('notifications')).toUpperCase() !== 'FALSE',
-    lessonPricePerHour: parseFloat(getVal('lessonpriceperhour') || getVal('lesson_price_per_hour') || getVal('lesson price per hour') || getVal('price')) || 65,
+    lessonPricePerHour: Number(getVal('lessonpriceperhour') || getVal('lesson_price_per_hour') || getVal('lesson price per hour') || getVal('price') || 65),
     flexiblePackageDescription: getVal('flexiblepackagedescription') || getVal('flexible_package_description') || getVal('flexible package description') || getVal('description'),
     privacyPolicyUrl: getVal('privacypolicyurl') || getVal('privacy_policy_url') || getVal('privacy') || getVal('privacypolicy'),
-    termsConditionsUrl: getVal('termsconditionsurl') || getVal('terms_conditions_url') || getVal('terms') || getVal('termsconditions')
+    termsConditionsUrl: getVal('termsconditionsurl') || getVal('terms_conditions_url') || getVal('terms') || getVal('termsconditions'),
+    ...parseExtraSchoolFields(rows[0], row)
   };
 }
 
@@ -710,11 +712,16 @@ export function convertSchoolSettingsToSheetRows(settings: SchoolSettings): any[
     settings.aiSystemInstructions || '',
     settings.aiApprovedSources || '',
     settings.notificationsEnabled !== false ? 'TRUE' : 'FALSE',
-    String(settings.lessonPricePerHour || 65),
+    String(settings.lessonPricePerHour ?? 65),
     settings.flexiblePackageDescription || '',
     settings.privacyPolicyUrl || '',
     settings.termsConditionsUrl || ''
   ];
+  for (const key of Object.keys(EXTRA_SCHOOL_FIELDS)) {
+    headers.push(key);
+    const value = settings[key as keyof SchoolSettings];
+    values.push(value === undefined || value === null ? '' : String(value));
+  }
   return [headers, values];
 }
 
@@ -725,7 +732,7 @@ export async function loadSchoolSettingsFromGoogleSheet(config: GoogleSheetsConf
     throw new Error("Spreadsheet ID is required to fetch from Google Sheets.");
   }
 
-  const range = `SchoolSettings!A1:AR2`;
+  const range = `SchoolSettings!1:2`;
   let url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
   
   const headers: HeadersInit = {};
@@ -761,24 +768,32 @@ export async function writeSchoolSettingsToGoogleSheet(config: GoogleSheetsConfi
     throw new Error("Google OAuth Write Scopes require a valid Google OAuth Access Token.");
   }
 
-  const range = `SchoolSettings!A1:AR2`;
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
-  
-  const rows = convertSchoolSettingsToSheetRows(settings);
-
-  const response = await fetch(url, {
-    method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ values: rows })
-  });
-
-  if (!response.ok) {
-    const errorDetails = await response.text();
-    throw new Error(`Google Sheets Write Error for SchoolSettings: ${response.status} ${response.statusText} - ${errorDetails}`);
+  const auth = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`;
+  const read = await fetch(sheetReadUrl(`${base}/values/${encodeURIComponent('SchoolSettings!1:2')}`), { headers: auth });
+  if (!read.ok) throw new Error(`Cannot read school settings before saving (${read.status}).`);
+  const current = sheetReadResponse(await read.json());
+  const [ownedHeaders] = convertSchoolSettingsToSheetRows(settings);
+  const fields: Record<string, unknown> = {};
+  for (const key of ownedHeaders) {
+    if (Object.prototype.hasOwnProperty.call(settings, key) && settings[key as keyof SchoolSettings] !== undefined)
+      fields[key] = settings[key as keyof SchoolSettings];
   }
+  const update = schoolSettingsCellUpdates(current.values?.[0] || [], fields);
+  if (!update.data.length) return;
+  const metadataResponse = await fetch(`${base}?fields=sheets.properties`, { headers: auth });
+  if (!metadataResponse.ok) throw new Error('Cannot check the settings sheet dimensions.');
+  const metadata = await metadataResponse.json();
+  const sheet = metadata.sheets?.find((s: any) => s.properties.title === 'SchoolSettings')?.properties;
+  if (!sheet) throw new Error('SchoolSettings sheet is missing.');
+  if (update.columnCount > sheet.gridProperties.columnCount) {
+    const extend = await fetch(`${base}:batchUpdate`, { method: 'POST', headers: auth,
+      body: JSON.stringify({ requests: [{ appendDimension: { sheetId: sheet.sheetId, dimension: 'COLUMNS', length: update.columnCount - sheet.gridProperties.columnCount } }] }) });
+    if (!extend.ok) throw new Error('Cannot add the missing settings columns.');
+  }
+  const response = await fetch(`${base}/values:batchUpdate`, { method: 'POST', headers: auth,
+    body: JSON.stringify({ valueInputOption: 'RAW', data: update.data }) });
+  if (!response.ok) throw new Error(`Google Sheets settings save failed (${response.status}).`);
 }
 
 export interface MediaVideo {
@@ -1969,3 +1984,4 @@ export async function writeHelpItemsToGoogleSheet(config: GoogleSheetsConfig, it
     throw new Error(`Google Sheets Help Write Error: ${response.status} ${response.statusText} - ${errorDetails}`);
   }
 }
+
