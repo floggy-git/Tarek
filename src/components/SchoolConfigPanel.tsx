@@ -370,7 +370,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
                     className="w-full h-10 text-xs font-semibold px-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white transition-all"
                   />
                   <p className="text-[10px] text-slate-400 mt-1">
-                    {lang === 'ar' ? 'تظهر هذه المركبة تلقائياً في تقارير التقييم والملفات الرسمية.' : 'Appears automatically on evaluation reports and student dossiers.'}
+                    {lang === 'ar' ? 'تظهر هذه المركبة تلقائياً في تقارير التقييم والملفات الرسمية.' : lang === 'nl' ? "Verschijnt automatisch op evaluatierapporten en leerlingdossiers." : 'Appears automatically on evaluation reports and student dossiers.'}
                   </p>
                 </div>
 
@@ -447,7 +447,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
                   />
                 </div>
                 <p className="text-[10.5px] text-slate-400 mt-1">
-                  {lang === 'ar' ? 'يتم تطبيق هذا السعر تلقائياً في حاسبة الحجوزات والفواتير.' : 'This rate automatically updates booking calculators and invoicing.'}
+                  {lang === 'ar' ? 'يتم تطبيق هذا السعر تلقائياً في حاسبة الحجوزات والفواتير.' : lang === 'nl' ? "Dit tarief wordt gebruikt voor boekingen en facturen." : 'This rate automatically updates booking calculators and invoicing.'}
                 </p>
               </div>
 
@@ -508,7 +508,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
                     <p className="text-[10.5px] text-slate-400">
                       {lang === 'ar'
                         ? 'يحدد عدد الساعات المطلوبة قبل موعد الدرس لمنع الحجوزات المتأخرة.'
-                        : 'Determines how many hours before a lesson a student is allowed to make a new booking.'}
+                        : lang === 'nl' ? "Bepaalt hoeveel uur vóór de les een leerling moet boeken." : 'Determines how many hours before a lesson a student is allowed to make a new booking.'}
                     </p>
 
                     <div className="grid grid-cols-4 gap-1.5 pt-1">
@@ -526,15 +526,14 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
                                 : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-100'
                             }`}
                           >
-                            {hours}h
-                          </button>
+                            {hours}{(lang === 'ar' ? "ساعة" : lang === 'nl' ? "uur" : "h")}</button>
                         );
                       })}
                     </div>
 
                     <div className="flex items-center gap-2 pt-1.5">
                       <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">
-                        {lang === 'ar' ? 'قيمة مخصصة (ساعات):' : 'Custom value (hours):'}
+                        {lang === 'ar' ? 'قيمة مخصصة (ساعات):' : lang === 'nl' ? "Eigen waarde (uren):" : 'Custom value (hours):'}
                       </span>
                       <input
                         type="number"
@@ -558,7 +557,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
                     <p className="text-[10.5px] text-slate-400">
                       {lang === 'ar'
                         ? 'يحدد كم ساعة قبل الدرس يُسمح للطالب بالإلغاء عبر الإنترنت.'
-                        : 'Determines how long before the lesson a student may cancel online.'}
+                        : lang === 'nl' ? "Bepaalt tot hoeveel uur vóór de les een leerling online kan annuleren." : 'Determines how long before the lesson a student may cancel online.'}
                     </p>
 
                     <div className="grid grid-cols-5 gap-1.5 pt-1">
@@ -576,15 +575,14 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
                                 : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-100'
                             }`}
                           >
-                            {hours}h
-                          </button>
+                            {hours}{(lang === 'ar' ? "ساعة" : lang === 'nl' ? "uur" : "h")}</button>
                         );
                       })}
                     </div>
 
                     <div className="flex items-center gap-2 pt-1.5">
                       <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">
-                        {lang === 'ar' ? 'قيمة مخصصة (ساعات):' : 'Custom value (hours):'}
+                        {lang === 'ar' ? 'قيمة مخصصة (ساعات):' : lang === 'nl' ? "Eigen waarde (uren):" : 'Custom value (hours):'}
                       </span>
                       <input
                         type="number"
@@ -614,7 +612,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
                         {lang === 'ar' ? 'ساعات العمل الرسمية وإجازة المدرب' : lang === 'nl' ? 'Werktijden & Vakantie Status' : 'Operating Working Hours & Vacation Status'}
                       </h4>
                       <p className="text-[11px] text-slate-400">
-                        {lang === 'ar' ? 'ساعات العمل وأيام التدريـب النشطة المحددة في الجدول.' : 'Active schedule working days and instructor vacation mode.'}
+                        {lang === 'ar' ? 'ساعات العمل وأيام التدريـب النشطة المحددة في الجدول.' : lang === 'nl' ? "Werkdagen, werktijden en vakantie van de instructeur." : 'Active schedule working days and instructor vacation mode.'}
                       </p>
                     </div>
                   </div>
@@ -631,7 +629,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="p-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl space-y-1">
-                    <span className="text-[10px] font-bold uppercase text-slate-400">Working Days & Hours</span>
+                    <span className="text-[10px] font-bold uppercase text-slate-400">{(lang === 'ar' ? "أيام وساعات العمل" : lang === 'nl' ? "Werkdagen en werktijden" : "Working Days & Hours")}</span>
                     <p className="text-xs font-extrabold text-slate-800 dark:text-white">
                       {trainerSchedule?.workingDays?.join(', ') || 'Monday, Tuesday, Wednesday, Thursday, Friday'}
                     </p>
@@ -642,18 +640,17 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
 
                   <div className="p-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl space-y-1">
                     <span className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
-                      <Palmtree className="h-3 w-3 text-amber-500" /> Vacation Mode
-                    </span>
+                      <Palmtree className="h-3 w-3 text-amber-500" /> {(lang === 'ar' ? "وضع الإجازة" : lang === 'nl' ? "Vakantiemodus" : "Vacation Mode")}</span>
                     <p className="text-xs font-extrabold text-slate-800 dark:text-white flex items-center gap-2">
                       {trainerSchedule?.vacationMode?.enabled ? (
-                        <span className="text-amber-600 font-bold">● Active Vacation Mode</span>
+                        <span className="text-amber-600 font-bold">{(lang === 'ar' ? "● الإجازة مفعّلة" : lang === 'nl' ? "● Vakantie ingeschakeld" : "● Active Vacation Mode")}</span>
                       ) : (
-                        <span className="text-emerald-600 font-bold">● Regular School Operations</span>
+                        <span className="text-emerald-600 font-bold">{(lang === 'ar' ? "● العمل كالمعتاد" : lang === 'nl' ? "● Normale werktijden" : "● Regular School Operations")}</span>
                       )}
                     </p>
                     {trainerSchedule?.vacationMode?.enabled && (
                       <p className="text-[11px] text-slate-500 font-medium">
-                        {trainerSchedule.vacationMode.startDate} to {trainerSchedule.vacationMode.endDate}
+                        {trainerSchedule.vacationMode.startDate} {(lang === 'ar' ? "إلى" : lang === 'nl' ? "tot" : "to")}{trainerSchedule.vacationMode.endDate}
                       </p>
                     )}
                   </div>
@@ -931,14 +928,13 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
                         }}
                         className="text-[10px] bg-red-500/10 hover:bg-red-500/20 text-red-600 font-bold px-3 py-1 rounded-lg transition"
                       >
-                        Remove Logo
-                      </button>
+                        {(lang === 'ar' ? "إزالة الشعار" : lang === 'nl' ? "Logo verwijderen" : "Remove Logo")}</button>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       <Upload className="h-7 w-7 text-slate-400 mx-auto" />
-                      <p className="text-[11px] text-slate-600 font-bold">Drag logo or click to upload</p>
-                      <span className="text-[9px] text-slate-400 block font-normal">PNG, SVG, JPG up to 5MB</span>
+                      <p className="text-[11px] text-slate-600 font-bold">{(lang === 'ar' ? "اسحب الشعار أو اضغط لرفعه" : lang === 'nl' ? "Sleep het logo of klik om te uploaden" : "Drag logo or click to upload")}</p>
+                      <span className="text-[9px] text-slate-400 block font-normal">{(lang === 'ar' ? "PNG، SVG، JPG حتى 5 ميغابايت" : lang === 'nl' ? "PNG, SVG, JPG tot 5 MB" : "PNG, SVG, JPG up to 5MB")}</span>
                     </div>
                   )}
                 </div>
@@ -974,14 +970,13 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
                         }}
                         className="text-[10px] bg-red-500/10 hover:bg-red-500/20 text-red-600 font-bold px-3 py-1 rounded-lg transition"
                       >
-                        Remove Icon
-                      </button>
+                        {(lang === 'ar' ? "إزالة الأيقونة" : lang === 'nl' ? "Pictogram verwijderen" : "Remove Icon")}</button>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       <ImageIcon className="h-7 w-7 text-slate-400 mx-auto" />
-                      <p className="text-[11px] text-slate-600 font-bold">Upload App Icon</p>
-                      <span className="text-[9px] text-slate-400 block font-normal">Square PNG 512x512</span>
+                      <p className="text-[11px] text-slate-600 font-bold">{(lang === 'ar' ? "رفع أيقونة التطبيق" : lang === 'nl' ? "App-pictogram uploaden" : "Upload App Icon")}</p>
+                      <span className="text-[9px] text-slate-400 block font-normal">{(lang === 'ar' ? "صورة PNG مربعة 512×512" : lang === 'nl' ? "Vierkante PNG van 512×512" : "Square PNG 512x512")}</span>
                     </div>
                   )}
                 </div>
@@ -994,7 +989,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
                 </label>
                 <div className="p-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl space-y-3 min-h-[140px] flex flex-col justify-center">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-700 dark:text-zinc-300">Primary:</span>
+                    <span className="font-bold text-slate-700 dark:text-zinc-300">{(lang === 'ar' ? "الرئيسي:" : lang === 'nl' ? "Primair:" : "Primary:")}</span>
                     <input
                       type="color"
                       value={schoolSettings.primaryColor || '#2563eb'}
@@ -1007,7 +1002,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
                     />
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-700 dark:text-zinc-300">Secondary:</span>
+                    <span className="font-bold text-slate-700 dark:text-zinc-300">{(lang === 'ar' ? "الثانوي:" : lang === 'nl' ? "Secundair:" : "Secondary:")}</span>
                     <input
                       type="color"
                       value={schoolSettings.secondaryColor || '#0284c7'}
@@ -1020,7 +1015,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
                     />
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-700 dark:text-zinc-300">Accent:</span>
+                    <span className="font-bold text-slate-700 dark:text-zinc-300">{(lang === 'ar' ? "المميز:" : lang === 'nl' ? "Accent:" : "Accent:")}</span>
                     <input
                       type="color"
                       value={schoolSettings.accentColor || '#f59e0b'}
@@ -1047,7 +1042,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
                   <p className="text-[11px] text-slate-400 font-medium">
                     {lang === 'ar'
                       ? 'تغيير السمة يحدّث الهيدر، الشريط الجانبي، الأزرار، البطاقات، مؤشرات التقدم، الأيقونات، الروابط، الاستمارات، والرسوم البيانية فوراً.'
-                      : 'Selecting a theme instantly updates headers, sidebars, buttons, cards, progress bars, links, forms, and charts without reloading.'}
+                      : lang === 'nl' ? "Een thema past de kleuren van de hele interface direct aan, zonder opnieuw te laden." : 'Selecting a theme instantly updates headers, sidebars, buttons, cards, progress bars, links, forms, and charts without reloading.'}
                   </p>
                 </div>
               </div>
@@ -1068,8 +1063,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
                       {/* Active Badge */}
                       {isSelected && (
                         <span className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-blue-600 text-white text-[9px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                          <Check className="h-3 w-3" /> Active
-                        </span>
+                          <Check className="h-3 w-3" /> {(lang === 'ar' ? "مفعّل" : lang === 'nl' ? "Actief" : "Active")}</span>
                       )}
 
                       <div className="space-y-2">
@@ -1094,7 +1088,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
                       {/* Swatch Strip */}
                       <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
                         <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase">
-                          <span>Colors:</span>
+                          <span>{(lang === 'ar' ? "الألوان:" : lang === 'nl' ? "Kleuren:" : "Colors:")}</span>
                           <span className="font-mono">{theme.primary}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -1118,7 +1112,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
                   <span>⚡</span>
                   {lang === 'ar' ? 'معاينة فورية لعناصر الواجهة بالسمة النشطة' : lang === 'nl' ? 'Live Interface Voorbeeld met Actief Thema' : 'Live Interface Preview with Active Theme'}
                 </h5>
-                <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">Theme: {activeTheme.nameEn}</span>
+                <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">{(lang === 'ar' ? "النمط:" : lang === 'nl' ? "Thema:" : "Theme:")}{activeTheme.nameEn}</span>
               </div>
 
               {/* Sample Header & Sidebar */}
@@ -1126,32 +1120,31 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
                 {/* Header Widget */}
                 <div className="p-3 rounded-2xl border shadow-xs space-y-2" style={{ backgroundColor: activeTheme.card, borderColor: activeTheme.border }}>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase" style={{ color: activeTheme.primary }}>Header Preview</span>
-                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold text-white" style={{ backgroundColor: activeTheme.button }}>Active</span>
+                    <span className="text-[10px] font-bold uppercase" style={{ color: activeTheme.primary }}>{(lang === 'ar' ? "معاينة العنوان" : lang === 'nl' ? "Kopvoorbeeld" : "Header Preview")}</span>
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold text-white" style={{ backgroundColor: activeTheme.button }}>{(lang === 'ar' ? "مفعّل" : lang === 'nl' ? "Actief" : "Active")}</span>
                   </div>
                   <div className="h-8 rounded-xl flex items-center justify-between px-3 text-white font-extrabold text-xs" style={{ backgroundColor: activeTheme.primary }}>
                     <span>{schoolSettings.name || 'Driving School'}</span>
-                    <span className="text-[10px] font-mono opacity-90">€{schoolSettings.lessonPricePerHour || 65}/hr</span>
+                    <span className="text-[10px] font-mono opacity-90">€{schoolSettings.lessonPricePerHour || 65}{(lang === 'ar' ? "/ساعة" : lang === 'nl' ? "/uur" : "/hr")}</span>
                   </div>
                 </div>
 
                 {/* Card & Button Widget */}
                 <div className="p-3 rounded-2xl border shadow-xs space-y-2" style={{ backgroundColor: activeTheme.card, borderColor: activeTheme.border }}>
-                  <span className="text-[10px] font-bold uppercase" style={{ color: activeTheme.primary }}>Card & Button Preview</span>
+                  <span className="text-[10px] font-bold uppercase" style={{ color: activeTheme.primary }}>{(lang === 'ar' ? "معاينة الكرت والزر" : lang === 'nl' ? "Voorbeeld van kaart en knop" : "Card & Button Preview")}</span>
                   <div className="p-2 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800 dark:text-zinc-200">Practical Lesson</span>
+                    <span className="text-xs font-bold text-slate-800 dark:text-zinc-200">{(lang === 'ar' ? "درس عملي" : lang === 'nl' ? "Praktijkles" : "Practical Lesson")}</span>
                     <button type="button" className="px-3 py-1 text-[11px] font-bold text-white rounded-lg shadow-xs" style={{ backgroundColor: activeTheme.button }}>
-                      Book Now
-                    </button>
+                      {(lang === 'ar' ? "احجز الآن" : lang === 'nl' ? "Nu boeken" : "Book Now")}</button>
                   </div>
                 </div>
 
                 {/* Progress Bar & Badges */}
                 <div className="p-3 rounded-2xl border shadow-xs space-y-2" style={{ backgroundColor: activeTheme.card, borderColor: activeTheme.border }}>
-                  <span className="text-[10px] font-bold uppercase" style={{ color: activeTheme.primary }}>Progress & Badges</span>
+                  <span className="text-[10px] font-bold uppercase" style={{ color: activeTheme.primary }}>{(lang === 'ar' ? "التقدم والشارات" : lang === 'nl' ? "Voortgang en badges" : "Progress & Badges")}</span>
                   <div className="space-y-1">
                     <div className="flex justify-between text-[10px] font-bold text-slate-600 dark:text-zinc-300">
-                      <span>CBR Exam Readiness</span>
+                      <span>{(lang === 'ar' ? "الاستعداد لامتحان CBR" : lang === 'nl' ? "Voorbereiding op het CBR-examen" : "CBR Exam Readiness")}</span>
                       <span style={{ color: activeTheme.primary }}>85%</span>
                     </div>
                     <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden">
@@ -1176,7 +1169,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-semibold">
               <div>
-                <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">Facebook Page URL</label>
+                <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">{(lang === 'ar' ? "رابط صفحة فيسبوك" : lang === 'nl' ? "Link naar Facebook-pagina" : "Facebook Page URL")}</label>
                 <input
                   type="text"
                   value={schoolSettings.facebookUrl || ''}
@@ -1187,7 +1180,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">Instagram Profile URL</label>
+                <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">{(lang === 'ar' ? "رابط حساب إنستغرام" : lang === 'nl' ? "Link naar Instagram-profiel" : "Instagram Profile URL")}</label>
                 <input
                   type="text"
                   value={schoolSettings.instagramUrl || ''}
@@ -1198,7 +1191,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">WhatsApp Business Number</label>
+                <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">{(lang === 'ar' ? "رقم واتساب للأعمال" : lang === 'nl' ? "WhatsApp Business-nummer" : "WhatsApp Business Number")}</label>
                 <input
                   type="text"
                   value={schoolSettings.whatsappNumber || ''}
@@ -1209,7 +1202,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">Privacy Policy URL</label>
+                <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">{(lang === 'ar' ? "رابط سياسة الخصوصية" : lang === 'nl' ? "Link naar privacybeleid" : "Privacy Policy URL")}</label>
                 <input
                   type="text"
                   value={schoolSettings.privacyPolicyUrl || ''}
@@ -1220,7 +1213,7 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">Terms & Conditions URL</label>
+                <label className="block text-xs font-bold text-slate-600 dark:text-zinc-300 mb-1.5">{(lang === 'ar' ? "رابط الشروط والأحكام" : lang === 'nl' ? "Link naar algemene voorwaarden" : "Terms & Conditions URL")}</label>
                 <input
                   type="text"
                   value={schoolSettings.termsConditionsUrl || ''}
@@ -1279,3 +1272,4 @@ export const SchoolConfigPanel: React.FC<SchoolConfigPanelProps> = ({
   );
 };
 export default SchoolConfigPanel;
+
